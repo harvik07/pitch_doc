@@ -1,0 +1,181 @@
+# Manual corrections to the extracted evidence (CLAUDE.md sections 2 and 6.3).
+#
+# Selectors: every entry names exactly one evidence item by {document_id, page, text_prefix}.
+#   text_prefix is compared with the item's text lowercased, with whitespace collapsed and "₹" read as
+#   the backtick the Care/HDFC PDFs use. It must equal the whole text when shorter than 40 characters,
+#   otherwise the text must start with it. item_type / row_label narrow the match when texts repeat.
+#   evidence_id is only a hint: if the item's ID has changed, a warning is logged.
+#   Loading fails if an entry matches no item or several items.
+#
+# supplements: new evidence items read from the PDF text layer inside `region`
+#   (x0, y0, x1, y1 in PDF points, top-left origin, as PyMuPDF reports them). The selector names the
+#   anchor item they belong to; they inherit its section, table, row label and footnote markers.
+#   Created during annotation (scripts/extract_policies.py), with IDs continuing their page's sequence.
+#
+# overrides: annotation labels applied at load time (benefit_tier, variant, si_condition,
+#   linked_footnote_ids, citable). Text is never changed.
+
+supplements:
+  - document_id: POL-CARE
+    page: 2
+    text_prefix: "For SI below `15 lac - up to `10,000 For SI `15 lac and above"
+    item_type: table_cell
+    evidence_id: EV-CARE-2-044
+    layout: lines
+    region: [175, 477, 305, 501]
+    expect_items: 2
+    reason: "The road ambulance cell holds two SI tiers; one item per tier so each can carry its own si_condition."
+
+  - document_id: POL-CARE
+    page: 3
+    text_prefix: "Wellness Benefit 1"
+    item_type: table_cell
+    evidence_id: EV-CARE-3-013
+    layout: grid
+    region: [175, 212, 335, 258]
+    column_splits: [260]
+    header_rows: 1
+    expect_items: 5
+    reason: "Docling garbled the Wellness Benefit renewal-discount grid (healthy days -> renewal discount); read its rows from the text layer."
+
+  - document_id: POL-CARE
+    page: 3
+    text_prefix: "Wellness Benefit 1"
+    item_type: table_cell
+    evidence_id: EV-CARE-3-013
+    layout: lines
+    region: [150, 474, 375, 527]
+    expect_items: 4
+    reason: "Lines b), c), d) and the Note only survive inside the garbled cell EV-CARE-3-014 (made non-citable below); read them from the text layer."
+
+overrides:
+  # --- Niva: Safeguard and Safeguard+ are listed under "Optional Benefits"; footnote (4): optional, extra premium
+  - {document_id: POL-NIVA, page: 2, text_prefix: "Safeguard", evidence_id: EV-NIVA-2-044,
+     labels: {benefit_tier: OPTIONAL}, reason: "Safeguard row, under Optional Benefits."}
+  - {document_id: POL-NIVA, page: 2, text_prefix: "Claim Safeguard: Non-payable items will be covered (as per list I of", evidence_id: EV-NIVA-2-045,
+     labels: {benefit_tier: OPTIONAL}, reason: "Safeguard row, under Optional Benefits."}
+  - {document_id: POL-NIVA, page: 2, text_prefix: "Booster+ Safeguard: No impact on Booster+ if claim", evidence_id: EV-NIVA-2-046,
+     labels: {benefit_tier: OPTIONAL}, reason: "Safeguard row, under Optional Benefits."}
+  - {document_id: POL-NIVA, page: 2, text_prefix: "Sum Insured Safeguard: CPI linked increase in Base", evidence_id: EV-NIVA-2-047,
+     labels: {benefit_tier: OPTIONAL}, reason: "Safeguard row, under Optional Benefits."}
+  - {document_id: POL-NIVA, page: 2, text_prefix: "Safeguard+", evidence_id: EV-NIVA-2-048,
+     labels: {benefit_tier: OPTIONAL}, reason: "Safeguard+ row, under Optional Benefits; footnote (4) optional with extra premium."}
+  - {document_id: POL-NIVA, page: 2, text_prefix: "Claim Safeguard+: Non-payable items will be covered (as per list I,", evidence_id: EV-NIVA-2-049,
+     labels: {benefit_tier: OPTIONAL}, reason: "Safeguard+ row, under Optional Benefits; footnote (4) optional with extra premium."}
+  - {document_id: POL-NIVA, page: 2, text_prefix: "Booster+ Safeguard+: No impact on Booster+ if claim", evidence_id: EV-NIVA-2-050,
+     labels: {benefit_tier: OPTIONAL}, reason: "Safeguard+ row, under Optional Benefits; footnote (4) optional with extra premium."}
+  - {document_id: POL-NIVA, page: 2, text_prefix: "Sum Insured Safeguard+: CPI linked increase in Base", evidence_id: EV-NIVA-2-051,
+     labels: {benefit_tier: OPTIONAL}, reason: "Safeguard+ row, under Optional Benefits; footnote (4) optional with extra premium."}
+
+  # --- Niva: Booster+ is variant-specific (5X Platinum+, 10X Titanium+). Docling already split the
+  #     row into one cell per variant column, so no supplement is needed; these pin the labels.
+  - {document_id: POL-NIVA, page: 2, text_prefix: "5X: Unutilised Base Sum Insured carries forward", evidence_id: EV-NIVA-2-026,
+     labels: {variant: "Platinum+"}, reason: "Booster+ cell under the Platinum+ column."}
+  - {document_id: POL-NIVA, page: 2, text_prefix: "10X: Unutilised Base Sum Insured carries forward", evidence_id: EV-NIVA-2-027,
+     labels: {variant: "Titanium+"}, reason: "Booster+ cell under the Titanium+ column."}
+
+  # --- Care: optional benefits (footnotes 5, 7, 12: "Optional benefit under Care Supreme available on payment of additional premium")
+  - {document_id: POL-CARE, page: 3, text_prefix: "Air Ambulance 5", evidence_id: EV-CARE-3-011,
+     labels: {benefit_tier: OPTIONAL}, reason: "Optional Benefits table; footnote 5."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "Up to `5 lacs per year", evidence_id: EV-CARE-3-012,
+     labels: {benefit_tier: OPTIONAL}, reason: "Air Ambulance value; footnote 5."}
+  - {document_id: POL-CARE, page: 4, text_prefix: "Claim Shield 12", evidence_id: EV-CARE-4-001,
+     labels: {benefit_tier: OPTIONAL}, reason: "Footnote 12: optional benefit under Care Supreme."}
+  - {document_id: POL-CARE, page: 4, text_prefix: "Coverage of expense related to listed 68 non-payable items", evidence_id: EV-CARE-4-002,
+     labels: {benefit_tier: OPTIONAL}, reason: "Claim Shield value; footnote 12."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "Instant Cover 7", evidence_id: EV-CARE-3-022,
+     labels: {benefit_tier: OPTIONAL}, reason: "Footnote 7: optional benefit available on payment of additional premium."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial", item_type: text, evidence_id: EV-CARE-3-006,
+     labels: {benefit_tier: OPTIONAL}, reason: "Instant Cover value (the correctly ordered text; the table cell copy is garbled)."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "Cumulative Bonus Super 5", evidence_id: EV-CARE-3-007,
+     labels: {benefit_tier: OPTIONAL}, reason: "Optional Benefits table; footnote 5."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "Up to 100% of SI per year, max. up to 500% of Sum Insured", evidence_id: EV-CARE-3-008,
+     labels: {benefit_tier: OPTIONAL}, reason: "Cumulative Bonus Super value; footnote 5."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "Annual Health Check-up 5", evidence_id: EV-CARE-3-009,
+     labels: {benefit_tier: OPTIONAL}, reason: "Optional Benefits table; footnote 5."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "Once per Insured per policy year", evidence_id: EV-CARE-3-010,
+     labels: {benefit_tier: OPTIONAL}, reason: "Annual Health Check-up value; footnote 5."}
+
+  # --- Care: add-on policies (footnote 9 Care OPD; footnotes 6, 13 Care Advanced add-on)
+  - {document_id: POL-CARE, page: 3, text_prefix: "Care OPD 9", evidence_id: EV-CARE-3-001,
+     labels: {benefit_tier: ADDON}, reason: "Footnote 9: Care OPD is an add-on policy."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "1. Max. 4 physical consultations with general physician, up to `500", evidence_id: EV-CARE-3-002,
+     labels: {benefit_tier: ADDON}, reason: "Care OPD value; footnote 9."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "1. Max. 4 physical consultations with general physician, up to `1000", evidence_id: EV-CARE-3-003,
+     labels: {benefit_tier: ADDON}, reason: "Care OPD value; footnote 9."}
+  - {document_id: POL-CARE, page: 4, text_prefix: "Cumulative Bonus Booster 6", evidence_id: EV-CARE-4-007,
+     labels: {benefit_tier: ADDON}, reason: "Footnote 6: under the Care Advanced add-on policy."}
+  - {document_id: POL-CARE, page: 4, text_prefix: "100% of Base Sum Insured per year irrespective of claim", evidence_id: EV-CARE-4-008,
+     labels: {benefit_tier: ADDON}, reason: "Cumulative Bonus Booster value; footnote 6."}
+  - {document_id: POL-CARE, page: 4, text_prefix: "Unlimited Care 6", evidence_id: EV-CARE-4-009,
+     labels: {benefit_tier: ADDON}, reason: "Footnote 6: under the Care Advanced add-on policy."}
+  - {document_id: POL-CARE, page: 4, text_prefix: "Any one claim during the lifetime of the policy without any limit", evidence_id: EV-CARE-4-010,
+     labels: {benefit_tier: ADDON}, reason: "Unlimited Care value; footnote 6."}
+  - {document_id: POL-CARE, page: 4, text_prefix: "Claim Shield+ 13", evidence_id: EV-CARE-4-011,
+     labels: {benefit_tier: ADDON}, reason: "Footnote 13: under the Care Advanced add-on policy."}
+  - {document_id: POL-CARE, page: 4, text_prefix: "List of items as per annexure I (list I, II, III and IV) of Policy", evidence_id: EV-CARE-4-012,
+     labels: {benefit_tier: ADDON}, reason: "Claim Shield+ value; footnote 13."}
+
+  # --- Care: road ambulance depends on the sum insured (p2 table row; p1 headline, footnote 3)
+  - {document_id: POL-CARE, page: 2, text_prefix: "For SI below `15 lac - up to `10,000 For SI `15 lac and above", item_type: table_cell, evidence_id: EV-CARE-2-044,
+     labels: {si_condition: "SI-tiered: SI below ₹15 lakh up to ₹10,000; SI ₹15 lakh and above up to SI"},
+     reason: "The cell states both SI tiers; the two supplement items carry one tier each."}
+  - {document_id: POL-CARE, page: 2, text_prefix: "For SI below `15 lac - up to `10,000", evidence_id: EV-CARE-2-055,
+     labels: {si_condition: "SI below ₹15 lakh"}, reason: "Road ambulance tier from the text layer."}
+  - {document_id: POL-CARE, page: 2, text_prefix: "For SI `15 lac and above - up to SI", evidence_id: EV-CARE-2-056,
+     labels: {si_condition: "SI ₹15 lakh and above"}, reason: "Road ambulance tier from the text layer."}
+  - {document_id: POL-CARE, page: 1, text_prefix: "Up to 100% of Sum Insured with Ambulance Cover 3", evidence_id: EV-CARE-1-008,
+     labels: {si_condition: "SI ₹15 lakh and above"}, reason: "Footnote 3: 100% of SI only for SI ₹15 lakh and above."}
+
+  # --- Care: garbled table text (Docling reordered these cells); the correct text exists elsewhere
+  - {document_id: POL-CARE, page: 3, text_prefix: "tracking apps, devices etc. b) Access to Digital Fitness Coaching", evidence_id: EV-CARE-3-014,
+     labels: {citable: false}, reason: "Garbled: holds the renewal-discount grid with days and discounts out of order (rows re-read from the text layer)."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial", item_type: table_cell, evidence_id: EV-CARE-3-023,
+     labels: {citable: false}, reason: "Garbled Instant Cover cell (words missing and out of order); the correct text is EV-CARE-3-006."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "(COPD)/ Obesity/ Coronary Artery 1 year, post initial wait period", evidence_id: EV-CARE-3-024,
+     labels: {citable: false}, reason: "Displaced fragment of the garbled Instant Cover cell; the correct text is EV-CARE-3-006."}
+
+  # --- Citable rule corrections (the rule: < 3 words, no row/column label, not a bullet/footnote/benefit heading)
+  - {document_id: POL-NIVA, page: 1, text_prefix: "'ixed y Age", evidence_id: EV-NIVA-1-019,
+     labels: {citable: false}, reason: "OCR garbage from the decorative wheel on page 1 (3 tokens, so the rule missed it)."}
+  - {document_id: POL-HDFC, page: 10, text_prefix: "1/2/3/4`/5` years", evidence_id: EV-HDFC-10-008,
+     labels: {citable: true}, reason: "A real fact (tenure options, footnote ` for 4/5 years) that the < 3 words rule caught."}
+
+  # --- HDFC: add-ons page (p8) — each add-on's heading and description
+  - {document_id: POL-HDFC, page: 8, text_prefix: "ABCD Chronic Care", evidence_id: EV-HDFC-8-006,
+     labels: {benefit_tier: ADDON}, reason: "Listed under 'Add-ons To Choose From'."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Covers hospitalisation expenses for Asthma, Blood pressure, Cholesterol", evidence_id: EV-HDFC-8-007,
+     labels: {benefit_tier: ADDON}, reason: "ABCD Chronic Care add-on."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Optima Wellbeing (Add-on)", evidence_id: EV-HDFC-8-008,
+     labels: {benefit_tier: ADDON}, reason: "Listed under 'Add-ons To Choose From'."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Covers various outpatient benefits", evidence_id: EV-HDFC-8-009,
+     labels: {benefit_tier: ADDON}, reason: "Optima Wellbeing add-on."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "my: health Hospital Cash Benefit (Add-on)", evidence_id: EV-HDFC-8-010,
+     labels: {benefit_tier: ADDON}, reason: "Listed under 'Add-ons To Choose From'."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Get a per day daily cash amount for each completed day", evidence_id: EV-HDFC-8-011,
+     labels: {benefit_tier: ADDON}, reason: "Hospital Cash add-on."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Individual Personal Accident Rider (only for the insured proposer)", evidence_id: EV-HDFC-8-012,
+     labels: {benefit_tier: ADDON}, reason: "Listed under 'Add-ons To Choose From'."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Lumpsum payout in case of an unfortunate Accidental Death", evidence_id: EV-HDFC-8-013,
+     labels: {benefit_tier: ADDON}, reason: "Personal Accident Rider add-on."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "my: health Critical Illness", evidence_id: EV-HDFC-8-014,
+     labels: {benefit_tier: ADDON}, reason: "Listed under 'Add-ons To Choose From'."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Lumpsum payout on diagnosis of a listed critical illness", evidence_id: EV-HDFC-8-015,
+     labels: {benefit_tier: ADDON}, reason: "Critical Illness add-on."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Limitless (For claims made in India only)", evidence_id: EV-HDFC-8-016,
+     labels: {benefit_tier: ADDON}, reason: "Listed under 'Add-ons To Choose From'."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Pays for a specified number of claim(s) up to an infinite value", evidence_id: EV-HDFC-8-017,
+     labels: {benefit_tier: ADDON}, reason: "Limitless add-on."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Parenthood", evidence_id: EV-HDFC-8-018,
+     labels: {benefit_tier: ADDON}, reason: "Listed under 'Add-ons To Choose From'."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Covers maternity expenses, embryo storage costs and IVF treatments", evidence_id: EV-HDFC-8-019,
+     labels: {benefit_tier: ADDON}, reason: "Parenthood add-on (maternity is excluded from the base plan, p14)."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Serious Illness Booster", evidence_id: EV-HDFC-8-020,
+     labels: {benefit_tier: ADDON}, reason: "Listed under 'Add-ons To Choose From'."}
+  - {document_id: POL-HDFC, page: 8, text_prefix: "Critical illness add-on that works on an indemnity basis", evidence_id: EV-HDFC-8-021,
+     labels: {benefit_tier: ADDON}, reason: "Serious Illness Booster add-on."}
+
+  # --- ABHI: maternity is a VIP+ benefit with SI tiers (footnote %)
+  - {document_id: POL-ABHI, page: 2, text_prefix: "International & Domestic Maternity Cover %", evidence_id: EV-ABHI-2-009,
+     labels: {variant: "VIP+", si_condition: "BSI INR 50 Lacs and 75 Lacs: domestic maternity up to INR 1 Lac; BSI INR 1 Cr and above: worldwide maternity up to INR 2 Lacs"},
+     reason: "Listed in the Activ One VIP+ panel; SI tiers from footnote %."}

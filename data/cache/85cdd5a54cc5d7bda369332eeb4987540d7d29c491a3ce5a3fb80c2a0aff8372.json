@@ -6,7 +6,10 @@
     "file_name": "ABHI Product Brochure.pdf",
     "sha256": "85cdd5a54cc5d7bda369332eeb4987540d7d29c491a3ce5a3fb80c2a0aff8372",
     "page_count": 2,
-    "variants": [],
+    "variants": [
+      "SAVR",
+      "VIP+"
+    ],
     "extraction_method": "docling"
   },
   "evidence": [
@@ -26,7 +29,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-1-002",
@@ -44,7 +48,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-1-003",
@@ -62,7 +67,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-1-004",
@@ -80,7 +86,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-1-005",
@@ -98,7 +105,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-006",
@@ -116,7 +124,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-007",
@@ -134,7 +143,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-008",
@@ -152,7 +162,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-009",
@@ -170,7 +181,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-010",
@@ -188,7 +200,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-011",
@@ -206,7 +219,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-012",
@@ -221,12 +235,15 @@
       "footnote_markers": [
         "*"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-ABHI-2-062"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-013",
@@ -241,12 +258,15 @@
       "footnote_markers": [
         "$"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-ABHI-2-061"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-014",
@@ -260,11 +280,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-015",
@@ -278,11 +299,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-016",
@@ -296,11 +318,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-017",
@@ -318,7 +341,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-1-018",
@@ -332,11 +356,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-019",
@@ -354,7 +379,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-020",
@@ -369,12 +395,15 @@
       "footnote_markers": [
         "*"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-ABHI-2-062"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-021",
@@ -392,7 +421,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-022",
@@ -410,7 +440,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-023",
@@ -428,7 +459,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-024",
@@ -446,7 +478,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-025",
@@ -464,7 +497,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-026",
@@ -482,7 +516,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-027",
@@ -500,7 +535,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-028",
@@ -518,7 +554,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-029",
@@ -536,7 +573,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-030",
@@ -554,7 +592,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-031",
@@ -569,12 +608,15 @@
       "footnote_markers": [
         "#"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-ABHI-2-060"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-032",
@@ -588,11 +630,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-033",
@@ -606,11 +649,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-034",
@@ -628,7 +672,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-035",
@@ -646,7 +691,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-036",
@@ -664,7 +710,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-037",
@@ -682,7 +729,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-038",
@@ -700,7 +748,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-039",
@@ -718,7 +767,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-040",
@@ -736,7 +786,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-1-041",
@@ -751,12 +802,15 @@
       "footnote_markers": [
         "+"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-ABHI-2-059"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-042",
@@ -771,12 +825,15 @@
       "footnote_markers": [
         "^"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-ABHI-2-058"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-043",
@@ -790,11 +847,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-044",
@@ -812,7 +870,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-045",
@@ -830,7 +889,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-1-046",
@@ -848,7 +908,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-1-047",
@@ -866,7 +927,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-001",
@@ -884,7 +946,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-002",
@@ -902,7 +965,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-003",
@@ -920,7 +984,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-004",
@@ -938,7 +1003,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-005",
@@ -956,7 +1022,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-006",
@@ -974,7 +1041,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-007",
@@ -988,11 +1056,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-008",
@@ -1006,11 +1075,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
-      "variant": null,
+      "benefit_tier": "BASE",
+      "variant": "VIP+",
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-009",
@@ -1025,12 +1095,15 @@
       "footnote_markers": [
         "%"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
-      "variant": null,
-      "si_condition": null,
+      "linked_footnote_ids": [
+        "EV-ABHI-2-065"
+      ],
+      "benefit_tier": "BASE",
+      "variant": "VIP+",
+      "si_condition": "For BSI INR 50 Lacs and 75 Lacs - Domestic Maternity up to INR 1 Lac; For BSI INR 1 Cr and Above - WW Maternity up to of INR 2 Lacs.",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-010",
@@ -1048,7 +1121,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-011",
@@ -1066,7 +1140,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-012",
@@ -1080,11 +1155,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-013",
@@ -1098,11 +1174,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-014",
@@ -1116,11 +1193,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-015",
@@ -1134,11 +1212,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-016",
@@ -1152,11 +1231,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-017",
@@ -1170,11 +1250,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-018",
@@ -1188,11 +1269,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-019",
@@ -1206,11 +1288,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-020",
@@ -1224,11 +1307,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-021",
@@ -1246,7 +1330,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-022",
@@ -1264,7 +1349,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-023",
@@ -1282,7 +1368,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-024",
@@ -1300,7 +1387,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-025",
@@ -1318,7 +1406,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-026",
@@ -1332,11 +1421,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-027",
@@ -1354,7 +1444,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-028",
@@ -1372,7 +1463,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-2-029",
@@ -1390,7 +1482,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-2-030",
@@ -1408,7 +1501,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-2-031",
@@ -1426,7 +1520,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-2-032",
@@ -1444,7 +1539,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-2-033",
@@ -1462,7 +1558,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-034",
@@ -1477,12 +1574,15 @@
       "footnote_markers": [
         "!"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
-      "variant": null,
+      "linked_footnote_ids": [
+        "EV-ABHI-2-064"
+      ],
+      "benefit_tier": "BASE",
+      "variant": "VIP+",
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-035",
@@ -1497,12 +1597,15 @@
       "footnote_markers": [
         "~"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-ABHI-2-063"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-036",
@@ -1516,11 +1619,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-037",
@@ -1538,7 +1642,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-038",
@@ -1556,7 +1661,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-039",
@@ -1574,7 +1680,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-040",
@@ -1589,12 +1696,15 @@
       "footnote_markers": [
         "##"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-ABHI-2-067"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-041",
@@ -1609,12 +1719,15 @@
       "footnote_markers": [
         "@"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
-      "variant": null,
+      "linked_footnote_ids": [
+        "EV-ABHI-2-066"
+      ],
+      "benefit_tier": "BASE",
+      "variant": "SAVR",
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-042",
@@ -1629,10 +1742,11 @@
       "footnote_markers": [],
       "linked_footnote_ids": [],
       "benefit_tier": "UNKNOWN",
-      "variant": null,
+      "variant": "SAVR",
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-043",
@@ -1650,7 +1764,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-044",
@@ -1664,11 +1779,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
-      "variant": null,
+      "benefit_tier": "BASE",
+      "variant": "SAVR",
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-045",
@@ -1682,11 +1798,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
-      "variant": null,
+      "benefit_tier": "BASE",
+      "variant": "SAVR",
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-046",
@@ -1700,11 +1817,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
-      "variant": null,
+      "benefit_tier": "BASE",
+      "variant": "SAVR",
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-047",
@@ -1718,11 +1836,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
-      "variant": null,
+      "benefit_tier": "BASE",
+      "variant": "SAVR",
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-048",
@@ -1740,7 +1859,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-049",
@@ -1758,7 +1878,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-050",
@@ -1772,11 +1893,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-051",
@@ -1790,11 +1912,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-052",
@@ -1808,11 +1931,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-053",
@@ -1826,11 +1950,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-054",
@@ -1844,11 +1969,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-055",
@@ -1866,7 +1992,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-056",
@@ -1884,7 +2011,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-ABHI-2-057",
@@ -1902,7 +2030,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-058",
@@ -1920,7 +2049,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-059",
@@ -1938,7 +2068,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-060",
@@ -1956,7 +2087,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-061",
@@ -1974,7 +2106,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-062",
@@ -1992,7 +2125,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-063",
@@ -2010,7 +2144,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-064",
@@ -2028,7 +2163,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-065",
@@ -2046,7 +2182,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-066",
@@ -2064,7 +2201,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-ABHI-2-067",
@@ -2082,9 +2220,32 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     }
   ],
   "ocr_forced_pages": [],
-  "docling_version": "2.130.0"
+  "docling_version": "2.130.0",
+  "annotation": {
+    "version": "1",
+    "model": "gemini-2.5-flash",
+    "supplements_hash": "4f53cda18c2baa0c",
+    "stats": {
+      "items": 114,
+      "supplements": 0,
+      "non_citable": 13,
+      "deterministic_links": 11,
+      "column_variants": 0,
+      "shown_to_llm": 101,
+      "labelled": 101,
+      "unknown_ids": 0,
+      "duplicates": 0,
+      "variants_rejected": 0,
+      "llm_links_added": 0,
+      "llm_links_rejected": 0,
+      "llm_links_ignored": 0,
+      "missing": 0
+    },
+    "warnings": []
+  }
 }

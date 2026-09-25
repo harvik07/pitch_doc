@@ -383,7 +383,7 @@ def _split_footnotes(blocks: list[_Block], heights: dict[int, float]) -> list[_B
     return out
 
 
-def _footnote_marker(text: str) -> str | None:
+def footnote_marker(text: str) -> str | None:
     m = _LEADING_MARKER.match(text) or _LEADING_DIGIT.match(text)
     return _canonical_marker(m.group(1)) if m else None
 
@@ -460,7 +460,7 @@ _ITEM_TYPES = {
 
 def _to_evidence(document_id: str, blocks: list[_Block], heights: dict[int, float]) -> list[EvidenceItem]:
     blocks = _split_bullets(_split_footnotes(_drop_table_duplicates(_merge_picture_lines(blocks)), heights))
-    known = {m for b in blocks if b.kind == "footnote" and (m := _footnote_marker(b.text))}
+    known = {m for b in blocks if b.kind == "footnote" and (m := footnote_marker(b.text))}
     sections = _sections(blocks, heights)
     doc_code = document_id.removeprefix("POL-")
     seq: dict[int, int] = {}

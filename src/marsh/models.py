@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, TypeVar
+from typing import Annotated, Literal, TypeVar
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
@@ -68,6 +68,7 @@ class ExtractionMethod(StrEnum):
     DOCLING = "docling"
     DOCLING_FULL_PAGE_OCR = "docling_full_page_ocr"  # page had < 20 text-layer words: text comes from OCR
     PYMUPDF_FALLBACK = "pymupdf_fallback"
+    PYMUPDF_SUPPLEMENT = "pymupdf_supplement"  # curated item read from the PDF text layer (evidence_overrides.yaml)
     MARKDOWN = "markdown"  # marsh_profile.md chunks
 
 
@@ -326,16 +327,98 @@ class EvidenceItem(_Model):
     si_condition: str | None = None
     numbers: list[NormalisedNumber] = Field(default_factory=list)
     extraction_method: ExtractionMethod
+    citable: bool = True  # False: OCR/logo fragment or garbled text; matching and audit never see it
+
+
+class AnnotationInfo(_Model):
+    """How the evidence in a cache file was annotated (annotate.py)."""
+
+    version: str  # bump annotate.ANNOTATION_VERSION to force re-annotation
+    model: str | None = None  # Gemini model used for the labels; None = deterministic rules only
+    supplements_hash: str  # hash of this document's supplement specs; a mismatch means the cache is stale
+    stats: dict[str, int] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ExtractedDocument(_Model):
-    """Cache file format: data/cache/<sha256>.json."""
+    """Cache file format: data/cache/<sha256>.json (extraction, then annotation; overrides apply at load)."""
 
     extraction_version: str  # bump in extraction.py to invalidate old caches
     document: PolicyDocument
     evidence: list[EvidenceItem]
     ocr_forced_pages: list[int] = Field(default_factory=list)
     docling_version: str | None = None
+    annotation: AnnotationInfo | None = None
+
+
+# --- Manual corrections: data/evidence_overrides.yaml -----------------------------------------------
+
+
+class ItemSelector(_Model):
+    """Finds exactly one evidence item: document + page + normalised text prefix.
+
+    The item's normalised text must equal text_prefix when text_prefix is shorter than 40 characters,
+    or start with it otherwise. item_type / row_label narrow the match when texts repeat on a page.
+    evidence_id is only a hint: a mismatch is logged, never used to pick the item.
+    """
+
+    document_id: DocumentId
+    page: int = Field(ge=1)
+    text_prefix: str = Field(min_length=1)
+    item_type: ItemType | None = None
+    row_label: str | None = None
+    evidence_id: str | None = None
+
+
+class LabelChanges(_Model):
+    """Annotation fields an override may set (text is never settable). Only fields given are applied."""
+
+    benefit_tier: BenefitTier | None = None
+    variant: str | None = None
+    si_condition: str | None = None
+    linked_footnote_ids: list[EvidenceId] | None = None
+    citable: bool | None = None
+
+
+class OverrideEntry(ItemSelector):
+    labels: LabelChanges
+    reason: str = Field(min_length=1)
+
+
+class SupplementSpec(ItemSelector):
+    """New evidence items read from the PDF text layer inside `region` (selector = the anchor item).
+
+    layout "lines": one item per text line; a line starting with a lowercase letter continues the previous one.
+    layout "grid": rows by y, columns split at `column_splits`; the first `header_rows` rows give column labels.
+    Items inherit section / table / row labels / footnote markers from the anchor.
+    """
+
+    layout: Literal["lines", "grid"]
+    region: tuple[float, float, float, float]  # x0, y0, x1, y1 in PDF points, top-left origin (PyMuPDF)
+    column_splits: list[float] = Field(default_factory=list)
+    header_rows: int = Field(default=0, ge=0)
+    expect_items: int = Field(ge=1)  # building fails if the region yields a different number of items
+    reason: str = Field(min_length=1)
+
+
+class EvidenceOverridesFile(_Model):
+    supplements: list[SupplementSpec] = Field(default_factory=list)
+    overrides: list[OverrideEntry] = Field(default_factory=list)
+
+
+# --- Annotation LLM output (prompts/annotate_evidence.md) --------------------------------------------
+
+
+class ItemLabel(_Model):
+    evidence_id: str
+    benefit_tier: BenefitTier
+    variant: str | None = None
+    si_condition: str | None = None
+    linked_footnote_ids: list[str] = Field(default_factory=list)
+
+
+class AnnotationResponse(_Model):
+    labels: list[ItemLabel]
 
 
 # --- Exposures, matching, recommendation -----------------------------------------------------------

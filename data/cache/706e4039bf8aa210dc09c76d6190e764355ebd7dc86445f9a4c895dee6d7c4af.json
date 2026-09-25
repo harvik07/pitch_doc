@@ -26,7 +26,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-1-002",
@@ -41,12 +42,15 @@
       "footnote_markers": [
         "*"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-005"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-1-003",
@@ -64,7 +68,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-1-004",
@@ -82,7 +87,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-1-005",
@@ -100,7 +106,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-1-006",
@@ -118,7 +125,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-2-001",
@@ -136,7 +144,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-002",
@@ -154,7 +163,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-2-003",
@@ -172,7 +182,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-2-004",
@@ -190,7 +201,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-2-005",
@@ -208,7 +220,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-006",
@@ -226,7 +239,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-007",
@@ -244,7 +258,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-008",
@@ -262,7 +277,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-2-009",
@@ -280,7 +296,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-2-010",
@@ -295,12 +312,15 @@
       "footnote_markers": [
         "*"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-005"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-011",
@@ -314,11 +334,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-012",
@@ -332,11 +353,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-013",
@@ -351,12 +373,15 @@
       "footnote_markers": [
         "**"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-006"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-014",
@@ -374,7 +399,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-015",
@@ -388,11 +414,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-016",
@@ -406,11 +433,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-017",
@@ -428,7 +456,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-018",
@@ -442,11 +471,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-019",
@@ -461,12 +491,15 @@
       "footnote_markers": [
         "#"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-010"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-020",
@@ -480,11 +513,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-021",
@@ -502,7 +536,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-2-022",
@@ -520,7 +555,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-3-001",
@@ -538,7 +574,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-002",
@@ -556,7 +593,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-003",
@@ -574,7 +612,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-004",
@@ -588,11 +627,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-005",
@@ -606,11 +646,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-006",
@@ -625,12 +666,15 @@
       "footnote_markers": [
         "**"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-006"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-007",
@@ -644,11 +688,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-008",
@@ -666,7 +711,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-3-009",
@@ -684,7 +730,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-3-010",
@@ -702,7 +749,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-3-011",
@@ -717,12 +765,15 @@
       "footnote_markers": [
         "*"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-005"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-012",
@@ -736,11 +787,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-013",
@@ -758,7 +810,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-3-014",
@@ -776,7 +829,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-3-015",
@@ -791,12 +845,15 @@
       "footnote_markers": [
         "#"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-010"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-016",
@@ -810,11 +867,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-017",
@@ -827,12 +885,16 @@
       "row_label": null,
       "column_label": null,
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-007",
+        "EV-HDFC-16-008"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-3-018",
@@ -850,7 +912,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-3-019",
@@ -868,7 +931,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-3-020",
@@ -886,7 +950,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-3-021",
@@ -904,7 +969,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-4-001",
@@ -922,7 +988,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-4-002",
@@ -936,11 +1003,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-4-003",
@@ -954,11 +1022,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-4-004",
@@ -972,11 +1041,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-4-005",
@@ -990,11 +1060,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-4-006",
@@ -1007,12 +1078,15 @@
       "row_label": null,
       "column_label": null,
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-016"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-4-007",
@@ -1026,11 +1100,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-4-008",
@@ -1044,11 +1119,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-4-009",
@@ -1061,12 +1137,15 @@
       "row_label": null,
       "column_label": null,
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-016"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-4-010",
@@ -1080,11 +1159,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-4-011",
@@ -1102,7 +1182,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-4-012",
@@ -1120,7 +1201,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-4-013",
@@ -1138,7 +1220,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-5-001",
@@ -1152,11 +1235,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-002",
@@ -1169,12 +1253,15 @@
       "row_label": null,
       "column_label": null,
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-016"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-003",
@@ -1188,11 +1275,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-004",
@@ -1210,7 +1298,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-005",
@@ -1224,11 +1313,12 @@
       "column_label": "10 L",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "SI 10 L",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-006",
@@ -1242,11 +1332,12 @@
       "column_label": "15 L",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "SI 15 L",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-007",
@@ -1260,11 +1351,12 @@
       "column_label": "20 L, 25 L & 50 L",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "SI 20 L, 25 L & 50 L",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-008",
@@ -1278,11 +1370,12 @@
       "column_label": "100 L & 200 L",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "SI 100 L & 200 L",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-009",
@@ -1300,7 +1393,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-010",
@@ -1314,11 +1408,12 @@
       "column_label": "10 L",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "SI 10 L",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-011",
@@ -1332,11 +1427,12 @@
       "column_label": "15 L",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "SI 15 L",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-012",
@@ -1350,11 +1446,12 @@
       "column_label": "20 L, 25 L & 50 L",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "SI 20 L, 25 L & 50 L",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-013",
@@ -1368,11 +1465,12 @@
       "column_label": "100 L & 200 L",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "SI 100 L & 200 L",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-014",
@@ -1386,11 +1484,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-015",
@@ -1403,12 +1502,15 @@
       "row_label": null,
       "column_label": null,
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-016"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-016",
@@ -1422,11 +1524,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-017",
@@ -1440,11 +1543,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-018",
@@ -1458,11 +1562,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-019",
@@ -1476,11 +1581,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-5-020",
@@ -1498,7 +1604,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-5-021",
@@ -1516,7 +1623,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-5-022",
@@ -1534,7 +1642,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-6-001",
@@ -1548,11 +1657,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-002",
@@ -1566,11 +1676,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-003",
@@ -1584,11 +1695,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-004",
@@ -1602,11 +1714,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-005",
@@ -1620,11 +1733,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-006",
@@ -1638,11 +1752,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-007",
@@ -1660,7 +1775,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-008",
@@ -1678,7 +1794,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-009",
@@ -1696,7 +1813,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-010",
@@ -1714,7 +1832,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-011",
@@ -1732,7 +1851,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-012",
@@ -1750,7 +1870,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-013",
@@ -1768,7 +1889,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-014",
@@ -1786,7 +1908,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-015",
@@ -1804,7 +1927,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-016",
@@ -1822,7 +1946,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-017",
@@ -1840,7 +1965,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-018",
@@ -1858,7 +1984,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-019",
@@ -1876,7 +2003,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-020",
@@ -1894,7 +2022,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-021",
@@ -1912,7 +2041,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-022",
@@ -1927,12 +2057,15 @@
       "footnote_markers": [
         "*"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-HDFC-16-005"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-023",
@@ -1950,7 +2083,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-024",
@@ -1968,7 +2102,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-6-025",
@@ -1986,7 +2121,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-6-026",
@@ -2004,7 +2140,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-6-027",
@@ -2022,7 +2159,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-7-001",
@@ -2040,7 +2178,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-002",
@@ -2054,11 +2193,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-003",
@@ -2072,11 +2212,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-004",
@@ -2094,7 +2235,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-005",
@@ -2108,11 +2250,12 @@
       "column_label": "Optima Secure + | Base SI <25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI <25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-006",
@@ -2126,11 +2269,12 @@
       "column_label": "Optima Secure + | Base SI = 25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI = 25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-007",
@@ -2144,11 +2288,12 @@
       "column_label": "Optima Secure + | Base SI >= 50 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI >= 50 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-008",
@@ -2166,7 +2311,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-009",
@@ -2180,11 +2326,12 @@
       "column_label": "Optima Secure + | Base SI <25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI <25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-010",
@@ -2198,11 +2345,12 @@
       "column_label": "Optima Secure + | Base SI = 25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI = 25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-011",
@@ -2216,11 +2364,12 @@
       "column_label": "Optima Secure + | Base SI >= 50 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI >= 50 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-012",
@@ -2238,7 +2387,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-013",
@@ -2252,11 +2402,12 @@
       "column_label": "Optima Secure + | Base SI <25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI <25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-014",
@@ -2270,11 +2421,12 @@
       "column_label": "Optima Secure + | Base SI = 25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI = 25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-015",
@@ -2288,11 +2440,12 @@
       "column_label": "Optima Secure + | Base SI >= 50 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI >= 50 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-016",
@@ -2310,7 +2463,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-017",
@@ -2324,11 +2478,12 @@
       "column_label": "Optima Secure + | Base SI <25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI <25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-018",
@@ -2342,11 +2497,12 @@
       "column_label": "Optima Secure + | Base SI = 25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI = 25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-019",
@@ -2360,11 +2516,12 @@
       "column_label": "Optima Secure + | Base SI >= 50 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI >= 50 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-020",
@@ -2382,7 +2539,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-021",
@@ -2396,11 +2554,12 @@
       "column_label": "Optima Secure + | Base SI <25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI <25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-022",
@@ -2414,11 +2573,12 @@
       "column_label": "Optima Secure + | Base SI = 25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI = 25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-023",
@@ -2432,11 +2592,12 @@
       "column_label": "Optima Secure + | Base SI >= 50 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI >= 50 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-024",
@@ -2454,7 +2615,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-025",
@@ -2470,9 +2632,10 @@
       "linked_footnote_ids": [],
       "benefit_tier": "UNKNOWN",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI <25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-026",
@@ -2486,11 +2649,12 @@
       "column_label": "Optima Secure + | Base SI = 25 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI = 25 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-027",
@@ -2504,11 +2668,12 @@
       "column_label": "Optima Secure + | Base SI >= 50 Lakhs",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Base SI >= 50 Lakhs",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-028",
@@ -2523,12 +2688,15 @@
       "footnote_markers": [
         "@@"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-017"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-029",
@@ -2542,11 +2710,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-030",
@@ -2561,12 +2730,15 @@
       "footnote_markers": [
         "~~"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-016"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-7-031",
@@ -2584,7 +2756,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-7-032",
@@ -2602,7 +2775,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-7-033",
@@ -2620,7 +2794,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-7-034",
@@ -2638,7 +2813,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-8-001",
@@ -2656,7 +2832,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-8-002",
@@ -2674,7 +2851,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-003",
@@ -2692,7 +2870,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-004",
@@ -2710,7 +2889,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-8-005",
@@ -2728,7 +2908,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-006",
@@ -2742,11 +2923,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-007",
@@ -2760,11 +2942,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-008",
@@ -2778,11 +2961,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-009",
@@ -2796,11 +2980,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-010",
@@ -2814,11 +2999,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-011",
@@ -2832,11 +3018,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-012",
@@ -2850,11 +3037,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-013",
@@ -2868,11 +3056,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-014",
@@ -2886,11 +3075,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-015",
@@ -2904,11 +3094,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-016",
@@ -2922,11 +3113,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-017",
@@ -2940,11 +3132,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-018",
@@ -2958,11 +3151,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-019",
@@ -2976,11 +3170,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-020",
@@ -2994,11 +3189,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-021",
@@ -3012,11 +3208,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-8-022",
@@ -3034,7 +3231,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-8-023",
@@ -3052,7 +3250,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-8-024",
@@ -3070,7 +3269,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-9-001",
@@ -3088,7 +3288,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-002",
@@ -3106,7 +3307,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-9-003",
@@ -3121,12 +3323,15 @@
       "footnote_markers": [
         "°"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-008"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-004",
@@ -3140,11 +3345,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-005",
@@ -3159,12 +3365,15 @@
       "footnote_markers": [
         "^"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-007"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-006",
@@ -3178,11 +3387,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-007",
@@ -3196,11 +3406,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-008",
@@ -3214,11 +3425,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-009",
@@ -3232,11 +3444,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-010",
@@ -3250,11 +3463,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-011",
@@ -3269,12 +3483,15 @@
       "footnote_markers": [
         "^^"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-009"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-012",
@@ -3288,11 +3505,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-9-013",
@@ -3310,7 +3528,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-9-014",
@@ -3328,7 +3547,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-9-015",
@@ -3346,7 +3566,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-10-001",
@@ -3364,7 +3585,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-10-002",
@@ -3382,7 +3604,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-10-003",
@@ -3400,7 +3623,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-10-004",
@@ -3418,7 +3642,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-10-005",
@@ -3436,7 +3661,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-10-006",
@@ -3454,7 +3680,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-10-007",
@@ -3472,7 +3699,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-10-008",
@@ -3487,12 +3715,15 @@
       "footnote_markers": [
         "`"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-HDFC-16-011"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-10-009",
@@ -3506,11 +3737,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-10-010",
@@ -3524,11 +3756,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-10-011",
@@ -3546,7 +3779,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-10-012",
@@ -3564,7 +3798,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-10-013",
@@ -3582,7 +3817,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-10-014",
@@ -3600,7 +3836,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-11-001",
@@ -3618,7 +3855,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-11-002",
@@ -3636,7 +3874,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-11-003",
@@ -3654,7 +3893,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-004",
@@ -3672,7 +3912,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-005",
@@ -3690,7 +3931,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-006",
@@ -3708,7 +3950,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-007",
@@ -3722,11 +3965,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-008",
@@ -3744,7 +3988,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-009",
@@ -3758,11 +4003,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-010",
@@ -3780,7 +4026,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-011",
@@ -3794,11 +4041,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-012",
@@ -3816,7 +4064,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-013",
@@ -3830,11 +4079,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-014",
@@ -3852,7 +4102,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-015",
@@ -3866,11 +4117,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-016",
@@ -3888,7 +4140,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-017",
@@ -3902,11 +4155,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-018",
@@ -3924,7 +4178,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-019",
@@ -3938,11 +4193,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-020",
@@ -3960,7 +4216,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-021",
@@ -3974,11 +4231,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-022",
@@ -3993,12 +4251,15 @@
       "footnote_markers": [
         "#"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-HDFC-16-010"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-023",
@@ -4013,12 +4274,15 @@
       "footnote_markers": [
         "#"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-010"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-024",
@@ -4033,12 +4297,15 @@
       "footnote_markers": [
         "*"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-HDFC-16-005"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-025",
@@ -4053,12 +4320,15 @@
       "footnote_markers": [
         "*"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-005"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-026",
@@ -4073,12 +4343,15 @@
       "footnote_markers": [
         "**"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-HDFC-16-006"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-027",
@@ -4093,12 +4366,15 @@
       "footnote_markers": [
         "**"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-006"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-028",
@@ -4116,7 +4392,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-029",
@@ -4130,11 +4407,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-030",
@@ -4152,7 +4430,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-031",
@@ -4166,11 +4445,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-032",
@@ -4188,7 +4468,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-033",
@@ -4202,11 +4483,12 @@
       "column_label": "Optima Secure+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-11-034",
@@ -4224,7 +4506,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-12-001",
@@ -4242,7 +4525,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-12-002",
@@ -4256,11 +4540,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-12-003",
@@ -4274,11 +4559,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-12-004",
@@ -4292,11 +4578,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-12-005",
@@ -4311,12 +4598,15 @@
       "footnote_markers": [
         "**"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-HDFC-16-006"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-12-006",
@@ -4330,11 +4620,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-12-007",
@@ -4348,11 +4639,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-12-008",
@@ -4366,11 +4658,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-12-009",
@@ -4384,11 +4677,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-12-010",
@@ -4406,7 +4700,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-12-011",
@@ -4424,7 +4719,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-12-012",
@@ -4442,7 +4738,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-13-001",
@@ -4460,7 +4757,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-13-002",
@@ -4478,7 +4776,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-13-003",
@@ -4496,7 +4795,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-13-004",
@@ -4510,11 +4810,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-13-005",
@@ -4528,11 +4829,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-13-006",
@@ -4550,7 +4852,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-13-007",
@@ -4568,7 +4871,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-13-008",
@@ -4582,11 +4886,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-13-009",
@@ -4600,11 +4905,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-13-010",
@@ -4622,7 +4928,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-14-001",
@@ -4640,7 +4947,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-002",
@@ -4655,12 +4963,15 @@
       "footnote_markers": [
         "##"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-HDFC-16-012"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-003",
@@ -4675,12 +4986,15 @@
       "footnote_markers": [
         "~"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-HDFC-16-013"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-004",
@@ -4695,12 +5009,15 @@
       "footnote_markers": [
         "***"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-HDFC-16-014"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-005",
@@ -4715,12 +5032,15 @@
       "footnote_markers": [
         "°°"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-HDFC-16-015"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-006",
@@ -4738,7 +5058,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-007",
@@ -4756,7 +5077,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-008",
@@ -4774,7 +5096,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-009",
@@ -4792,7 +5115,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-010",
@@ -4810,7 +5134,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-011",
@@ -4828,7 +5153,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-012",
@@ -4846,7 +5172,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-013",
@@ -4864,7 +5191,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-014",
@@ -4882,7 +5210,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-015",
@@ -4900,7 +5229,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-016",
@@ -4918,7 +5248,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-017",
@@ -4936,7 +5267,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-018",
@@ -4954,7 +5286,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-019",
@@ -4972,7 +5305,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-020",
@@ -4990,7 +5324,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-021",
@@ -5008,7 +5343,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-022",
@@ -5026,7 +5362,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-14-023",
@@ -5044,7 +5381,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-14-024",
@@ -5062,7 +5400,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-14-025",
@@ -5080,7 +5419,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-15-001",
@@ -5098,7 +5438,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-15-002",
@@ -5116,7 +5457,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-15-003",
@@ -5134,7 +5476,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-15-004",
@@ -5152,7 +5495,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-15-005",
@@ -5170,7 +5514,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-15-006",
@@ -5188,7 +5533,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-16-001",
@@ -5206,7 +5552,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-16-002",
@@ -5224,7 +5571,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-HDFC-16-003",
@@ -5242,7 +5590,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-004",
@@ -5260,7 +5609,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-005",
@@ -5278,7 +5628,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-006",
@@ -5296,7 +5647,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-007",
@@ -5314,7 +5666,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-008",
@@ -5332,7 +5685,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-009",
@@ -5350,7 +5704,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-010",
@@ -5368,7 +5723,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-011",
@@ -5386,7 +5742,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-012",
@@ -5404,7 +5761,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-013",
@@ -5422,7 +5780,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-014",
@@ -5440,7 +5799,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-015",
@@ -5458,7 +5818,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-016",
@@ -5476,7 +5837,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-HDFC-16-017",
@@ -5494,11 +5856,34 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     }
   ],
   "ocr_forced_pages": [
     1
   ],
-  "docling_version": "2.130.0"
+  "docling_version": "2.130.0",
+  "annotation": {
+    "version": "1",
+    "model": "gemini-2.5-flash",
+    "supplements_hash": "4f53cda18c2baa0c",
+    "stats": {
+      "items": 302,
+      "supplements": 0,
+      "non_citable": 66,
+      "deterministic_links": 25,
+      "column_variants": 0,
+      "shown_to_llm": 236,
+      "labelled": 236,
+      "unknown_ids": 0,
+      "duplicates": 0,
+      "variants_rejected": 0,
+      "llm_links_added": 6,
+      "llm_links_rejected": 0,
+      "llm_links_ignored": 0,
+      "missing": 0
+    },
+    "warnings": []
+  }
 }

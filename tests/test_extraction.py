@@ -109,7 +109,7 @@ def test_evidence_ids_are_unique_and_well_formed(bundled):
 
 def test_recorded_markers_always_have_a_footnote(bundled):
     for doc_id, (_, evidence) in bundled.items():
-        leads = {extraction._footnote_marker(i.text) for i in evidence if i.item_type == ItemType.FOOTNOTE}
+        leads = {extraction.footnote_marker(i.text) for i in evidence if i.item_type == ItemType.FOOTNOTE}
         for item in evidence:
             assert set(item.footnote_markers) <= leads, (doc_id, item.evidence_id, item.footnote_markers)
 

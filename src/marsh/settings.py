@@ -42,13 +42,21 @@ BUNDLED_POLICY_NAMES = {
     "POL-CARE": "Care Health Care Supreme",
     "POL-ABHI": "Aditya Birla Health Activ One",
 }
+# Plan variants named in CLAUDE.md section 2 (Care's OPD/Advanced are add-on policies, not variants).
+BUNDLED_POLICY_VARIANTS = {
+    "POL-NIVA": ["Platinum+", "Titanium+"],
+    "POL-HDFC": [],
+    "POL-CARE": [],
+    "POL-ABHI": ["VIP+", "SAVR"],
+}
+CURRENCY_SYMBOL = "₹"  # display only; evidence text keeps the PDF's characters (Care/HDFC render ₹ as a backtick)
 
 # --- Limits ----------------------------------------------------------------------------------------
 MAX_FILE_MB = 25
 MAX_REPAIR_ATTEMPTS = 2
 FULL_CONTEXT_TOKEN_LIMIT = 30000
 LLM_RETRIES = 3  # retries after the first attempt, on API errors/timeouts
-LLM_TIMEOUT_MS = 120_000
+LLM_TIMEOUT_MS = 300_000  # one annotation call covers a whole brochure (HDFC: ~230 items)
 DEFAULT_SUM_INSURED = 1_000_000  # INR 10 lakh; always shown as an assumption
 COMPANY_NAME_MIN_LEN = 2
 COMPANY_NAME_MAX_LEN = 120

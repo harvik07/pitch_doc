@@ -14,6 +14,14 @@ from pydantic import BaseModel, ValidationError
 from marsh.models import (
     SLIDE_TITLES,
     AdvisorAction,
+    AnnotationInfo,
+    AnnotationResponse,
+    EvidenceOverridesFile,
+    ItemLabel,
+    ItemSelector,
+    LabelChanges,
+    OverrideEntry,
+    SupplementSpec,
     AdvisorActionRecord,
     AdvisorActionType,
     AuditReport,
@@ -194,7 +202,25 @@ def make_run_context() -> RunContext:
 
 def make_extracted() -> ExtractedDocument:
     return ExtractedDocument(extraction_version="1", document=make_document(), evidence=[make_evidence()],
-                             ocr_forced_pages=[1], docling_version="0.0-test")
+                             ocr_forced_pages=[1], docling_version="0.0-test",
+                             annotation=AnnotationInfo(version="1", model="gemini-test", supplements_hash="abc",
+                                                       stats={"items": 1}, warnings=["placeholder warning"]))
+
+
+def make_overrides_file() -> EvidenceOverridesFile:
+    return EvidenceOverridesFile(
+        supplements=[SupplementSpec(document_id="POL-NIVA", page=2, text_prefix="Placeholder anchor", layout="grid",
+                                    region=(0, 0, 100, 100), column_splits=[50], header_rows=1, expect_items=2,
+                                    reason="Placeholder reason")],
+        overrides=[OverrideEntry(document_id="POL-NIVA", page=2, text_prefix="Placeholder text",
+                                 evidence_id="EV-NIVA-2-001", labels=LabelChanges(benefit_tier=BenefitTier.OPTIONAL),
+                                 reason="Placeholder reason")],
+    )
+
+
+def make_annotation_response() -> AnnotationResponse:
+    return AnnotationResponse(labels=[ItemLabel(evidence_id="EV-NIVA-2-001", benefit_tier=BenefitTier.BASE,
+                                                linked_footnote_ids=["EV-NIVA-2-070"])])
 
 
 def make_file_validation() -> FileValidation:
@@ -207,6 +233,13 @@ def make_file_validation() -> FileValidation:
 ALL_MODELS = [
     make_fact, make_profile, make_document, make_evidence, make_exposure, make_match, make_recommendation,
     make_deck, make_audit_report, make_run_context, make_extracted, make_file_validation,
+    make_overrides_file, make_annotation_response,
+    lambda: make_extracted().annotation,
+    lambda: make_overrides_file().supplements[0],
+    lambda: make_overrides_file().overrides[0],
+    lambda: make_overrides_file().overrides[0].labels,
+    lambda: make_annotation_response().labels[0],
+    lambda: ItemSelector(document_id="POL-CARE", page=3, text_prefix="Placeholder", item_type=ItemType.TABLE_CELL),
     lambda: make_file_validation().files[0],
     lambda: make_file_validation().infos[0],
     lambda: NameValidation(name="Example Co"),
@@ -297,7 +330,24 @@ def test_evidence_text_is_immutable():
     with pytest.raises(ValidationError):
         item.text = "changed"
     item.benefit_tier = BenefitTier.OPTIONAL  # labels may change
+    item.citable = False
     assert item.text == NIVA_AIR
+
+
+def test_evidence_is_citable_by_default():
+    assert make_evidence().citable is True
+
+
+def test_overrides_can_never_set_text():
+    with pytest.raises(ValidationError):
+        LabelChanges.model_validate({"text": "changed"})
+    with pytest.raises(ValidationError):
+        ItemLabel.model_validate({"evidence_id": "EV-NIVA-2-001", "benefit_tier": "BASE", "text": "changed"})
+
+
+def test_label_changes_record_which_fields_were_given():
+    changes = LabelChanges.model_validate({"variant": None, "citable": False})
+    assert changes.model_fields_set == {"variant", "citable"}
 
 
 def test_exposure_needs_a_basis_fact():

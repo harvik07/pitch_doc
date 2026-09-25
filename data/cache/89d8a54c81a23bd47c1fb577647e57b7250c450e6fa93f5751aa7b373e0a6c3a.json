@@ -6,7 +6,10 @@
     "file_name": "Niva Bupa Product Brochure.pdf",
     "sha256": "89d8a54c81a23bd47c1fb577647e57b7250c450e6fa93f5751aa7b373e0a6c3a",
     "page_count": 2,
-    "variants": [],
+    "variants": [
+      "Platinum+",
+      "Titanium+"
+    ],
     "extraction_method": "docling"
   },
   "evidence": [
@@ -26,7 +29,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-002",
@@ -44,7 +48,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-003",
@@ -62,7 +67,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-004",
@@ -80,7 +86,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-005",
@@ -98,7 +105,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-006",
@@ -116,7 +124,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-007",
@@ -134,7 +143,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-008",
@@ -152,7 +162,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-009",
@@ -170,7 +181,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-010",
@@ -188,7 +200,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-011",
@@ -206,7 +219,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-012",
@@ -224,7 +238,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-013",
@@ -242,7 +257,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-014",
@@ -260,7 +276,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-015",
@@ -278,7 +295,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-016",
@@ -292,11 +310,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-017",
@@ -310,11 +329,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-018",
@@ -332,7 +352,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-019",
@@ -350,7 +371,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-020",
@@ -368,7 +390,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-021",
@@ -386,7 +409,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-022",
@@ -400,11 +424,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-023",
@@ -422,7 +447,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-024",
@@ -440,7 +466,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-025",
@@ -454,11 +481,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-026",
@@ -476,7 +504,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-027",
@@ -490,11 +519,12 @@
       "column_label": null,
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-028",
@@ -512,7 +542,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-029",
@@ -530,7 +561,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-1-030",
@@ -548,7 +580,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-031",
@@ -563,12 +596,15 @@
       "footnote_markers": [
         "1"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-066"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-032",
@@ -583,12 +619,15 @@
       "footnote_markers": [
         "2"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-067"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-033",
@@ -601,12 +640,15 @@
       "row_label": null,
       "column_label": null,
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-066"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-034",
@@ -619,12 +661,15 @@
       "row_label": null,
       "column_label": null,
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-067"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-035",
@@ -639,12 +684,15 @@
       "footnote_markers": [
         "3"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-068"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-036",
@@ -659,12 +707,15 @@
       "footnote_markers": [
         "4"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-069"
+      ],
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-037",
@@ -677,12 +728,15 @@
       "row_label": null,
       "column_label": null,
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-068"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-038",
@@ -697,12 +751,15 @@
       "footnote_markers": [
         "6"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-071"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-039",
@@ -715,12 +772,15 @@
       "row_label": null,
       "column_label": null,
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-071"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-040",
@@ -735,12 +795,15 @@
       "footnote_markers": [
         "5"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-070"
+      ],
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-041",
@@ -755,12 +818,15 @@
       "footnote_markers": [
         "11"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-076"
+      ],
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-042",
@@ -778,7 +844,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-1-043",
@@ -796,7 +863,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling_full_page_ocr"
+      "extraction_method": "docling_full_page_ocr",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-001",
@@ -814,7 +882,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-002",
@@ -832,7 +901,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-003",
@@ -846,11 +916,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-004",
@@ -868,7 +939,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-005",
@@ -886,7 +958,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-006",
@@ -900,11 +973,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-007",
@@ -922,7 +996,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-008",
@@ -936,11 +1011,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-009",
@@ -958,7 +1034,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-010",
@@ -972,11 +1049,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-011",
@@ -994,7 +1072,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-012",
@@ -1008,11 +1087,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-013",
@@ -1030,7 +1110,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-014",
@@ -1044,11 +1125,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-015",
@@ -1062,11 +1144,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-016",
@@ -1084,7 +1167,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-017",
@@ -1098,11 +1182,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-018",
@@ -1120,7 +1205,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-019",
@@ -1134,11 +1220,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-020",
@@ -1153,12 +1240,15 @@
       "footnote_markers": [
         "7"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-072"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-021",
@@ -1173,12 +1263,15 @@
       "footnote_markers": [
         "7"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-072"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-022",
@@ -1196,7 +1289,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-023",
@@ -1209,12 +1303,15 @@
       "row_label": "ReAssure+",
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-067"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-024",
@@ -1227,12 +1324,15 @@
       "row_label": "ReAssure+",
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-066"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-025",
@@ -1250,7 +1350,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-026",
@@ -1263,12 +1364,15 @@
       "row_label": "Booster+",
       "column_label": "Platinum +",
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
-      "variant": null,
+      "linked_footnote_ids": [
+        "EV-NIVA-2-068"
+      ],
+      "benefit_tier": "BASE",
+      "variant": "Platinum+",
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-027",
@@ -1281,12 +1385,15 @@
       "row_label": "Booster+",
       "column_label": "T itanium+",
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
-      "variant": null,
+      "linked_footnote_ids": [
+        "EV-NIVA-2-068"
+      ],
+      "benefit_tier": "BASE",
+      "variant": "Titanium+",
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-028",
@@ -1301,12 +1408,15 @@
       "footnote_markers": [
         "6"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-NIVA-2-071"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-029",
@@ -1321,12 +1431,15 @@
       "footnote_markers": [
         "6"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-071"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-030",
@@ -1344,7 +1457,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-031",
@@ -1358,11 +1472,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Up to INR 15 Lac Base Sum Insured",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-032",
@@ -1376,11 +1491,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Above INR 15 Lac Base Sum Insured",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-033",
@@ -1398,7 +1514,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-034",
@@ -1412,11 +1529,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-035",
@@ -1434,7 +1552,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-036",
@@ -1448,11 +1567,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-037",
@@ -1470,7 +1590,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-038",
@@ -1485,12 +1606,15 @@
       "footnote_markers": [
         "8"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-073"
+      ],
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-039",
@@ -1505,12 +1629,15 @@
       "footnote_markers": [
         "8"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-073"
+      ],
+      "benefit_tier": "OPTIONAL",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Up to INR 5 Lac Base Sum Insured",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-040",
@@ -1525,12 +1652,15 @@
       "footnote_markers": [
         "8"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-073"
+      ],
+      "benefit_tier": "OPTIONAL",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Between INR 7.5 Lacs to INR 15 Lac Base Sum Insured",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-041",
@@ -1545,12 +1675,15 @@
       "footnote_markers": [
         "8"
       ],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-073"
+      ],
+      "benefit_tier": "OPTIONAL",
       "variant": null,
-      "si_condition": null,
+      "si_condition": "Above 15 Lac Base Sum Insured",
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-042",
@@ -1564,11 +1697,12 @@
       "column_label": "Variant",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-043",
@@ -1582,11 +1716,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-044",
@@ -1600,11 +1735,12 @@
       "column_label": "Variant",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-045",
@@ -1618,11 +1754,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-046",
@@ -1636,11 +1773,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-047",
@@ -1654,11 +1792,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-048",
@@ -1672,11 +1811,12 @@
       "column_label": "Variant",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-049",
@@ -1689,12 +1829,16 @@
       "row_label": "Safeguard+",
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-070",
+        "EV-NIVA-2-069"
+      ],
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-050",
@@ -1708,11 +1852,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-051",
@@ -1726,11 +1871,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-052",
@@ -1744,11 +1890,12 @@
       "column_label": "Variant",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-053",
@@ -1762,11 +1909,12 @@
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
       "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "benefit_tier": "OPTIONAL",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-054",
@@ -1779,12 +1927,15 @@
       "row_label": "Tiered Network",
       "column_label": "Variant",
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-076"
+      ],
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-055",
@@ -1797,12 +1948,15 @@
       "row_label": "Tiered Network",
       "column_label": "Platinum + | T itanium+",
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-076"
+      ],
+      "benefit_tier": "ADDON",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-056",
@@ -1820,7 +1974,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-057",
@@ -1838,7 +1993,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-058",
@@ -1853,12 +2009,15 @@
       "footnote_markers": [
         "10"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-NIVA-2-075"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-059",
@@ -1871,12 +2030,15 @@
       "row_label": null,
       "column_label": null,
       "footnote_markers": [],
-      "linked_footnote_ids": [],
-      "benefit_tier": "UNKNOWN",
+      "linked_footnote_ids": [
+        "EV-NIVA-2-074"
+      ],
+      "benefit_tier": "BASE",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-060",
@@ -1891,12 +2053,15 @@
       "footnote_markers": [
         "9"
       ],
-      "linked_footnote_ids": [],
+      "linked_footnote_ids": [
+        "EV-NIVA-2-074"
+      ],
       "benefit_tier": "UNKNOWN",
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-2-061",
@@ -1914,7 +2079,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-2-062",
@@ -1932,7 +2098,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-2-063",
@@ -1950,7 +2117,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-2-064",
@@ -1968,7 +2136,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-2-065",
@@ -1986,7 +2155,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-066",
@@ -2004,7 +2174,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-067",
@@ -2022,7 +2193,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-068",
@@ -2040,7 +2212,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-069",
@@ -2058,7 +2231,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-070",
@@ -2076,7 +2250,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-071",
@@ -2094,7 +2269,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-072",
@@ -2112,7 +2288,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-073",
@@ -2130,7 +2307,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-074",
@@ -2148,7 +2326,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-075",
@@ -2166,7 +2345,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-076",
@@ -2184,7 +2364,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-077",
@@ -2202,7 +2383,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-078",
@@ -2220,7 +2402,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": false
     },
     {
       "evidence_id": "EV-NIVA-2-079",
@@ -2238,7 +2421,8 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     },
     {
       "evidence_id": "EV-NIVA-2-080",
@@ -2256,11 +2440,34 @@
       "variant": null,
       "si_condition": null,
       "numbers": [],
-      "extraction_method": "docling"
+      "extraction_method": "docling",
+      "citable": true
     }
   ],
   "ocr_forced_pages": [
     1
   ],
-  "docling_version": "2.130.0"
+  "docling_version": "2.130.0",
+  "annotation": {
+    "version": "1",
+    "model": "gemini-2.5-flash",
+    "supplements_hash": "4f53cda18c2baa0c",
+    "stats": {
+      "items": 123,
+      "supplements": 0,
+      "non_citable": 28,
+      "deterministic_links": 17,
+      "column_variants": 31,
+      "shown_to_llm": 95,
+      "labelled": 95,
+      "unknown_ids": 0,
+      "duplicates": 0,
+      "variants_rejected": 0,
+      "llm_links_added": 13,
+      "llm_links_rejected": 0,
+      "llm_links_ignored": 2,
+      "missing": 0
+    },
+    "warnings": []
+  }
 }

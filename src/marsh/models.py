@@ -66,6 +66,7 @@ class Confidence(StrEnum):
 
 class ExtractionMethod(StrEnum):
     DOCLING = "docling"
+    DOCLING_FULL_PAGE_OCR = "docling_full_page_ocr"  # page had < 20 text-layer words: text comes from OCR
     PYMUPDF_FALLBACK = "pymupdf_fallback"
     MARKDOWN = "markdown"  # marsh_profile.md chunks
 
@@ -196,11 +197,69 @@ class FinalStatus(StrEnum):
     FAILED = "FAILED"
 
 
+class IssueCode(StrEnum):
+    MISSING_COMPANY_NAME = "MISSING_COMPANY_NAME"
+    COMPANY_NAME_TOO_SHORT = "COMPANY_NAME_TOO_SHORT"
+    COMPANY_NAME_TOO_LONG = "COMPANY_NAME_TOO_LONG"
+    NO_DOCUMENTS = "NO_DOCUMENTS"
+    FILE_UNREADABLE = "FILE_UNREADABLE"
+    EMPTY_FILE = "EMPTY_FILE"
+    FILE_TOO_LARGE = "FILE_TOO_LARGE"
+    NOT_PDF = "NOT_PDF"
+    CORRUPT_PDF = "CORRUPT_PDF"
+    ENCRYPTED_PDF = "ENCRYPTED_PDF"
+    DUPLICATE_FILE = "DUPLICATE_FILE"  # info, not an error: the first copy is used
+
+
+class IssueSeverity(StrEnum):
+    ERROR = "error"
+    INFO = "info"
+
+
 # --- Base ------------------------------------------------------------------------------------------
 
 
 class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+
+# --- Input validation (CLAUDE.md sections 6.1 and 11) ----------------------------------------------
+
+
+class ValidationIssue(_Model):
+    code: IssueCode
+    message: str  # friendly, shown to the user as-is
+    severity: IssueSeverity = IssueSeverity.ERROR
+    file_name: str | None = None
+
+
+class NameValidation(_Model):
+    name: str | None = None  # trimmed name, set only when valid
+    errors: list[ValidationIssue] = Field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return self.name is not None and not self.errors
+
+
+class ValidatedFile(_Model):
+    file_name: str
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    size_bytes: int = Field(gt=0)
+    page_count: int = Field(gt=0)
+    path: str | None = None  # set when the input was a path on disk
+    cached: bool = False  # an extraction for this sha256 exists -> reuse it
+    content: bytes | None = Field(default=None, exclude=True, repr=False)  # uploads only; never serialised
+
+
+class FileValidation(_Model):
+    files: list[ValidatedFile] = Field(default_factory=list)
+    errors: list[ValidationIssue] = Field(default_factory=list)
+    infos: list[ValidationIssue] = Field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return bool(self.files) and not self.errors
 
 
 # --- Company ---------------------------------------------------------------------------------------
@@ -267,6 +326,16 @@ class EvidenceItem(_Model):
     si_condition: str | None = None
     numbers: list[NormalisedNumber] = Field(default_factory=list)
     extraction_method: ExtractionMethod
+
+
+class ExtractedDocument(_Model):
+    """Cache file format: data/cache/<sha256>.json."""
+
+    extraction_version: str  # bump in extraction.py to invalidate old caches
+    document: PolicyDocument
+    evidence: list[EvidenceItem]
+    ocr_forced_pages: list[int] = Field(default_factory=list)
+    docling_version: str | None = None
 
 
 # --- Exposures, matching, recommendation -----------------------------------------------------------

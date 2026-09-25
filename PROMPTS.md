@@ -297,7 +297,7 @@ render_ppt.py
 - Slide 3 is a real table. Qualifier footnotes are rendered small at the bottom of the slide they belong to, and collected on slide 5.
 - Assumption and unverified labels: company facts with ASSUMPTION status get "(Assumption)" and slide 1 gets a small "Company details are AI-generated and unverified" note.
 - Speaker notes: claim_id → evidence_id (doc, page) for every claim on that slide.
-- Only claims with state AUDITED and a status other than REMOVED/UNSUPPORTED/CONTRADICTED are rendered (ADVISOR_ATTESTED is rendered with the label).
+- Only claims whose state isn't REMOVED and whose audit status isn't UNSUPPORTED or CONTRADICTED are rendered (ADVISOR_ATTESTED is rendered with its label).
 - structural_qa(pptx_path): reopen the file and assert 5 slides, expected titles in order, no "{{" left, bullet counts within limits, exactly one policy name in the slide 4 title area, notes present on every slide, file > 10 KB. Raise RenderQAError with details.
 - render(run_context) runs the gate first and refuses if FAIL.
 Tests: the gate cases, and a render of a hand-built approved deck that passes QA. Update PROGRESS.md, commit.

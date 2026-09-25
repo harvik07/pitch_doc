@@ -35,6 +35,13 @@ BUNDLED_POLICY_FILES = {
     "POL-CARE": "Care Health Product Brochure.pdf",
     "POL-ABHI": "ABHI Product Brochure.pdf",
 }
+# Product names as stated in CLAUDE.md section 2.
+BUNDLED_POLICY_NAMES = {
+    "POL-NIVA": "Niva Bupa ReAssure 2.0",
+    "POL-HDFC": "HDFC ERGO Optima Secure+",
+    "POL-CARE": "Care Health Care Supreme",
+    "POL-ABHI": "Aditya Birla Health Activ One",
+}
 
 # --- Limits ----------------------------------------------------------------------------------------
 MAX_FILE_MB = 25

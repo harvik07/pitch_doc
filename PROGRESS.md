@@ -16,7 +16,7 @@
   - One repair retry with the validation errors fed back (`prompts/_validation_retry.md`) → `LLMOutputError`.
   - Every API attempt is logged to `outputs/<run_id>/llm_calls.jsonl` (`outputs/_adhoc/` without a run_id).
 - `decision_log.py` (append-only JSONL) and `run_context.py` (`RUN-YYYYMMDD-HHMMSS-xxxx`, strict ID check, atomic save/load).
-- Tests: 89 passing (`pytest -q`) — model round-trips for every model class plus invariants; llm.py with a fake client; run context and decision log; settings, the brochure mapping and the cache whitelist.
+- Tests at the time: 89 passing — model round-trips for every model class plus invariants; llm.py with a fake client; run context and decision log; settings, the brochure mapping and the cache whitelist.
 - `scripts/smoke_llm.py` + `prompts/smoke_test.md`.
 
 ### Prompt 0 follow-up: decisions on the open items (2026-09-25)
@@ -25,12 +25,44 @@
 - `.gitignore`: `data/cache/*` is ignored, except `<sha>.json` and `matrix_<sha>_*.json` for the 4 bundled brochures, whitelisted by SHA-256. Upload caches stay ignored. A test fails if a brochure changes without the whitelist being updated.
 - `settings.BUNDLED_POLICY_FILES` maps POL-NIVA / POL-HDFC / POL-CARE / POL-ABHI to the original file names.
 
+### Prompt 1: validation + policy extraction (2026-09-26)
+- PROMPTS.md Prompt 9: the one rendering line now reads "Only claims whose state isn't REMOVED and whose audit status isn't UNSUPPORTED or CONTRADICTED are rendered (ADVISOR_ATTESTED is rendered with its label)." Nothing else in PROMPTS.md changed.
+- `validation.py`: `validate_company_name(name) -> NameValidation` and `validate_files(files) -> FileValidation`. Both return structured issues (`IssueCode` + friendly message), never raise, and log every issue.
+  - Company name checks: missing, shorter than 2 characters, longer than 120.
+  - File checks: no documents; unreadable; empty; over 25 MB (checked on disk before reading); not a PDF (`.pdf` extension and a `%PDF-` header); corrupt (PyMuPDF can't open it, or it has no pages); encrypted (needs a password).
+  - A duplicate by SHA-256 is an INFO issue, and the file is used once. `cached=True` when `data/cache/<sha>.json` exists.
+  - Inputs: paths, `(name, bytes)` tuples, or upload objects with `.name` + `.getvalue()`. Upload bytes are kept in `ValidatedFile.content`, which is never serialised.
+- `extraction.py`: `extract_document(path) -> (PolicyDocument, list[EvidenceItem])`, cached at `data/cache/<sha256>.json`.
+  - **Docling 2.130**, with OCR on (auto engine → RapidOCR with the torch backend on Windows) and table structure on.
+  - Pages whose text layer has < 20 words are re-converted alone with `OcrMode.FULL_PAGE`. In this Docling version the mode applies per conversion, so each page gets its own conversion via `page_range`. This applies to Niva p1 and HDFC's cover (p1). Their items are marked `extraction_method=docling_full_page_ocr`.
+  - If Docling fails, PyMuPDF text blocks are used instead (`pymupdf_fallback`).
+  - Body + furniture layers are read, which is where ABHI and Niva keep their footnotes. Evidence IDs are `EV-<CODE>-<page>-<seq>`. Bundled files map to POL-NIVA/HDFC/CARE/ABHI by file name; uploads get `POL-UPL-<sha[:6]>`.
+  - Evidence rules, all derived from reading the four real extractions (see Decisions):
+    - Table cells carry row and column labels. Group rows ("Benefits", "Optional Benefits") become sub-sections, and a value spanning several rows is emitted once per row.
+    - `•` and pipe lists are split into one item per entry.
+    - Packed footnote paragraphs are split per note.
+    - Body-text footnote references are recorded.
+    - Picture text is joined line by line and dropped when it duplicates a table.
+- `scripts/extract_policies.py` extracts the 4 brochures. `scripts/dump_evidence.py` writes `data/cache/evidence_review.md` (git-ignored). The 4 bundled caches are committed; see the whitelist in `.gitignore`.
+- Result:
+
+  | Document | Items | Footnotes |
+  |---|---|---|
+  | NIVA | 123 | 12 |
+  | HDFC | 302 | 13 |
+  | CARE | 152 | 14 |
+  | ABHI | 114 | 10 |
+
+  - Every footnote except Niva's general "*All limits…" table note is referenced by at least one body item.
+  - OCR on Niva p1 recovers "Lock the Clock(1)", "ReAssure Forever(2)", "Booster+(3)", "Safeguard+(4)", "Live Healthy (6)", "All non-payables covered(5)" and "Hospitalisation covered for 2 hours and more (11)".
+- Tests: 175 passing (`pytest -q`). Prompt 1's required checks run on the committed cache; the rule tests use placeholder text with Docling mocked.
+- Extraction is deterministic: the real `scripts/extract_policies.py` run (≈10 min on CPU, cold) produced evidence identical to the development runs.
+- Vertex AI is now enabled: `scripts/smoke_llm.py` returns `SmokeResult(echo='marsh', sum=5)` (gemini-2.5-flash, us-central1). That completes Prompt 0's last done-check.
+
 ## Next
-- **Blocked on you:** enable the Vertex AI API (`aiplatform.googleapis.com`) in GCP project `project-9b0764e6-c19a-4a5d-988`, then rerun `.venv\Scripts\python scripts\smoke_llm.py`. The first run returned `403 SERVICE_DISABLED`; the wrapper reported it correctly (not retried, logged).
-- Prompt 1 (waiting for your go): `validation.py` + `extraction.py` (Docling with OCR, PyMuPDF fallback), `scripts/extract_policies.py`, `scripts/dump_evidence.py`.
-  - Map bundled files to document IDs via `settings.BUNDLED_POLICY_FILES`.
-  - Write caches as `data/cache/<sha256>.json` so the whitelist picks them up.
-  - Check `git status` shows exactly the 4 bundled cache files as committable.
+- Prompt 2 (waiting for your go): `annotate.py` + `evidence_store.py` + `data/evidence_overrides.yaml`.
+  - Deterministic footnote linking can use `footnote_markers` directly: every recorded marker has a matching footnote lead in the same document.
+  - Fill `PolicyDocument.variants` from the annotated items.
 
 ## Decisions
 - Exposure IDs use the `EXP-` prefix (CLAUDE.md §5 updated from `EX-`).
@@ -40,15 +72,38 @@
   - ADVISOR ⇒ advisor_reason is set
   - decided ⇒ exactly one selected_policy_id
 - COVERED_VIA_ADDON accepts evidence with `benefit_tier` ADDON **or** OPTIONAL (CLAUDE.md §6.6 updated).
-- The audit-status enum has no FAIL or REMOVED. "Failed" means UNSUPPORTED or CONTRADICTED, and REMOVED exists only as `Claim.state`. PROMPTS.md Prompt 9 says "a status other than REMOVED/UNSUPPORTED/CONTRADICTED". Read it as: claim state ≠ REMOVED and audit status ∉ {UNSUPPORTED, CONTRADICTED}. (PROMPTS.md was not edited.)
+- The audit-status enum has no FAIL or REMOVED. "Failed" means UNSUPPORTED or CONTRADICTED, and REMOVED exists only as `Claim.state`. PROMPTS.md Prompt 9's rendering line was reworded to say exactly that.
 - `EvidenceItem.text` is a frozen field: assigning to it raises.
 - **For Prompts 7 and 9 (WM claims):**
   - Prompt 7: the pitch may use all four approved Marsh claims, WM-01 to WM-04. A deck that passes the gate (PASS, or REVIEW_REQUIRED with every item acknowledged) has no UNSUPPORTED or CONTRADICTED material claims, so export implies their conditions.
   - Prompt 9: `gate.py` must re-check each WM claim's condition from `marsh_profile.md` §4 and remove any WM claim whose condition isn't met.
   - `marsh_profile.md` stays unedited.
+- **Extraction (Prompt 1):**
+  - **Item text:** always verbatim — a piece of the extracted text, or wrapped lines joined by a space.
+    - Glyph-name debris ("circlesolid" = HDFC's bullet) counts as a bullet separator.
+    - Dropped as noise: bare step numbers ("1", "2"), items with fewer than 2 ASCII letters or digits (icon OCR such as "个", "a"), and page numbers.
+  - **Sections:**
+    - Normal items get the nearest heading above them that overlaps horizontally. This matters because Docling's reading order interleaves columns on these brochures.
+    - Otherwise an item gets the last heading seen.
+    - Footnotes get the section "Footnotes"; headers and footers get "Page header" / "Page footer".
+  - **Tables:**
+    - `row_label` = the row's label cell; a row with no label cell continues the row above.
+    - `column_label` = the header texts over the cell's columns, joined with " | " for spanned columns.
+    - A value spanning rows is emitted once per spanned row, e.g. HDFC p11 "Up to sum insured" for AYUSH, Home Healthcare, etc.
+    - An unflagged first row counts as the header only when it has one short label per column in a 3+ column table (HDFC p5).
+  - **Footnotes:**
+    - A paragraph is split at sentence ends (`. ; : ! ?` or a quote, then whitespace) followed by a footnote lead: `(n)`, a symbol marker, a backtick followed by a capital letter, or `n` followed by a capitalised word or a digit.
+    - A closing bracket is not a sentence end, so HDFC's "(…) + Secure Benefit" formula stays whole.
+    - A standalone marker-led text counts as a footnote only in footer zones (the lowest 22% of the page, or furniture) and with at least 3 words.
+  - **Footnote references:**
+    - CLAUDE.md §2 describes the PyMuPDF text-layer form, "Care OPD9". Docling returns "Care OPD 9", "Maternity Cover %", "TM*", "Tenure 4`/5`". All of these forms are detected.
+    - A reference is kept only if the same document has a footnote with that marker.
+    - Amounts are excluded: "INR 1 Lac", "30%", "10,000+", "24X7", "VIP+", "`15 lac", and "[`]" (the HDFC rupee unit).
+    - Markers in a table cell's row label also apply to the cell, e.g. "(7) Annual Health Checkup (Day 1)" → its value cell.
+  - The three validation rejections Prompt 1 names are in `tests/test_extraction.py`; the other validation tests are in `tests/test_validation.py`.
 
 ## Model decisions
-Models that CLAUDE.md §5 names but doesn't define. One line each; `models.py` is authoritative.
+Models that CLAUDE.md §5 names but doesn't define, plus models added since. One line each; `models.py` is authoritative.
 - **NormalisedNumber**: `value: float, unit: NumberUnit (INR|PERCENT|DAYS|MONTHS|YEARS|MULTIPLIER|COUNT|HOURS), raw: str, span: (start, end)`
 - **Limitation**: `type: LimitationType, description: str, evidence_ids: list[EV-]`
 - **NumberCheck**: `result: PASS|FAIL|NA, details: str`
@@ -60,11 +115,24 @@ Models that CLAUDE.md §5 names but doesn't define. One line each; `models.py` i
 - **PitchDeck**: `run_id, company_name, slides (exactly 5, fixed titles, unique claim IDs), recommended: RecommendedPolicyBlock, sources (code), disclaimer (constant)`. It also has `all_claims()` and `get_claim()` helpers.
 - **AdvisorActionRecord**: `timestamp, action: CLAIM_APPROVED|CLAIM_EDITED|CLAIM_REMOVED|CLAIM_ATTESTED|REVIEW_ITEM_ACKNOWLEDGED|RECOMMENDATION_DECIDED|DECK_APPROVED|DECK_REJECTED, target_id, note`
 - **final_status (FinalStatus)**: `IN_PROGRESS | AWAITING_REVIEW | EXPORTED | REJECTED | FAILED`
-- **ExtractionMethod**: `docling | pymupdf_fallback | markdown` (markdown = the `MARSH` chunks of marsh_profile.md)
+- **ExtractionMethod**: `docling | docling_full_page_ocr | pymupdf_fallback | markdown` (docling_full_page_ocr = the page's text came from forced OCR; markdown = the `MARSH` chunks of marsh_profile.md)
+- **ValidationIssue**: `code: IssueCode, message (friendly), severity: error|info, file_name`
+- **NameValidation**: `name (trimmed; set only when valid), errors`, plus an `.ok` property
+- **ValidatedFile**: `file_name, sha256, size_bytes, page_count, path (if given a path), cached, content (upload bytes, never serialised)`
+- **FileValidation**: `files, errors, infos`, plus an `.ok` property (≥1 file and no errors)
+- **ExtractedDocument** (cache file format): `extraction_version, document: PolicyDocument, evidence: list[EvidenceItem], ocr_forced_pages, docling_version`
 
 ## Known issues
-- The smoke test is blocked until the Vertex AI API is enabled (see Next).
 - google-genai installed as 2.25.0 (a newer major version than the 1.67 used to plan). The API used is unchanged: `response_json_schema`, `HttpOptions.timeout` in ms, `errors.ClientError/ServerError(code, response_json)`, and the SDK does no retries by default.
+- **OCR quality:**
+  - Niva p1's decorative wheel yields fragments ("Unli", "aim", "sing").
+  - The Niva headline reads "ReAssufe2.0". The PDF text gives "Platinum +" / "T itanium+".
+  - All OCR-derived items on forced pages are flagged `docling_full_page_ocr`.
+- **Care p3 table:** Docling's table garbles two rows (Wellness Benefit, Instant Cover). The correctly ordered picture text is kept alongside the cells. The renewal-discount grid ("No. of days in a year … 270 … 30% …") sits inside one cell, and its day↔discount pairing is lost.
+- **Evidence IDs follow extraction order.** Changing the rules and bumping `EXTRACTION_VERSION` can renumber them, so re-check `data/evidence_overrides.yaml` (Prompt 2) after any re-extraction.
+- **The committed caches come from docling 2.130.0 + RapidOCR 3.9.2 (torch, CPU).** Other versions may extract slightly differently; extraction only reruns if the cache is missing or its version is stale.
+- `PolicyDocument.variants` stays empty until annotation (Prompt 2). `EvidenceItem.numbers` stays empty until `numbers.py` (Prompt 3).
+- A few items at the very top of a page inherit the previous page's last heading as their section (e.g. HDFC p8 "Note:").
 
 ## Installed versions
-google-genai 2.25.0 · pydantic 2.13.5 · docling 2.130.0 · pymupdf 1.28.2 · python-pptx 1.0.2 · python-docx 1.2.0 · streamlit 1.64.0 · pyyaml 6.0.3 · python-dotenv 1.2.3 · pytest 9.1.1 · tenacity 9.1.4 · torch 2.14.0
+google-genai 2.25.0 · pydantic 2.13.5 · docling 2.130.0 · docling-core 2.99.0 · rapidocr 3.9.2 · pymupdf 1.28.2 · python-pptx 1.0.2 · python-docx 1.2.0 · streamlit 1.64.0 · pyyaml 6.0.3 · python-dotenv 1.2.3 · pytest 9.1.1 · tenacity 9.1.4 · torch 2.14.0

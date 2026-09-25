@@ -33,13 +33,18 @@ from marsh.models import (
     DecidedBy,
     EvidenceItem,
     Exposure,
+    ExtractedDocument,
     ExtractionMethod,
     FactField,
     FactStatus,
+    FileValidation,
     FinalStatus,
+    IssueCode,
+    IssueSeverity,
     ItemType,
     Limitation,
     LimitationType,
+    NameValidation,
     NormalisedNumber,
     NumberCheck,
     NumberUnit,
@@ -53,6 +58,8 @@ from marsh.models import (
     RuleTableRow,
     RunContext,
     SpecialCase,
+    ValidatedFile,
+    ValidationIssue,
     from_json,
     load_json,
     save_json,
@@ -185,9 +192,24 @@ def make_run_context() -> RunContext:
     )
 
 
+def make_extracted() -> ExtractedDocument:
+    return ExtractedDocument(extraction_version="1", document=make_document(), evidence=[make_evidence()],
+                             ocr_forced_pages=[1], docling_version="0.0-test")
+
+
+def make_file_validation() -> FileValidation:
+    issue = ValidationIssue(code=IssueCode.DUPLICATE_FILE, message="Placeholder message",
+                            severity=IssueSeverity.INFO, file_name="copy.pdf")
+    return FileValidation(files=[ValidatedFile(file_name="a.pdf", sha256=SHA, size_bytes=10, page_count=1,
+                                               path="a.pdf")], infos=[issue])
+
+
 ALL_MODELS = [
     make_fact, make_profile, make_document, make_evidence, make_exposure, make_match, make_recommendation,
-    make_deck, make_audit_report, make_run_context,
+    make_deck, make_audit_report, make_run_context, make_extracted, make_file_validation,
+    lambda: make_file_validation().files[0],
+    lambda: make_file_validation().infos[0],
+    lambda: NameValidation(name="Example Co"),
     lambda: make_rule_rows()[0],
     lambda: make_slides()[2],
     lambda: make_match().limitations[0],

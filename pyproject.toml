@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "marsh-pitch-studio"
+version = "0.1.0"
+description = "Grounded marketing-pitch generator and audit layer for the Marsh internship case study."
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-m \"not llm\""
+markers = [
+    "llm: calls the real Gemini API (skipped by default; run with -m llm)",
+]

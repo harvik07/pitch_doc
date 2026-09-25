@@ -1,0 +1,11 @@
+pydantic>=2
+google-genai
+docling
+pymupdf
+python-pptx
+python-docx
+streamlit
+pyyaml
+python-dotenv
+pytest
+tenacity

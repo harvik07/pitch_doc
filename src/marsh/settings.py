@@ -28,6 +28,14 @@ DELIVERABLES_DIR = ROOT / "deliverables"
 DOCS_DIR = ROOT / "docs"
 BRIEF_PATH = DOCS_DIR / "Marsh_Internship_Case_Study.pdf"
 
+# Bundled brochures keep their original file names: document_id -> file name in POLICIES_DIR.
+BUNDLED_POLICY_FILES = {
+    "POL-NIVA": "Niva Bupa Product Brochure.pdf",
+    "POL-HDFC": "HDFC Product Brochure.pdf",
+    "POL-CARE": "Care Health Product Brochure.pdf",
+    "POL-ABHI": "ABHI Product Brochure.pdf",
+}
+
 # --- Limits ----------------------------------------------------------------------------------------
 MAX_FILE_MB = 25
 MAX_REPAIR_ATTEMPTS = 2

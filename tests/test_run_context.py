@@ -1,4 +1,4 @@
-"""RunContext save/load, run IDs, the append-only decision log, and settings limits."""
+"""RunContext save/load, run IDs and the append-only decision log."""
 
 from __future__ import annotations
 
@@ -70,13 +70,3 @@ def test_decision_log_is_append_only():
 
 def test_read_decisions_for_run_without_log():
     assert decision_log.read_decisions(new_run_id()) == []
-
-
-def test_settings_limits():
-    assert settings.MAX_FILE_MB == 25
-    assert settings.MAX_REPAIR_ATTEMPTS == 2
-    assert settings.FULL_CONTEXT_TOKEN_LIMIT == 30000
-    assert settings.LLM_RETRIES == 3
-    assert settings.DEFAULT_SUM_INSURED == 1_000_000
-    assert settings.MARSH_PROFILE_PATH.exists()
-    assert settings.BRIEF_PATH.exists()

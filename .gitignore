@@ -1,8 +1,24 @@
 .env
 .venv/
 outputs/
-data/cache/
 __pycache__/
 *.pyc
 .pytest_cache/
 *.egg-info/
+
+# Evidence / coverage-matrix cache: ignored, except the 4 bundled brochures, which are committed
+# so the standalone audit and a fresh clone work without re-running Docling.
+# Keyed by the brochure's SHA-256: <sha>.json (evidence) and matrix_<sha>_<SI>.json (coverage matrix).
+data/cache/*
+# POL-NIVA  Niva Bupa Product Brochure.pdf
+!data/cache/89d8a54c81a23bd47c1fb577647e57b7250c450e6fa93f5751aa7b373e0a6c3a.json
+!data/cache/matrix_89d8a54c81a23bd47c1fb577647e57b7250c450e6fa93f5751aa7b373e0a6c3a_*.json
+# POL-HDFC  HDFC Product Brochure.pdf
+!data/cache/706e4039bf8aa210dc09c76d6190e764355ebd7dc86445f9a4c895dee6d7c4af.json
+!data/cache/matrix_706e4039bf8aa210dc09c76d6190e764355ebd7dc86445f9a4c895dee6d7c4af_*.json
+# POL-CARE  Care Health Product Brochure.pdf
+!data/cache/32ba87044cf98f1a7b446b24024c6fb3b8738fcb1f7ccd6bf34a78a9ab2cdf5b.json
+!data/cache/matrix_32ba87044cf98f1a7b446b24024c6fb3b8738fcb1f7ccd6bf34a78a9ab2cdf5b_*.json
+# POL-ABHI  ABHI Product Brochure.pdf
+!data/cache/85cdd5a54cc5d7bda369332eeb4987540d7d29c491a3ce5a3fb80c2a0aff8372.json
+!data/cache/matrix_85cdd5a54cc5d7bda369332eeb4987540d7d29c491a3ce5a3fb80c2a0aff8372_*.json

@@ -248,7 +248,7 @@ Per claim:
 4. `MARSH_STATEMENT` → audited against `data/marsh/marsh_profile.md` only (chunked into evidence items with `document_id="MARSH"`). Insurer statistics must never appear on the Why Marsh slide (code check: slide 2 claims must be MARSH_STATEMENT or NON_FACTUAL).
 5. Policy claims → candidate evidence = the **full evidence set of the claimed policy** if it's under `settings.FULL_CONTEXT_TOKEN_LIMIT` (all 4 brochures are), otherwise keyword retrieval over the section/row labels and text. The audit LLM returns status, supporting evidence IDs, verbatim quotes and required qualifier. Then **deterministic checks override the LLM**:
    - quote check: each quote is a normalised substring of its evidence text, else downgrade VERIFIED → NEEDS_REVIEW
-   - evidence IDs belong to the claimed policy, else FAIL
+   - evidence IDs belong to the claimed policy, else UNSUPPORTED (another policy's evidence can't support the claim)
    - number check (`numbers.py`): every number in the claim must equal a number in the supporting evidence (same unit). If a same-unit number exists but differs → **CONTRADICTED**. If no number is found → UNSUPPORTED.
    - policy reference check: the product name in the claim matches `policy_id`
    - if supporting evidence has linked footnotes or `si_condition`/`variant`/`ADDON` tier, and the claim omits that qualifier → VERIFIED_WITH_QUALIFIER, and `required_qualifier` must be rendered on the slide as a footnote.

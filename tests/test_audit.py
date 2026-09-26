@@ -469,3 +469,32 @@ def test_a_qualifier_stated_in_the_rows_other_cell_is_not_missing(monkeypatch, s
 def test_footnote_sentences_are_not_cut_at_enumerators():
     text = "(6) Eligible person - a. All members except son/daughter & b. Any member aged 18 years. Next sentence."
     assert audit._first_sentence(text) == "Eligible person - a. All members except son/daughter & b. Any member aged 18 years."
+
+
+def test_re_auditing_an_unchanged_deck_uses_the_cache(monkeypatch, sources):
+    import dataclasses
+
+    run_id = "RUN-20260926-000000-0004"
+    cached = dataclasses.replace(sources, run_id=run_id, _cache=None)
+    texts = [NIVA_AIR, "Home care is covered."]
+
+    def slides():
+        return [PitchSlide(slide_number=4, title="Recommended Policy",
+                           bullets=[claim(t, n=n) for n, t in enumerate(texts, 1)])]
+
+    auditor = FakeAuditor({NIVA_AIR: verified("EV-NIVA-2-015", quote=NIVA_AIR)})
+    monkeypatch.setattr(audit, "call_structured", auditor)
+    first = audit.audit_deck(slides(), cached, run_id)
+    assert len(auditor.calls) == 1 and (settings.OUTPUTS_DIR / run_id / "audit_cache.json").exists()
+    fresh = dataclasses.replace(sources, run_id=run_id, _cache=None)  # a new process: the cache comes from disk
+    second = audit.audit_deck(slides(), fresh, run_id)
+    assert len(auditor.calls) == 1 and fresh.cache_hits == 2 and second == first  # 0 LLM calls, identical report
+
+    changed = slides()
+    changed[0].bullets[1].text = "Home care is covered up to the sum insured."
+    audit.audit_deck(changed, fresh, run_id)
+    assert len(auditor.calls) == 2 and "CL-001" not in auditor.calls[1]["variables"]["claims"]  # only the new text
+    dirty = slides()
+    dirty[0].bullets[0].state = ClaimState.DIRTY
+    audit.audit_deck(dirty, fresh, run_id)
+    assert "CL-001" in auditor.calls[2]["variables"]["claims"]  # a DIRTY claim is always re-audited

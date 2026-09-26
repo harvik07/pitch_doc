@@ -57,7 +57,10 @@ KEYWORD_ITEMS = 12
 
 
 def is_repairable(claim: Claim, result: AuditResult) -> bool:
+    """A failing claim that hasn't been through repair yet (an edited claim gets a fresh result)."""
     if result.status not in FAILING or claim.state == ClaimState.REMOVED or claim.slide_number == 2:
+        return False
+    if result.repair_history:
         return False
     if claim.claim_type in (ClaimType.MARSH_STATEMENT, ClaimType.NON_FACTUAL):
         return False

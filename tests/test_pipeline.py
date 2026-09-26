@@ -208,10 +208,10 @@ def test_a_saved_selection_is_reused_unless_reselect_or_the_compared_set_changes
     calls = len(bundled_cache.prompts)
     assert pipeline.select_run(ctx).selection == ctx.selection and len(bundled_cache.prompts) == calls
     pipeline.select_run(ctx, reselect=True)
-    assert len(bundled_cache.prompts) == calls + 2  # the selection call + the audit of its claims
+    assert len(bundled_cache.prompts) == calls + 1  # the selection call; its (unchanged) claims' audit is cached
     pipeline.match_run(ctx, ["POL-NIVA"])  # the compared set changed: the old selection doesn't apply
     pipeline.select_run(ctx)
-    assert len(bundled_cache.prompts) == calls + 4 and ctx.selection.compared_policy_ids == ["POL-NIVA"]
+    assert len(bundled_cache.prompts) == calls + 2 and ctx.selection.compared_policy_ids == ["POL-NIVA"]
     events = [d["event"] for d in read_decisions(ctx.run_id)]
     assert "policy_selection_reused" in events and events.count("policy_reselected") == 2
 

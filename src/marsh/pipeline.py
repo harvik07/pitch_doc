@@ -214,7 +214,7 @@ def audit_run(ctx: RunContext, *, repair: bool = True) -> RunContext:
     sources = audit.load_sources([d.document_id for d in ctx.selected_documents],
                                  assumed_sum_insured=ctx.assumed_sum_insured, profile=ctx.company_profile,
                                  run_id=ctx.run_id)
-    report = audit.audit_deck(ctx.deck.slides, sources, ctx.run_id)
+    report = audit.audit_deck(ctx.deck.slides, sources, ctx.run_id, previous=ctx.audit_report)
     if repair:
         report = repair_step.repair_deck(ctx.deck.slides, report, sources, ctx.run_id)
     ctx.audit_report = report

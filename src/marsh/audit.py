@@ -51,6 +51,11 @@ Per claim (`audit_claims`; policy claims are batched, one audit LLM call per pol
   gets it stored on the claim (`qualifier_text`) for the renderer, which shows it as a footnote on the claim's
   slide; that claim passes. VWQ without a renderable qualifier is a review item.
 
+Audit cache (outputs/<run_id>/audit_cache.json): an LLM-audited claim's AuditResult is cached under a key of its
+normalised text, claim type, policy, slide and table-row context, the hash of the policy's citable evidence and of its
+coverage cells, the audit model, the audit prompt's hash and AUDIT_VERSION (bump it when a deterministic check
+changes). Re-auditing an unchanged claim reuses the result with no LLM call; a DIRTY claim is always re-audited.
+
 `build_summary`: counts per status, confidence_score (CLAUDE.md section 5; removed claims excluded) and
 overall_flag from the claim-level gate rules (section 10). `export_report` writes outputs/<run_id>/audit_report.json
 (claims and evidence with text + display_text) and audit_report.md (summary on top, then one row per claim).
@@ -85,11 +90,13 @@ from marsh.grounding import (
     number_check,
     numbers_equal,
 )
-from marsh.llm import LLMError, call_structured
+from marsh.llm import LLMError, call_structured, load_prompt
 from marsh.matching import (
     _evidence_lines,
+    _hash,
     build_coverage_matrix,
     claim_exposures,
+    evidence_hash,
     is_absence_statement,
     is_not_stated_statement,
     quote_in_item,
@@ -132,6 +139,8 @@ from marsh.run_context import RUN_CONTEXT_FILE, load_run_context, new_run_id, ru
 log = logging.getLogger(__name__)
 
 PROMPT = "audit_claim"
+AUDIT_VERSION = "8.1"  # part of the cache key: bump when a deterministic check changes
+CACHE_FILE = "audit_cache.json"
 AUDIT_MAX_OUTPUT_TOKENS = 32_768  # thinking + one verdict per claim; stops a runaway reply
 REPORT_JSON = "audit_report.json"
 REPORT_MD = "audit_report.md"
@@ -249,6 +258,8 @@ class AuditSources:
     _approved: list[dict[str, str]] | None = field(default=None, repr=False)
     _referrers: dict[str, list[EvidenceItem]] | None = field(default=None, repr=False)
     siblings: dict[str, list[Claim]] = field(default_factory=dict)  # slide-3 claim_id → the other cell of its row
+    _cache: AuditCache | None = field(default=None, repr=False)
+    cache_hits: int = 0
 
     def __post_init__(self) -> None:
         self.taxonomy = self.taxonomy or load_taxonomy()
@@ -265,6 +276,13 @@ class AuditSources:
         if self._approved is None:
             self._approved = load_marsh_claims()
         return self._approved
+
+    @property
+    def cache(self) -> AuditCache | None:
+        """The run's audit cache (None without a run_id)."""
+        if self._cache is None and self.run_id:
+            self._cache = AuditCache(run_dir(self.run_id) / CACHE_FILE)
+        return self._cache
 
     def referrers(self, footnote_id: str) -> list[EvidenceItem]:
         """The items that link to a footnote (its body text)."""
@@ -286,6 +304,41 @@ class AuditSources:
         if document_id == MARSH_DOCUMENT:
             return "Marsh profile (data/marsh/marsh_profile.md)"
         return self.store.document(document_id).display_name
+
+
+class AuditCache:
+    """AuditResults of LLM-audited claims by cache key (see the module docstring), saved as JSON."""
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.entries: dict[str, dict] = {}
+        if path.exists():
+            self.entries = json.loads(path.read_text(encoding="utf-8"))
+
+    def get(self, key: str, claim_id: str) -> AuditResult | None:
+        data = self.entries.get(key)
+        if data is None:
+            return None
+        return AuditResult.model_validate({**data, "claim_id": claim_id, "audit_id": audit_id(claim_id)})
+
+    def put(self, key: str, result: AuditResult) -> None:
+        self.entries[key] = result.model_dump(mode="json", exclude={"repair_attempts", "repair_history",
+                                                                     "advisor_action", "advisor_note"})
+
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(self.entries, indent=1, ensure_ascii=False), encoding="utf-8")
+
+
+def cache_key(claim: Claim, sources: AuditSources) -> str:
+    """What an LLM-audited claim's result depends on (see the module docstring)."""
+    cells = sources.cells.get(claim.policy_id, [])
+    return _hash([AUDIT_VERSION, normalise_text(claim.text), claim.claim_type.value, claim.policy_id,
+                  claim_location(claim, sources), claim.metadata.get("match_id"),
+                  evidence_hash(sources.store.items_for_policy(claim.policy_id)),
+                  [[m.match_id, m.coverage_status.value, m.benefit_evidence_ids, m.exclusion_evidence_ids,
+                    m.limitation_evidence_ids] for m in cells],
+                  settings.GEMINI_AUDIT_MODEL, _hash(load_prompt(PROMPT))])
 
 
 def load_sources(policy_ids: list[str], *, assumed_sum_insured: int | None = None,
@@ -1034,10 +1087,17 @@ def audit_claims(claims: list[Claim], sources: AuditSources) -> dict[str, AuditR
     """Audit results by claim_id (see the module docstring). Policy claims: one audit LLM call per policy."""
     results: dict[str, AuditResult] = {}
     batches: dict[str, list[Claim]] = {}
+    cache, keys = sources.cache, {}
     for claim in claims:
         routed = _route(claim, sources)
         if isinstance(routed, AuditResult):
             results[claim.claim_id] = routed
+            continue
+        keys[claim.claim_id] = cache_key(routed, sources)
+        hit = cache.get(keys[claim.claim_id], claim.claim_id) if cache and claim.state != ClaimState.DIRTY else None
+        if hit is not None:
+            results[claim.claim_id] = hit
+            sources.cache_hits += 1
         else:
             batches.setdefault(routed.policy_id, []).append(routed)
     for policy_id, batch in batches.items():
@@ -1051,10 +1111,14 @@ def audit_claims(claims: list[Claim], sources: AuditSources) -> dict[str, AuditR
             verdict = verdicts.get(claim.claim_id)
             if verdict is not None:
                 results[claim.claim_id] = _check_policy_claim(claim, verdict, sources)
+                if cache is not None:
+                    cache.put(keys[claim.claim_id], results[claim.claim_id])
             else:
                 state = _State(claim, AuditStatus.VERIFIED)
                 state.cap("audit", AuditStatus.NEEDS_REVIEW, error)
                 results[claim.claim_id] = state.result()
+    if cache is not None and batches:
+        cache.save()
     return {c.claim_id: results[c.claim_id] for c in claims}
 
 
@@ -1134,12 +1198,23 @@ def deck_claims(slides: list[PitchSlide]) -> list[Claim]:
     return [c for s in slides for c in s.all_claims()]
 
 
-def audit_deck(slides: list[PitchSlide], sources: AuditSources, run_id: str) -> AuditReport:
-    """Audit every claim still on the slides; the claims are marked AUDITED and VWQ qualifiers stored on them."""
+_HISTORY = {"repair_attempts", "repair_history", "advisor_action", "advisor_note"}
+
+
+def audit_deck(slides: list[PitchSlide], sources: AuditSources, run_id: str,
+               previous: AuditReport | None = None) -> AuditReport:
+    """Audit every claim still on the slides; the claims are marked AUDITED and VWQ qualifiers stored on them.
+    Unchanged claims come from the audit cache; a claim whose result is unchanged keeps its previous result
+    (repair history, advisor action)."""
     claims = deck_claims(slides)
     live = [c for c in claims if c.state != ClaimState.REMOVED]
     set_rows(slides, sources)
     results = audit_claims(live, sources)
+    before = {r.claim_id: r for r in (previous.results if previous else [])}
+    for claim_id, result in list(results.items()):
+        old = before.get(claim_id)
+        if old is not None and old.model_dump(exclude=_HISTORY) == result.model_dump(exclude=_HISTORY):
+            results[claim_id] = old
     apply_results(live, results)
     report = make_report(run_id, claims, results)
     log_decision(run_id, "audit_completed", {"summary": report.summary.model_dump(mode="json")})

@@ -5,13 +5,15 @@ Usage:
   python scripts/run_pipeline.py --profile data/profiles/infosys.json          # reuse a frozen profile + exposures
   python scripts/run_pipeline.py --run-id RUN-... [--reselect]                  # resume a run
   python scripts/run_pipeline.py --run-id RUN-... --audit-only [--no-repair]     # audit a saved deck
+  python scripts/run_pipeline.py --run-id RUN-... --render-only                  # gate + render a saved audited deck
 The compared set is --policies plus every --upload; with neither, all 4 bundled brochures (with only --upload,
 the bundled ones and the uploads). A resumed run keeps its profile, exposures and compared set (unless --policies /
 --upload are given) and reuses its saved selection unless --reselect is set or the compared set changed.
 Steps so far: company profile → exposures → compared policies (uploads extracted + annotated) → coverage cells →
 LLM policy selection (validated) → pitch (outputs/<run_id>/pitch_deck.json, printed slide by slide) → independent
 audit + targeted repair (outputs/<run_id>/audit_report.json / .md; the summary and every claim that isn't VERIFIED
-are printed). Everything is saved in outputs/<run_id>/run_context.json.
+are printed) → gate + fixed-template PPT (outputs/<run_id>/pitch.pptx, structural QA). Everything is saved in
+outputs/<run_id>/run_context.json.
 """
 
 from __future__ import annotations
@@ -45,8 +47,15 @@ def main() -> None:
     parser.add_argument("--no-audit", action="store_true", help="stop after the pitch")
     parser.add_argument("--no-repair", action="store_true", help="audit without the targeted repair")
     parser.add_argument("--audit-only", action="store_true", help="with --run-id: audit the run's saved deck")
+    parser.add_argument("--render-only", action="store_true", help="with --run-id: gate + render the saved deck")
+    parser.add_argument("--no-render", action="store_true", help="stop after the audit")
     args = parser.parse_args()
 
+    if args.render_only:
+        if not args.run_id:
+            parser.error("--render-only needs --run-id")
+        render_and_print(load_run_context(args.run_id))
+        return
     if args.audit_only:
         if not args.run_id:
             parser.error("--audit-only needs --run-id")
@@ -97,6 +106,26 @@ def main() -> None:
         return
     ctx = audit_run(ctx, repair=not args.no_repair)
     print_audit(ctx)
+    if not args.no_render:
+        render_and_print(ctx)
+
+
+def render_and_print(ctx) -> None:
+    from marsh.render_ppt import RenderRefusedError, render
+
+    try:
+        path, gate = render(ctx)
+    except RenderRefusedError as exc:
+        gate, path = exc.gate, None
+    print(f"\n=== Gate {ctx.run_id}: {gate.status.value}; export allowed: {gate.export_allowed}")
+    for f in gate.failures:
+        print(f"  FAIL [{f.item_id}] {f.message}")
+    for r in gate.review_items:
+        state = "unacknowledged" if r.item_id in gate.unacknowledged else "acknowledged"
+        print(f"  REVIEW [{r.item_id}] ({state}) {r.message}")
+    for claim_id in gate.removed_wm_claims:
+        print(f"  WM claim removed: {claim_id}")
+    print(f"Deck: {path}" if path else "Deck not rendered (the gate FAILed)")
 
 
 def print_audit(ctx) -> None:

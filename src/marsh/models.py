@@ -787,6 +787,23 @@ class AuditReport(_Model):
     summary: AuditSummary
 
 
+class GateItem(_Model):
+    """One gate failure or review item. `item_id` is stable ("CL-010:NEEDS_REVIEW", "SELECTION:LOW_CONFIDENCE") so an
+    advisor's acknowledgement (AdvisorActionRecord REVIEW_ITEM_ACKNOWLEDGED, target_id = item_id) can refer to it."""
+    item_id: str
+    message: str
+
+
+class GateResult(_Model):
+    """gate.run_gate (CLAUDE.md section 10)."""
+    status: OverallFlag
+    failures: list[GateItem] = Field(default_factory=list)
+    review_items: list[GateItem] = Field(default_factory=list)
+    unacknowledged: list[str] = Field(default_factory=list)  # review item ids not yet acknowledged
+    removed_wm_claims: list[str] = Field(default_factory=list)  # WM claims whose condition isn't met (claim ids)
+    export_allowed: bool = False
+
+
 # --- Deck (CLAUDE.md section 9) --------------------------------------------------------------------
 
 SLIDE_TITLES: tuple[str, ...] = (

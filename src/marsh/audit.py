@@ -1147,6 +1147,50 @@ def apply_results(claims: list[Claim], results: dict[str, AuditResult]) -> None:
             claim.qualifier_text = result.required_qualifier if keep else None
 
 
+def claim_gate_items(results: list[AuditResult], claims: list[Claim]) -> tuple[list[tuple[str, str]],
+                                                                             list[tuple[str, str]]]:
+    """The claim-level gate rules (CLAUDE.md section 10): (failures, review items), each as (item_id, message).
+    Item ids are stable ("CL-010:NEEDS_REVIEW") so an advisor's acknowledgement can refer to them. Removed claims
+    don't count."""
+    by_id = {c.claim_id: c for c in claims}
+    failures: list[tuple[str, str]] = []
+    reviews: list[tuple[str, str]] = []
+    for r in results:
+        claim = by_id.get(r.claim_id)
+        if claim is None or claim.state == ClaimState.REMOVED:
+            continue
+        cid, where = claim.claim_id, f"{claim.claim_id} (slide {claim.slide_number})"
+        failed_checks = {c.name for c in r.checks if c.result == CheckResult.FAIL}
+        attested = r.status == AuditStatus.ADVISOR_ATTESTED
+        if r.status == AuditStatus.CONTRADICTED:
+            failures.append((f"{cid}:CONTRADICTED",
+                             f"{where}: CONTRADICTED — edit or remove it (acknowledgement is never enough)"))
+        elif r.status == AuditStatus.UNSUPPORTED and claim.material:
+            failures.append((f"{cid}:UNSUPPORTED",
+                             f"{where}: material claim UNSUPPORTED — edit it, or attest it with a written justification"))
+        elif r.status == AuditStatus.UNSUPPORTED:
+            reviews.append((f"{cid}:UNSUPPORTED", f"{where}: UNSUPPORTED (not material)"))
+        if "policy_name" in failed_checks and not attested:
+            failures.append((f"{cid}:POLICY_REFERENCE", f"{where}: wrong policy reference"))
+        if r.number_check.result == CheckResult.FAIL and not attested:
+            failures.append((f"{cid}:NUMBER_CHECK", f"{where}: number check failed ({r.number_check.details})"))
+        if "slide2" in failed_checks:
+            failures.append((f"{cid}:SLIDE2", f"{where}: a non-Marsh claim on slide 2"))
+        if claim.state == ClaimState.DIRTY:
+            failures.append((f"{cid}:DIRTY", f"{where}: still DIRTY (edited, not re-audited)"))
+        if r.status == AuditStatus.NEEDS_REVIEW:
+            reviews.append((f"{cid}:NEEDS_REVIEW", f"{where}: NEEDS_REVIEW — {r.explanation}"))
+        elif r.status == AuditStatus.VERIFIED_WITH_QUALIFIER and not qualifier_rendered(claim, r):
+            reviews.append((f"{cid}:QUALIFIER_NOT_RENDERED",
+                            f"{where}: VERIFIED_WITH_QUALIFIER without a renderable qualifier"))
+        elif attested:
+            reviews.append((f"{cid}:ATTESTED", f"{where}: advisor-attested — {r.advisor_note}"))
+        if r.repair_history and r.status in FAILING:
+            tries = "twice" if r.repair_attempts >= 2 else "(no true rewrite)"
+            reviews.append((f"{cid}:REPAIR_FAILED", f"{where}: repair failed {tries}; still {r.status.value}"))
+    return list(dict.fromkeys(failures)), list(dict.fromkeys(reviews))
+
+
 def build_summary(results: list[AuditResult], claims: list[Claim]) -> AuditSummary:
     """Counts, confidence score and the overall flag from the claim-level gate rules (CLAUDE.md section 10).
     Removed claims don't count."""
@@ -1155,38 +1199,11 @@ def build_summary(results: list[AuditResult], claims: list[Claim]) -> AuditSumma
     counts = Counter(r.status for r in live)
     factual = [r for r in live if r.status not in (AuditStatus.NON_FACTUAL, AuditStatus.LABELLED_ASSUMPTION)]
     verified = sum(r.status in (AuditStatus.VERIFIED, AuditStatus.VERIFIED_WITH_QUALIFIER) for r in factual)
-    failures, reviews = [], []
-    for r in live:
-        claim = by_id[r.claim_id]
-        where = f"{claim.claim_id} (slide {claim.slide_number})"
-        failed_checks = {c.name for c in r.checks if c.result == CheckResult.FAIL}
-        if r.status == AuditStatus.CONTRADICTED:
-            failures.append(f"{where}: CONTRADICTED — edit or remove it (acknowledgement is never enough)")
-        elif r.status == AuditStatus.UNSUPPORTED and claim.material:
-            failures.append(f"{where}: material claim UNSUPPORTED — edit it, or attest it with a written justification")
-        elif r.status == AuditStatus.UNSUPPORTED:
-            reviews.append(f"{where}: UNSUPPORTED (not material)")
-        if "policy_name" in failed_checks:
-            failures.append(f"{where}: wrong policy reference")
-        if r.number_check.result == CheckResult.FAIL:
-            failures.append(f"{where}: number check failed ({r.number_check.details})")
-        if "slide2" in failed_checks:
-            failures.append(f"{where}: a non-Marsh claim on slide 2")
-        if claim.state == ClaimState.DIRTY:
-            failures.append(f"{where}: still DIRTY (edited, not re-audited)")
-        if r.status == AuditStatus.NEEDS_REVIEW:
-            reviews.append(f"{where}: NEEDS_REVIEW — {r.explanation}")
-        elif r.status == AuditStatus.VERIFIED_WITH_QUALIFIER and not qualifier_rendered(claim, r):
-            reviews.append(f"{where}: VERIFIED_WITH_QUALIFIER without a renderable qualifier")
-        elif r.status == AuditStatus.ADVISOR_ATTESTED:
-            reviews.append(f"{where}: advisor-attested — {r.advisor_note}")
-        if r.repair_history and r.status in FAILING:
-            tries = "twice" if r.repair_attempts >= 2 else "(no true rewrite)"
-            reviews.append(f"{where}: repair failed {tries}; still {r.status.value}")
+    failures, reviews = claim_gate_items(results, claims)
     flag = OverallFlag.FAIL if failures else OverallFlag.REVIEW_REQUIRED if reviews else OverallFlag.PASS
     return AuditSummary(counts=dict(counts), confidence_score=round(verified / len(factual), 2) if factual else None,
-                        overall_flag=flag, gate_failures=list(dict.fromkeys(failures)),
-                        review_items=list(dict.fromkeys(reviews)))
+                        overall_flag=flag, gate_failures=[m for _, m in failures],
+                        review_items=[m for _, m in reviews])
 
 
 def make_report(run_id: str, claims: list[Claim], results: dict[str, AuditResult]) -> AuditReport:

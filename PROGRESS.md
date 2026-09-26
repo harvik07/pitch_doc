@@ -570,11 +570,44 @@ policy evidence. CLAUDE.md §§1, 3, 4, 5, 6.2, 8, 9 and 11 amended ("V1 has no 
 - **Not run live yet:** this cloud container has no `.env`, no Gemini credentials, and its network policy blocks
   `api.tavily.com`. To be run locally: `python scripts/live_profile_check.py` (default company: Infosys).
 
+### Audit cache + Prompt 9: gate and fixed PPT template (2026-09-26)
+- **Audit cache** (`audit.py`, `outputs/<run_id>/audit_cache.json`):
+  - An LLM-audited claim's AuditResult is keyed by its normalised text, type, policy, slide + table-row context (row name and the row's other cell), the policy's evidence hash and coverage-cell hash, the audit model, the audit prompt hash and `AUDIT_VERSION` (bump it when a deterministic check changes).
+  - Unchanged claims are reused with no LLM call; DIRTY claims are always re-audited.
+  - An unchanged result keeps its previous repair history (`audit_deck(previous=…)`), and repair skips claims already through repair.
+  - Test: re-auditing an unchanged deck makes 0 LLM calls and gives an identical report.
+  - Committed separately (7999522).
+- **`gate.run_gate(ctx) -> GateResult`** (status, failures and review items as `GateItem(item_id, message)`, unacknowledged ids, removed WM claims, export_allowed):
+  - **FAIL:** no selection; selected policy not compared; the compared set differs from the run's; unresolved selection errors (not advisor-overridden); no deck; schema errors; slide 4's block differs from the selection, or a claim recommends another policy; no audit or an unaudited claim; any CONTRADICTED claim (even non-material, never acknowledgeable); a material UNSUPPORTED claim not attested; a failed number check; a wrong policy reference; a non-Marsh claim on slide 2; a DIRTY claim; a required section with nothing to render.
+  - **REVIEW_REQUIRED:** NEEDS_REVIEW; VWQ without a rendered qualifier; attested claims; repair failed; non-material UNSUPPORTED; advisor override; low confidence; an unavailable-at-SI cell relied on; assumption-based exposures.
+  - The claim-level rules live in `audit.claim_gate_items` (shared with the audit summary), with stable item ids ("CL-010:NEEDS_REVIEW").
+  - **WM claims:** each condition is re-checked every gate run. A claim whose condition fails is REMOVED (`removed_by=gate`, logged) and restored when the condition holds again. WM-03 uses the status without the WM claims plus the acknowledgements.
+  - Export is allowed only on PASS, or REVIEW_REQUIRED with every item acknowledged (`REVIEW_ITEM_ACKNOWLEDGED`, target_id = item id). `render` refuses only on FAIL; a REVIEW_REQUIRED deck renders for the advisor.
+- **`render_ppt.py`** (python-pptx, no template file):
+  - **Template:** 16:9, navy title bar with white fixed titles, accent #009DE0, grey text, **Arial**. Its ₹ glyph was checked with Pillow: the glyph bitmap differs from the missing-glyph box, and a test repeats this. Footer "Prepared by Marsh | Confidential | <date>" and "n / 5"; no logos.
+  - **Slide contents:**
+    - Slide 1: company name, claims with labels, and the exposures considered (code).
+    - Slide 2: WM claims.
+    - Slide 3: a real table (Exposure | Benefit | Condition / limitation | Source).
+    - Slide 4: the policy block (name, variant, add-ons, decided by), then "Why <policy>" reasons with framing as smaller italic sub-lines (≤ 8 bullets), and a right column of supporting benefits and key limitations.
+    - Slide 5: numbered qualifiers + key terms, advisor-attested claims, assumptions, sources, disclaimer.
+  - **What renders:** only claims that aren't REMOVED and aren't UNSUPPORTED / CONTRADICTED. ADVISOR_ATTESTED claims get "(Advisor-attested)".
+  - **Labels:** company claims use the two labels of CLAUDE.md §5 — "(Web-sourced)" or "(Assumption)". Pre-Tavily "Unverified" company claims show "(Assumption)", and the pre-Tavily fixed slide-5 line is shown in today's wording (`LEGACY_FIXED_TEXT`).
+  - **Qualifiers:** a VWQ claim gets a numbered marker; its qualifier is a small footnote at the bottom of that slide and is collected on slide 5. Identical qualifiers share a number.
+  - **Speaker notes on every slide:** `claim_id → status → evidence_id (document, page)`, plus company facts with their display label; not-rendered claims are marked.
+  - **Fitting:** each box gets the largest font size that fits, estimated with Arial glyph widths (Pillow) and word wrapping.
+  - **`structural_qa`** re-measures every text box and the table with the same estimator. It also checks: 5 slides, titles in order, no "{{", no backtick before a digit, no "Unverified" / raw status, bullet limits, exactly one policy in slide 4's block, notes on every slide, file > 10 KB. It raises RenderQAError.
+- **Visual check:** LibreOffice isn't installed, so the slides were exported with PowerPoint itself (COM, `scripts/export_slide_images.ps1`) and inspected. Two things were fixed in code: identical qualifiers got separate numbers, and a legacy "unverified" line showed on slide 5. There were no overlaps or overflow.
+- **Real run `RUN-20260926-144912-81a2`** (`run_pipeline.py --run-id … --render-only`):
+  - Gate: **REVIEW_REQUIRED**, with one unacknowledged item, EXPOSURES:ASSUMPTION_BASED (4 exposures). So WM-03 ("final gate status PASS or REVIEW_REQUIRED with all items acknowledged") is removed from slide 2 until it is acknowledged, and export is not yet allowed.
+  - `outputs/RUN-20260926-144912-81a2/pitch.pptx` passed QA; the slide images are in `outputs/…/slides/`.
+- `run_pipeline.py` now renders after the audit (`--no-render`); `--run-id X --render-only` gates and renders a saved deck.
+- Tests: 816 passing. New: `tests/test_gate.py` (every FAIL and REVIEW condition, acknowledgement, WM re-check), `tests/test_render.py` (approved deck passes QA, rendering rules, labels, notes, refusal on FAIL, QA failure modes incl. overflow, ₹ glyph), and the audit cache test. `tests/deck_builder.py` builds the hand-made approved run.
+- **Label conflict to confirm:** your Prompt 9 message asked for "(Unverified)" labels, but CLAUDE.md §5 as updated by the Tavily step says the deck shows only "Web-sourced" / "Assumption", never "Unverified". I followed CLAUDE.md. The mapping is in `render_ppt.claim_text` and `models.fact_display_label`.
+
 ## Next
-- **For Prompt 9 (slide 4 layout, your note):** slide 4 must fit one slide, at most about 8 visible bullets. Company-framing claims (`metadata.framing_of`) render as sub-lines under their policy claim, not as separate bullets. Structural QA fails on overflow.
-- **For Prompt 9 (rendering):** a VERIFIED_WITH_QUALIFIER policy claim's `qualifier_text` is rendered as a footnote on the claim's own slide (adjustment A). Claims with state REMOVED, and UNSUPPORTED / CONTRADICTED ones, are not rendered.
-- **For Prompt 9 (gate):** add the run-level rules to the audit's claim-level summary: selection validation errors, selection `confidence=low`, advisor override, cells not available at the assumed SI, assumption-based exposures, DIRTY claims, and the WM conditions (see Decisions).
 - **For Prompts 9 and 10 (fact labels):** show company facts with `models.fact_display_label` only ("Web-sourced" with its source link, or "Assumption"), never "Unverified" or a raw status; show `CompanyProfile.web_search_note` as an info message when set.
+- **For Prompt 10:** acknowledgements are `AdvisorActionRecord(REVIEW_ITEM_ACKNOWLEDGED, target_id=GateItem.item_id)`; re-run the gate after each advisor action (WM claims are re-checked); download only when `GateResult.export_allowed`.
 - **For Prompt 10:** an advisor edit makes the claim DIRTY; re-audit it with `audit.audit_claims` and `apply_results`, then rebuild the report with `make_report`.
 - **For Prompt 7 (selection claims):** slide 4's reason comes from `reason_claims`. Several REASON claims mix a policy fact with a company framing ("…, which is important for a large, desk-based workforce"). The pitch should split them into a POLICY_* claim and a COMPANY_FACT claim, so each is audited against the right source.
 - **For Prompt 7 (Niva):** slides say "hospitalisation of 2 hours and more", never "day care". The brochure never uses the words "day care".

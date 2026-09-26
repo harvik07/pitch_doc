@@ -1,0 +1,125 @@
+# Closed list of employee-health exposures (CLAUDE.md section 6.4). The LLM may only pick IDs from this file.
+#
+# keywords: used for retrieval (evidence_store.keyword_search, Prompt 8's topic-anchor check). Every keyword
+# occurs in at least one citable evidence item of a bundled brochure (tests/test_exposures.py checks this);
+# they include the brochures' own benefit names (Safeguard, ReAssure, Booster, Instant Cover, ...).
+# Exposures are never dropped for lack of brochure hits: a policy that doesn't mention one is NOT_STATED.
+# baseline: applies to every employer, always included in the identified exposures.
+
+exposures:
+  - id: EXP-HOSP
+    name: In-patient hospitalisation
+    description: Hospital admission costs for illness or injury (room, ICU, treatment).
+    keywords: [hospitalisation, hospitalization, in-patient, room rent, icu]
+    baseline: true
+  - id: EXP-PREPOST
+    name: Pre/post-hospitalisation expenses
+    description: Medical costs in the days before admission and after discharge.
+    keywords: [pre-hospitalisation, post-hospitalisation, post hospitalisation, pre-hospitalization, post-hospitalization,
+               post hospitalization, pre & post]
+    baseline: true
+  - id: EXP-DAYCARE
+    name: Day-care procedures
+    description: Treatments that need less than 24 hours in hospital.
+    keywords: [day care]
+    baseline: false
+  - id: EXP-MODERN
+    name: Modern treatments
+    description: Advanced procedures such as robotic surgery or immunotherapy.
+    keywords: [modern treatment, modern]
+    baseline: false
+  - id: EXP-AMB-ROAD
+    name: Road ambulance
+    description: Emergency road transport to hospital.
+    keywords: [road ambulance, ambulance cover, ambulance]
+    baseline: false
+  - id: EXP-AMB-AIR
+    name: Air ambulance
+    description: Emergency air transport, relevant to remote sites and travel.
+    keywords: [air ambulance]
+    baseline: false
+  - id: EXP-DOMICILIARY
+    name: Home / domiciliary care
+    description: Treatment at home when hospitalisation is not possible or advised.
+    keywords: [domiciliary, home care, home healthcare, home health care, home treatment]
+    baseline: false
+  - id: EXP-AYUSH
+    name: AYUSH treatment
+    description: Ayurveda, Yoga, Unani, Siddha and Homeopathy treatment.
+    keywords: [ayush]
+    baseline: false
+  - id: EXP-NONMED
+    name: Non-medical / non-payable items
+    description: Consumables and other items that standard cover does not pay for.
+    keywords: [non-payable, non-medical, claim shield, safeguard, protect benefit, claim protect]
+    baseline: false
+  - id: EXP-SI-EXHAUST
+    name: Sum insured exhaustion / multiple claims
+    description: Running out of cover after a large claim or several claims in a year.
+    keywords: [recharge, restore, reassure, reload, refill, secure benefit]
+    baseline: false
+  - id: EXP-INFLATION
+    name: Medical cost inflation / sum insured growth
+    description: Cover keeping pace with rising treatment costs over time.
+    keywords: [booster, cumulative bonus, infinite benefit, super credit, cpi, inflation]
+    baseline: false
+  - id: EXP-MATERNITY
+    name: Maternity
+    description: Pregnancy, childbirth and related expenses.
+    keywords: [maternity, parenthood, ivf]
+    baseline: false
+  - id: EXP-CHRONIC
+    name: Chronic conditions
+    description: Ongoing conditions such as diabetes, hypertension and asthma.
+    keywords: [abcd, instant cover, chronic, diabetes, hypertension, asthma]
+    baseline: false
+  - id: EXP-PED
+    name: Pre-existing disease waiting periods
+    description: Waiting periods before pre-existing conditions are covered.
+    keywords: [pre-existing, ped, waiting period, wait period]
+    baseline: false
+  - id: EXP-OPD
+    name: Outpatient consultations
+    description: Doctor consultations and treatment without hospital admission.
+    keywords: [opd, outpatient, consultation, e-consultation]
+    baseline: false
+  - id: EXP-PREVENTIVE
+    name: Preventive health check-ups
+    description: Periodic health check-ups and screening.
+    keywords: [health check, health checkup, health check-up, preventive]
+    baseline: false
+  - id: EXP-INTL
+    name: Treatment abroad
+    description: Medical treatment outside India, relevant to travelling or expatriate staff.
+    keywords: [international, abroad, global cover]
+    baseline: false
+  - id: EXP-CRITICAL
+    name: Critical illness
+    description: Serious illnesses such as cancer, heart attack or stroke.
+    keywords: [critical illness, serious illness]
+    baseline: false
+  - id: EXP-ACCIDENT
+    name: Personal accident
+    description: Accidental death or disability.
+    keywords: [personal accident, accidental death, accident]
+    baseline: false
+  - id: EXP-DEPENDENTS
+    name: Parents / dependents
+    description: Cover for employees' spouses, children and parents.
+    keywords: [parents, family floater, floater, children]
+    baseline: false
+  - id: EXP-HOSPCASH
+    name: Daily hospital cash
+    description: A fixed daily amount paid during hospitalisation.
+    keywords: [hospital cash, daily cash, cash benefit]
+    baseline: false
+  - id: EXP-ORGAN
+    name: Organ donor expenses
+    description: Costs of harvesting an organ from a donor for an insured person.
+    keywords: [organ donor, donor]
+    baseline: false
+  - id: EXP-WELLNESS
+    name: Wellness programmes
+    description: Rewards and services for healthy behaviour, fitness and prevention.
+    keywords: [wellness, healthreturns, live healthy, be-fit, fitness, steps, healthy days]
+    baseline: false

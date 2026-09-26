@@ -178,7 +178,8 @@ Prompt 2 plus additions A–E (the additions win where they conflict).
   - `.to_number_check()` gives the audit's PASS / FAIL / NA form.
 - **`settings.PRODUCT_ALIASES`** (for Prompt 8's policy-reference check) holds only spellings that occur in that policy's own evidence (a test checks this, and that no alias occurs in another policy's evidence):
   - NIVA: "ReAssure 2.0"
-  - HDFC: "Optima Secure+", "OptimaSecure+", "Optima Secure +", "Optima Secure"
+  - HDFC: "Optima Secure+", "OptimaSecure+", "Optima Secure +". "Optima Secure" (no "+") was removed after Prompt 3: it comes from the footer UIN line, which names a different HDFC product.
+  - Matching is whole-name (`grounding.named_policies` / `policy_name_check`): "Optima Secure" never matches inside "Optima Secure+", so a claim naming "Optima Secure" fails the POL-HDFC check. Slides always use the canonical `display_name`.
   - CARE: "Care Supreme", "carē supreme"
   - ABHI: "Activ One"
   - OCR garbles ("ReAssufe2.0", "ΘptimaSecure+") are left out. Care OPD / Care Advanced are add-on policies, not the product.
@@ -224,13 +225,34 @@ Prompt 2 plus additions A–E (the additions win where they conflict).
     - PRODUCT_ALIASES / OCR_SPACED_NAMES occur in the evidence;
     - sweep regressions, quotes that cut a number, table-label numbers.
 
+### Prompt 3 follow-up + Prompt 4: company profile and exposures (2026-09-26)
+- **Alias fix:** "Optima Secure" (no "+") is no longer an HDFC alias; it comes from the footer UIN line, which names a different HDFC product. `grounding.named_policies` / `policy_name_check` match whole names, so a claim naming "Optima Secure" fails the POL-HDFC check (tested). Slides use the canonical `display_name`.
+- **`company.generate_company_profile(company_name, run_id)`** (`prompts/company_profile.md`, works for Indian and global companies):
+  - Gemini returns `company_recognised` plus labelled facts (field, value, status MODEL_KNOWLEDGE | ASSUMPTION, confidence, rationale): exactly 1 industry and 1 size, optional headcount band, 1–2 geography, 2–5 business risks, 2–5 workforce-profile facts. The response model enforces the counts, so a bad reply goes through the JSON-repair retry.
+  - Code assigns CF- ids and derives `industry`, `size` and `key_risks` from those facts, so nothing on slide 1 is unlabelled.
+  - Workforce information lives only in `CompanyProfile.facts` (field=workforce_profile); there is no separate field.
+  - An unrecognised company → every fact ASSUMPTION / low. A MODEL_KNOWLEDGE fact with a money figure or an exact headcount (not a band like "10,000+") → ASSUMPTION / low, with a note in the rationale.
+  - The name is validated first (`CompanyNameError`, user-facing message); an invalid name never reaches the LLM.
+  - `api.generateCompanyProfile(company_name, run_id=None)` creates a run_id when none is given. Logged as `company_profile_generated`.
+- **`config/exposure_taxonomy.yaml`:** the 23 exposures from PROMPTS.md, each with id, name, description, keywords and baseline (EXP-HOSP, EXP-PREPOST).
+  - Keywords include the brochures' own benefit names (Safeguard, Claim Shield, Protect Benefit, Claim Protect, ReAssure, Restore, Recharge, Reload, Refill, Booster, Cumulative Bonus, Infinite Benefit, Super Credit, CPI, ABCD, Instant Cover, Parenthood, HealthReturns, …) and spelling variants ("pre-hospitalization", "pre & post").
+  - Every keyword occurs in at least one citable evidence item (tested). "consumables" is in no citable item, so it is not a keyword.
+  - **No exposure is dropped** for lack of brochure hits (this overrides PROMPTS.md's "DROP" line). Today every exposure has ≥ 1 hit in some brochure; `scripts/taxonomy_hits.py` prints the per-policy table.
+- **`exposures.identify_exposures(profile, taxonomy, run_id)`** (`prompts/identify_exposures.md`): Gemini picks IDs from the closed list with rationale and basis_fact_ids; code then:
+  - rejects unknown exposure IDs; drops unknown fact IDs and business_risk facts from a basis (business risks stay on slide 1) and rejects an exposure left without a basis; logs every rejection (`exposure_picks_rejected`);
+  - always includes the baselines first, with the size and headcount-band facts as basis (an LLM-picked baseline keeps its own rationale and basis);
+  - computes `assumption_based` (every basis fact is an ASSUMPTION);
+  - caps at `settings.MAX_EXPOSURES = 8` (baselines, then the LLM's order), logging what was cut.
+- **Real run (Infosys, `pytest -m llm tests/test_exposures.py`):** 14 labelled facts (4 of them ASSUMPTION) and 8 exposures: HOSP, PREPOST, INTL, CHRONIC, OPD, PREVENTIVE, WELLNESS, MATERNITY, none assumption-based.
+
 ## Next
-- **For Prompt 8 (audit):**
-  - Run `number_check` against the claim's **supporting** evidence only. Against the whole brochure, three planted false claims pass, because their numbers occur elsewhere: Niva "₹5,00,000" (a SI tier "INR 5 Lac"), Niva "30-day initial waiting period" (footnote (8) "30 days/policy year"), and ABHI "100% HealthReturns every year" ("up to 100%"). `tests/test_grounding.py::test_the_whole_brochure_is_the_wrong_input` pins this.
-  - The audit LLM must judge that the supporting item is about the claim's subject, and the "30-day waiting period" and "guarantees 100%" claims must fail on the LLM verdict, not on numbers.
-  - Use `settings.PRODUCT_ALIASES` for the policy-reference check.
+- Prompt 5 (waiting for your go): coverage matrix + match validation. Matching retrieves by the taxonomy keywords; an exposure a brochure never mentions is NOT_STATED.
+- **For Prompt 8 (audit) — required deterministic checks (not built yet):**
+  - **Number check on supporting items only.** Run `number_check` against the claim's **supporting** evidence only. Against the whole brochure, three planted false claims pass, because their numbers occur elsewhere: Niva "₹5,00,000" (a SI tier "INR 5 Lac"), Niva "30-day initial waiting period" (footnote (8) "30 days/policy year"), and ABHI "100% HealthReturns every year" ("up to 100%"). `tests/test_grounding.py::test_the_whole_brochure_is_the_wrong_input` pins this.
+  - **Topic-anchor check.** The claim's benefit topic (e.g. "waiting period", "air ambulance", "maternity") must appear in a supporting item's text, row_label or section, or in the claim's exposure's taxonomy keywords (`config/exposure_taxonomy.yaml`). Otherwise the claim can't be VERIFIED. This catches "Niva 30-day waiting period" being supported by footnote (8)'s "30 days/policy year" hospital-cash limit.
+  - **Absolute-language check.** If a claim uses "guarantee(d)", "always", "every year", "unlimited" or "no limit", and the supporting evidence for that fact has "up to", "indicative", "subject to" or "T&C" (or lacks the absolute word), the claim is at best VERIFIED_WITH_QUALIFIER, with the hedge as the required qualifier. This catches ABHI "guarantees 100% HealthReturns".
+  - **Policy-reference check.** Use `grounding.policy_name_check` (whole-name `PRODUCT_ALIASES`).
 - **For Prompt 7 (Care wellness grid):** claims must use the brochure's own wording, e.g. "270" days → 30% renewal discount. Never write "270 or more" (or "at least"): the brochure doesn't say it.
-- Prompt 4 (waiting for your go): company profile + exposures.
 - **For Prompts 7 and 9 (E.4):**
   - Slides show money with `settings.CURRENCY_SYMBOL` ("₹") and Indian digit grouping (₹10,000, ₹1,00,000, ₹15 lakh).
   - Structural QA fails if any slide text has a backtick before a digit.
@@ -319,8 +341,13 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **ExtractedDocument** (cache file format): `extraction_version, document: PolicyDocument, evidence: list[EvidenceItem], ocr_forced_pages, docling_version`
 - **NumberCheckStatus**: `PASS | FAIL_CONTRADICTED | FAIL_MISSING | NA` (the result of `grounding.number_check`)
 - **NumberCheckOutcome**: `status, details, claim_numbers, unmatched`, plus `.to_number_check()` → `NumberCheck` (PASS / FAIL / NA)
+- **CompanyFactDraft / CompanyProfileResponse** (Gemini output): `field, value, status, confidence, rationale` / `company_recognised, facts` (validator: 1 industry, 1 size, 2–5 business_risk, ≥ 1 workforce_profile)
+- **TaxonomyEntry / ExposureTaxonomy**: `id (EXP-), name, description, keywords, baseline` / `exposures`, plus `.get(id)`
+- **ExposurePick / ExposureSelectionResponse** (Gemini output): `exposure_id, rationale, basis_fact_ids` as plain strings (code rejects unknown ones) / `exposures`
 
 ## Known issues
+- **Company profiles vary between runs** at temperature 0 (two Infosys runs gave 12 and 14 facts, and different business risks). Every fact is labelled either way; the run's profile is stored in the RunContext and decision log, so a pitch always uses one fixed profile.
+- **Gemini labels some industry-typical business risks MODEL_KNOWLEDGE.** They're shown as "Unverified" on slide 1 anyway (no web lookup in V1), and business risks never feed exposures or recommendation.
 - google-genai installed as 2.25.0 (a newer major version than the 1.67 used to plan). The API used is unchanged: `response_json_schema`, `HttpOptions.timeout` in ms, `errors.ClientError/ServerError(code, response_json)`, and the SDK does no retries by default.
 - **OCR quality:**
   - Niva p1's decorative wheel yields fragments ("Unli", "aim", "sing").

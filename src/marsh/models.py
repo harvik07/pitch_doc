@@ -290,6 +290,35 @@ class CompanyProfile(_Model):
         return self
 
 
+class CompanyFactDraft(_Model):
+    """One fact as the company-profile LLM returns it; code assigns the CF- id."""
+    field: FactField
+    value: str = Field(min_length=1, max_length=200)
+    status: FactStatus
+    confidence: Confidence
+    rationale: str = Field(min_length=1)
+
+
+class CompanyProfileResponse(_Model):
+    """Gemini output for prompts/company_profile.md. Industry, size, business risks and workforce profile
+    are all facts, so every one carries a status and confidence."""
+    company_recognised: bool
+    facts: list[CompanyFactDraft]
+
+    @model_validator(mode="after")
+    def _required_fields(self) -> CompanyProfileResponse:
+        count = {f: sum(1 for fact in self.facts if fact.field == f) for f in FactField}
+        if count[FactField.INDUSTRY] != 1:
+            raise ValueError("return exactly one fact with field=industry")
+        if count[FactField.SIZE] != 1:
+            raise ValueError("return exactly one fact with field=size")
+        if not 2 <= count[FactField.BUSINESS_RISK] <= 5:
+            raise ValueError("return 2 to 5 facts with field=business_risk")
+        if count[FactField.WORKFORCE_PROFILE] < 1:
+            raise ValueError("return at least one fact with field=workforce_profile")
+        return self
+
+
 # --- Policy documents and evidence -----------------------------------------------------------------
 
 
@@ -427,12 +456,48 @@ class AnnotationResponse(_Model):
 # --- Exposures, matching, recommendation -----------------------------------------------------------
 
 
+class TaxonomyEntry(_Model):
+    """One entry of config/exposure_taxonomy.yaml."""
+    id: ExposureId
+    name: str
+    description: str
+    keywords: list[str] = Field(min_length=1)
+    baseline: bool = False
+
+
+class ExposureTaxonomy(_Model):
+    exposures: list[TaxonomyEntry] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _unique_ids(self) -> ExposureTaxonomy:
+        ids = [e.id for e in self.exposures]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate exposure id in taxonomy")
+        return self
+
+    def get(self, exposure_id: str) -> TaxonomyEntry | None:
+        return next((e for e in self.exposures if e.id == exposure_id), None)
+
+
 class Exposure(_Model):
     exposure_id: ExposureId
     name: str
     rationale: str
     basis_fact_ids: list[FactId] = Field(min_length=1)
     assumption_based: bool = False
+
+
+class ExposurePick(_Model):
+    """One exposure as the exposure-identification LLM returns it. IDs are plain strings here so that
+    code, not schema validation, rejects (and logs) unknown ones."""
+    exposure_id: str
+    rationale: str = Field(min_length=1)
+    basis_fact_ids: list[str]
+
+
+class ExposureSelectionResponse(_Model):
+    """Gemini output for prompts/identify_exposures.md."""
+    exposures: list[ExposurePick]
 
 
 class Limitation(_Model):

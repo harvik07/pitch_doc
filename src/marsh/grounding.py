@@ -6,6 +6,9 @@
   settings.OCR_SPACED_NAMES collapsed ("T itanium+" → "titanium+"). Nothing else is rewritten.
 - `quote_in_evidence(quote, evidence)`: the normalised quote is a substring of the normalised evidence
   that doesn't cut a word or number ("6 months" is not in "36 months").
+- `named_policies(text)` / `policy_name_check(text, policy_id)`: whole-name product-name matching against
+  settings.PRODUCT_ALIASES ("Optima Secure" never matches inside "Optima Secure+", and names POL-HDFC's
+  footer product, which is not an alias).
 - `number_check(claim_text, evidence_items)`: every number in the claim must equal a number in the
   evidence with the same unit (value within 0.5%). Years compare with months, days with hours. A table
   cell's evidence numbers include those in its row and column labels.
@@ -93,6 +96,26 @@ def quote_in_evidence(quote: str, evidence: str | EvidenceItem) -> bool:
         return (_bounded_in(wanted, normalise_text(evidence.text))
                 or _bounded_in(wanted, normalise_text(mask_footnote_markers(evidence))))
     return _bounded_in(wanted, normalise_text(evidence))
+
+
+# --- Product names --------------------------------------------------------------------------------------------
+
+
+def _alias_pattern(alias: str) -> re.Pattern[str]:
+    # Whole name: no letter/digit before, no letter/digit/"+" after ("optima secure" ≠ "optima secure+").
+    return re.compile(rf"(?<![a-z0-9]){re.escape(normalise_text(alias))}(?![a-z0-9+])")
+
+
+def named_policies(text: str) -> set[str]:
+    """Policy IDs whose product name (a PRODUCT_ALIASES entry, whole-name, any case) occurs in `text`."""
+    normalised = normalise_text(text)
+    return {policy_id for policy_id, aliases in settings.PRODUCT_ALIASES.items()
+            if any(_alias_pattern(alias).search(normalised) for alias in aliases)}
+
+
+def policy_name_check(text: str, policy_id: str) -> bool:
+    """True if `text` names `policy_id`'s product and no other product."""
+    return named_policies(text) == {policy_id}
 
 
 # --- Numbers --------------------------------------------------------------------------------------------------

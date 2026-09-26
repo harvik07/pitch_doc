@@ -51,12 +51,14 @@ BUNDLED_POLICY_VARIANTS = {
 }
 CURRENCY_SYMBOL = "₹"  # display only; evidence text keeps the PDF's characters (Care/HDFC render ₹ as a backtick)
 
-# Accepted product-name spellings per policy (for Prompt 8's policy-name check). Only names that appear in
-# the evidence; OCR garbles ("ReAssufe2.0", "ΘptimaSecure+") are left out. Matching ignores case, so
-# "ACTIV ONE" is covered by "Activ One". Care OPD / Care Advanced are add-on policies, not product names.
+# Accepted product-name spellings per policy (for Prompt 8's policy-name check, grounding.policy_name_check).
+# Only names that appear in the evidence; OCR garbles ("ReAssufe2.0", "ΘptimaSecure+") are left out. Matching
+# ignores case ("ACTIV ONE" = "Activ One") but is whole-name. Care OPD / Care Advanced are add-on policies, not
+# product names. "Optima Secure" (no "+") is NOT an alias: the HDFC footer UIN line names that different
+# product. Slides always use the canonical PolicyDocument.display_name, never an alias.
 PRODUCT_ALIASES = {
     "POL-NIVA": ["ReAssure 2.0"],
-    "POL-HDFC": ["Optima Secure+", "OptimaSecure+", "Optima Secure +", "Optima Secure"],
+    "POL-HDFC": ["Optima Secure+", "OptimaSecure+", "Optima Secure +"],
     "POL-CARE": ["Care Supreme", "carē supreme"],
     "POL-ABHI": ["Activ One"],
 }
@@ -72,6 +74,7 @@ LLM_TIMEOUT_MS = 300_000  # one annotation call covers a whole brochure (HDFC: ~
 DEFAULT_SUM_INSURED = 1_000_000  # INR 10 lakh; always shown as an assumption
 COMPANY_NAME_MIN_LEN = 2
 COMPANY_NAME_MAX_LEN = 120
+MAX_EXPOSURES = 8  # identified exposures per company (baselines first)
 
 # --- Gemini (google-genai on Vertex AI) ------------------------------------------------------------
 USE_VERTEXAI = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "true").strip().lower() in {"1", "true", "yes"}

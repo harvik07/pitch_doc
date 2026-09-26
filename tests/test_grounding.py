@@ -10,7 +10,14 @@ import pytest
 
 from marsh import settings
 from marsh.evidence_store import load_evidence
-from marsh.grounding import format_indian, normalise_text, number_check, quote_in_evidence
+from marsh.grounding import (
+    format_indian,
+    named_policies,
+    normalise_text,
+    number_check,
+    policy_name_check,
+    quote_in_evidence,
+)
 from marsh.numbers import label_numbers
 from marsh.models import (
     CheckResult,
@@ -309,6 +316,25 @@ def test_product_aliases_come_from_their_own_evidence(store):
             assert alias.casefold() in texts[doc_id], (doc_id, alias)
             others = [d for d in texts if d != doc_id and alias.casefold() in texts[d]]
             assert not others, (alias, others)
+
+
+@pytest.mark.parametrize("claim, expected", [
+    ("HDFC ERGO Optima Secure+ covers air ambulance up to ₹5 lakh", {"POL-HDFC"}),
+    ("optima secure + covers air ambulance", {"POL-HDFC"}),  # the PDF's spaced form
+    ("HDFC ERGO Optima Secure covers air ambulance up to ₹5 lakh", set()),  # a different HDFC product
+    ("Niva Bupa ReAssure 2.0 and Care Supreme", {"POL-NIVA", "POL-CARE"}),
+    ("ACTIV ONE by Aditya Birla", {"POL-ABHI"}),
+    ("Activ Onex", set()),
+])
+def test_named_policies_are_whole_names(claim, expected):
+    assert named_policies(claim) == expected
+
+
+def test_optima_secure_without_plus_fails_the_hdfc_name_check():
+    assert not policy_name_check("HDFC ERGO Optima Secure covers air ambulance up to ₹5 lakh", "POL-HDFC")
+    assert policy_name_check("HDFC ERGO Optima Secure+ covers air ambulance up to ₹5 lakh", "POL-HDFC")
+    assert not policy_name_check("Optima Secure+ beats Care Supreme", "POL-HDFC")  # names two products
+    assert "Optima Secure" not in settings.PRODUCT_ALIASES["POL-HDFC"]
 
 
 def test_ocr_spaced_names_occur_in_the_evidence(store):

@@ -16,6 +16,9 @@ from marsh.exposures import load_taxonomy
 from marsh.matching import (
     SI_UNREADABLE,
     build_coverage_matrix,
+    cell_hash,
+    rerun_cells,
+    stale_cells,
     evidence_hash,
     is_covered,
     matrix_cache_path,
@@ -386,8 +389,71 @@ def test_matrix_cache_is_used_and_rebuilt_when_stale(store, taxonomy, tmp_path, 
     assert path.name.startswith("matrix_") and path.name.endswith("_1000000.json")
     stale = load_json(CoverageMatrixCache, path).model_copy(update={"prompt_hash": "old"})
     path.write_text(stale.model_dump_json(), encoding="utf-8")
+    assert build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy) == first
+    assert calls == ["match_policy"]  # a reviewed cache is never rebuilt automatically, even when stale
+    assert len(stale_cells(stale, taxonomy, store.items_for_policy("POL-NIVA"))) == len(taxonomy.exposures)
+    build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy, force=True)
+    assert calls == ["match_policy", "match_policy"]  # only an explicit force rebuilds
+
+
+def test_rerun_cells_replaces_only_the_named_cells(store, taxonomy, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(matching, "call_structured", lambda *a, **k: complete(taxonomy, air_niva(store)))
+    before = {m.exposure_id: m for m in build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy)}
+    seen = {}
+
+    def targeted(prompt_name, variables, response_model, model=None, run_id=None, **_):
+        seen.update(variables)
+        return MatchResponse(matches=[cell("EXP-AYUSH", FULL, benefit=["EV-NIVA-2-006"],
+                                           quotes=[("EV-NIVA-2-006", "Covered up to Sum Insured.")]),
+                                      cell("EXP-HOSP", FULL, benefit=["EV-NIVA-2-006"],
+                                           quotes=[("EV-NIVA-2-006", "Covered up to Sum Insured.")])])
+
+    monkeypatch.setattr(matching, "call_structured", targeted)
+    old, new = rerun_cells("POL-NIVA", ["EXP-AYUSH"], 1_000_000, store=store, taxonomy=taxonomy)
+    assert "EXP-AYUSH" in seen["taxonomy"] and "EXP-HOSP" not in seen["taxonomy"]  # only the named cell is asked
+    assert [d.exposure_id for d in new] == ["EXP-AYUSH"] and old[0].coverage_status == NOT_STATED
+    after = {m.exposure_id: m for m in build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy)}
+    assert after["EXP-AYUSH"].coverage_status == FULL
+    assert {e: m for e, m in after.items() if e != "EXP-AYUSH"} == {e: m for e, m in before.items() if e != "EXP-AYUSH"}
+    cached = load_json(CoverageMatrixCache, matrix_cache_path(store.document("POL-NIVA").sha256, 1_000_000))
+    assert cached.rerun == ["EXP-AYUSH"] and cached.cell_hashes["EXP-AYUSH"] == cell_hash(taxonomy.get("EXP-AYUSH"))
+
+
+def test_a_changed_taxonomy_entry_makes_only_its_cell_stale(store, taxonomy, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(matching, "call_structured", lambda *a, **k: complete(taxonomy, air_niva(store)))
     build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy)
-    assert calls == ["match_policy", "match_policy"]
+    cached = load_json(CoverageMatrixCache, matrix_cache_path(store.document("POL-NIVA").sha256, 1_000_000))
+    changed = taxonomy.model_copy(deep=True)
+    changed.get("EXP-INFLATION").description = "Something else."
+    assert stale_cells(cached, changed, store.items_for_policy("POL-NIVA")) == ["EXP-INFLATION"]
+
+
+# --- T1: limitations from evidence tiers ------------------------------------------------------------------
+
+
+def test_t1_optional_only_benefit_becomes_addon_with_its_limitation(store):
+    optional = store.get("EV-NIVA-1-041")  # "Hospitalisation covered for 2 hours and more" under Safeguard+
+    assert optional.benefit_tier.value == "OPTIONAL"
+    match = validate_match(cell("EXP-DAYCARE", FULL, benefit=[optional.evidence_id],
+                                quotes=[(optional.evidence_id, "Hospitalisation covered for 2 hours and more")]),
+                           "POL-NIVA", store)
+    assert match.validated and match.coverage_status == ADDON
+    assert [lim.type for lim in match.limitations] == [LimitationType.OPTIONAL_EXTRA_PREMIUM]
+    assert match.limitations[0].evidence_ids == ["EV-NIVA-1-041"]
+
+
+def test_t1_a_base_benefit_item_keeps_the_cell_base(store):
+    match = validate_match(cell("EXP-DAYCARE", FULL, benefit=["EV-NIVA-2-006", "EV-NIVA-1-041"],
+                                quotes=[("EV-NIVA-2-006", "Covered up to Sum Insured.")]), "POL-NIVA", store)
+    assert match.validated and match.coverage_status == FULL and match.limitations == []
+
+
+def test_t1_committed_care_chronic_gets_addon_required(committed):
+    chronic = committed["POL-CARE"]["EXP-CHRONIC"]
+    addon = [lim for lim in chronic.limitations if lim.type == LimitationType.ADDON_REQUIRED]
+    assert chronic.coverage_status == ADDON and addon and "EV-CARE-3-035" in addon[0].evidence_ids
 
 
 # --- The committed matrices (default SI) ----------------------------------------------------------------------
@@ -407,8 +473,8 @@ def test_committed_matrices_are_fresh_and_whitelisted(store, taxonomy, committed
     for p in settings.BUNDLED_POLICY_FILES:
         path = matrix_cache_path(store.document(p).sha256, settings.DEFAULT_SUM_INSURED)
         cached = load_json(CoverageMatrixCache, REAL_CACHE_DIR / path.name)
-        assert (cached.taxonomy_hash, cached.evidence_hash, cached.prompt_hash) == (
-            taxonomy_hash(taxonomy), evidence_hash(store.items_for_policy(p)), prompt_hash())
+        assert stale_cells(cached, taxonomy, store.items_for_policy(p)) == [], p  # every cell is current
+        assert (cached.evidence_hash, cached.prompt_hash) == (evidence_hash(store.items_for_policy(p)), prompt_hash())
         ignored = subprocess.run(["git", "check-ignore", "-q", f"data/cache/{path.name}"],
                                  cwd=settings.ROOT, capture_output=True)
         assert ignored.returncode == 1, f"{path.name} is git-ignored"
@@ -466,19 +532,19 @@ def test_committed_m1_m3(committed):
     assert committed["POL-NIVA"]["EXP-PREPOST"].coverage_status == FULL  # windows are not limitations (M1)
     assert is_covered(committed["POL-NIVA"]["EXP-AYUSH"])  # valid on the first pass of this run (M3)
     assert committed["POL-HDFC"]["EXP-PED"].validated  # fixed by its one repair retry
-    care_ped = committed["POL-CARE"]["EXP-PED"]  # still invalid after its one repair: NOT_STATED, validated=False
-    assert (care_ped.coverage_status, care_ped.validated) == (NOT_STATED, False)
-    failed = [m.match_id for cells in committed.values() for m in cells.values() if not m.validated]
-    assert failed == ["MATCH-CARE-PED"]
+    care_ped = committed["POL-CARE"]["EXP-PED"]  # targeted re-run (T3): "Pre-Existing Diseases … 36 months"
+    assert is_covered(care_ped) and LimitationType.WAITING_PERIOD in {lim.type for lim in care_ped.limitations}
+    assert [m.match_id for cells in committed.values() for m in cells.values() if not m.validated] == []
 
 
-@pytest.mark.xfail(strict=True, reason="M4 open: Gemini files Booster+ (BASE) under EXP-SI-EXHAUST and treats "
-                                       "EXP-INFLATION as CPI-linked only (optional Safeguard+). Fix: name the SI-growth "
-                                       "mechanisms in the EXP-INFLATION description, then re-run the matrices.")
 def test_committed_m4_niva_inflation_is_covered_by_booster(committed):
-    inflation = committed["POL-NIVA"]["EXP-INFLATION"]
-    assert inflation.coverage_status in (FULL, LIMITS) and {"EV-NIVA-2-026", "EV-NIVA-2-027"} & set(
-        inflation.benefit_evidence_ids)
+    inflation = committed["POL-NIVA"]["EXP-INFLATION"]  # T2: targeted re-run after the description fix
+    assert is_covered(inflation) and inflation.coverage_status in (FULL, LIMITS)
+    assert {"EV-NIVA-2-026", "EV-NIVA-2-027"} & set(inflation.benefit_evidence_ids)
+
+
+def test_committed_t3_niva_wellness_is_live_healthy(committed):
+    assert is_covered(committed["POL-NIVA"]["EXP-WELLNESS"])
 
 
 def test_every_covered_or_excluded_cell_has_validated_quotes(committed):

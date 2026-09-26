@@ -1,11 +1,14 @@
 """Coverage matrix (policy × taxonomy exposure) and deterministic match validation (CLAUDE.md 5, 6.5, 6.6).
 
-- `build_coverage_matrix(policy_id, assumed_sum_insured, run_id)`: ONE Gemini call per policy
-  (prompts/match_policy.md) with the policy's full citable evidence and the whole taxonomy. Cells that fail
-  validation get ONE repair call (prompts/match_policy_repair.md) with their validation errors fed back; only
-  those cells are replaced. The final raw cells are cached at data/cache/matrix_<sha>_<SI>.json with hashes of
-  the taxonomy, the evidence (text + labels) and both prompts; a cache whose hashes differ is rebuilt. The matrix
-  is company-independent.
+- `build_coverage_matrix(policy_id, assumed_sum_insured, run_id)`: with no cache (e.g. an upload), ONE Gemini
+  call per policy (prompts/match_policy.md) with the policy's full citable evidence and the whole taxonomy. Cells
+  that fail validation get ONE repair call (prompts/match_policy_repair.md) with their validation errors fed back;
+  only those cells are replaced. The raw cells are cached at data/cache/matrix_<sha>_<SI>.json.
+- **A cache is a reviewed file: it is never rebuilt automatically.** Freshness is tracked per cell
+  (`cell_hashes`: the hash of each exposure's taxonomy entry) plus the evidence and prompt hashes; stale cells
+  are reported (`stale_cells`), not re-run. `rerun_cells(policy_id, exposure_ids)` re-runs only the named cells
+  (one targeted call + one repair retry) and records them in `rerun`. `force=True` (a full rebuild) is for new
+  documents only. The matrix is company-independent.
 - `validate_match` runs on every load (no LLM), so a validation change never needs a new LLM call:
   - every cited evidence ID exists, belongs to the policy and is citable;
   - every quote occurs in its cited item (grounding.quote_in_evidence), and every non-NOT_STATED cell has one.
@@ -29,6 +32,10 @@
   - an OTHER_CONDITION without its own verbatim quote is dropped;
   - a COVERED_WITH_LIMITATIONS cell whose limitations were all dropped → FULLY_COVERED;
   - COVERED_VIA_ADDON without ADDON/OPTIONAL-tier benefit evidence → COVERED_WITH_LIMITATIONS (or FULLY_COVERED);
+  - limitations from evidence tiers (T1): a covered cell whose benefit evidence is all add-on/optional (no BASE
+    benefit item) gets ADDON_REQUIRED if any item is tier ADDON and OPTIONAL_EXTRA_PREMIUM if any is OPTIONAL, and
+    is then at least COVERED_VIA_ADDON. A cell with a BASE benefit item is left alone (the base plan covers it;
+    the add-on is an enhancement);
   - FULLY_COVERED with any material limitation → COVERED_WITH_LIMITATIONS.
 - `si_availability`: available_at_assumed_si, computed in Python (numbers.sum_insured_ranges) from the verbatim
   evidence of the cell's SI_TIER_CONDITION limitations and SI-conditioned benefit items (plus their linked
@@ -66,6 +73,7 @@ from marsh.models import (
     MatchDraft,
     MatchResponse,
     PolicyMatch,
+    TaxonomyEntry,
     load_json,
     save_json,
 )
@@ -117,6 +125,19 @@ def _hash(payload: object) -> str:
 
 def taxonomy_hash(taxonomy: ExposureTaxonomy) -> str:
     return _hash([e.model_dump(mode="json", exclude={"keywords"}) for e in taxonomy.exposures])
+
+
+def cell_hash(entry: TaxonomyEntry) -> str:
+    """What one cell was classified against: its exposure's id, name and description."""
+    return _hash(entry.model_dump(mode="json", exclude={"keywords", "baseline"}))
+
+
+def stale_cells(cached: CoverageMatrixCache, taxonomy: ExposureTaxonomy, items: list[EvidenceItem]) -> list[str]:
+    """Exposure IDs whose cell was classified against different inputs than now (all of them if the evidence or
+    the prompt changed). Reported, never re-run automatically."""
+    if cached.evidence_hash != evidence_hash(items) or cached.prompt_hash != prompt_hash():
+        return [e.id for e in taxonomy.exposures]
+    return [e.id for e in taxonomy.exposures if cached.cell_hashes.get(e.id) != cell_hash(e)]
 
 
 def evidence_hash(items: list[EvidenceItem]) -> str:
@@ -332,6 +353,18 @@ def validate_match(draft: MatchDraft, policy_id: str, store: EvidenceStore,
     if status == CoverageStatus.COVERED_VIA_ADDON and not addon_tiers:
         status = CoverageStatus.COVERED_WITH_LIMITATIONS if limitations else CoverageStatus.FULLY_COVERED
         notes.append(f"corrected: COVERED_VIA_ADDON → {status.value} (no ADDON/OPTIONAL-tier benefit evidence)")
+    benefit_tiers = {e: store.get(e).benefit_tier for e in benefit_ids}
+    if status in COVERED and benefit_tiers and BenefitTier.BASE not in benefit_tiers.values():
+        for tier, kind in ((BenefitTier.ADDON, LimitationType.ADDON_REQUIRED),
+                           (BenefitTier.OPTIONAL, LimitationType.OPTIONAL_EXTRA_PREMIUM)):
+            tier_ids = [e for e, t in benefit_tiers.items() if t == tier]
+            if tier_ids and not any(lim.type == kind for lim in limitations):
+                limitations.append(Limitation(type=kind, description=f"Benefit evidence is tier {tier.value}.",
+                                              evidence_ids=tier_ids))
+                notes.append(f"added: {kind.value} from the tier of {', '.join(tier_ids)}")
+                if status != CoverageStatus.COVERED_VIA_ADDON:
+                    notes.append(f"corrected: {status.value} → COVERED_VIA_ADDON (add-on/optional benefit evidence)")
+                    status = CoverageStatus.COVERED_VIA_ADDON
     if status == CoverageStatus.FULLY_COVERED and limitations:
         status = CoverageStatus.COVERED_WITH_LIMITATIONS
         notes.append("corrected: FULLY_COVERED with material limitations → COVERED_WITH_LIMITATIONS")
@@ -398,7 +431,8 @@ def _repair(policy_id: str, drafts: list[MatchDraft], failed: list[PolicyMatch],
 def build_coverage_matrix(policy_id: str, assumed_sum_insured: int | None = None, run_id: str | None = None, *,
                           store: EvidenceStore | None = None, taxonomy: ExposureTaxonomy | None = None,
                           force: bool = False) -> list[PolicyMatch]:
-    """The validated coverage cells for one policy (cached raw LLM cells, rebuilt when stale or forced)."""
+    """The validated coverage cells for one policy. A cached matrix is used as is (stale cells are reported, never
+    re-run); with no cache, or force=True, the whole matrix is built with Gemini."""
     assumed_sum_insured = assumed_sum_insured or settings.DEFAULT_SUM_INSURED
     store = store or load_evidence([policy_id])
     taxonomy = taxonomy or load_taxonomy()
@@ -408,9 +442,9 @@ def build_coverage_matrix(policy_id: str, assumed_sum_insured: int | None = None
               "prompt_hash": prompt_hash()}
     path = matrix_cache_path(doc.sha256, assumed_sum_insured)
     cached = load_json(CoverageMatrixCache, path) if path.exists() and not force else None
-    if cached is not None and any(getattr(cached, k) != v for k, v in hashes.items()):
-        log.info("%s: coverage matrix cache is stale; rebuilding", policy_id)
-        cached = None
+    if cached is not None and (stale := stale_cells(cached, taxonomy, items)):
+        log.warning("%s: %d coverage cells were built from different inputs (%s); using the reviewed cache — "
+                    "re-run them with scripts/rerun_cells.py", policy_id, len(stale), ", ".join(stale))
     if cached is None:
         variables = _prompt_variables(policy_id, store, taxonomy, assumed_sum_insured)
         drafts = call_structured(PROMPT, variables, MatchResponse, run_id=run_id).matches
@@ -424,7 +458,8 @@ def build_coverage_matrix(policy_id: str, assumed_sum_insured: int | None = None
                     "policy_id": policy_id, "failed": {m.match_id: m.validation_errors for m in failed},
                     "repaired": repaired})
         cached = CoverageMatrixCache(policy_id=policy_id, sha256=doc.sha256, assumed_sum_insured=assumed_sum_insured,
-                                     model=settings.GEMINI_MODEL, drafts=drafts, repaired=repaired, **hashes)
+                                     model=settings.GEMINI_MODEL, drafts=drafts, repaired=repaired,
+                                     cell_hashes={e.id: cell_hash(e) for e in taxonomy.exposures}, **hashes)
         save_json(cached, path)
     matches = validate_matrix(policy_id, cached.drafts, taxonomy, store, assumed_sum_insured)
     failed = [m for m in matches if not m.validated]
@@ -439,6 +474,42 @@ def build_coverage_matrix(policy_id: str, assumed_sum_insured: int | None = None
             "failed_validation": {m.match_id: m.validation_errors for m in failed},
         })
     return matches
+
+
+def rerun_cells(policy_id: str, exposure_ids: list[str], assumed_sum_insured: int | None = None,
+                run_id: str | None = None, *, store: EvidenceStore | None = None,
+                taxonomy: ExposureTaxonomy | None = None) -> tuple[list[MatchDraft], list[MatchDraft]]:
+    """Targeted re-run of named cells of a cached matrix: one call with only those exposures, one repair retry for
+    any that fail, then only those drafts are replaced. Returns (old drafts, new drafts) for the named cells."""
+    assumed_sum_insured = assumed_sum_insured or settings.DEFAULT_SUM_INSURED
+    store = store or load_evidence([policy_id])
+    taxonomy = taxonomy or load_taxonomy()
+    unknown = [e for e in exposure_ids if taxonomy.get(e) is None]
+    if unknown:
+        raise ValueError(f"unknown exposure ids: {unknown}")
+    subset = ExposureTaxonomy(exposures=[taxonomy.get(e) for e in exposure_ids])
+    doc = store.document(policy_id)
+    path = matrix_cache_path(doc.sha256, assumed_sum_insured)
+    cached = load_json(CoverageMatrixCache, path)
+    variables = _prompt_variables(policy_id, store, subset, assumed_sum_insured)
+    drafts = [d for d in call_structured(PROMPT, variables, MatchResponse, run_id=run_id).matches
+              if d.exposure_id in exposure_ids]
+    failed = [m for m in validate_matrix(policy_id, drafts, subset, store, assumed_sum_insured) if not m.validated]
+    if failed:
+        drafts, _ = _repair(policy_id, drafts, failed, variables, run_id)
+    new = {d.exposure_id: d for d in drafts if d.exposure_id in exposure_ids}
+    old = [d for d in cached.drafts if d.exposure_id in new]
+    merged = [new.get(d.exposure_id, d) for d in cached.drafts] + [d for e, d in new.items()
+                                                                   if e not in {x.exposure_id for x in cached.drafts}]
+    cell_hashes = dict(cached.cell_hashes) | {e: cell_hash(taxonomy.get(e)) for e in new}
+    updated = cached.model_copy(update={
+        "drafts": merged, "cell_hashes": cell_hashes, "taxonomy_hash": taxonomy_hash(taxonomy),
+        "rerun": sorted(set(cached.rerun) | set(new)),
+        "repaired": sorted(set(cached.repaired) - set(new) | {m.exposure_id for m in failed if m.exposure_id in new})})
+    save_json(updated, path)
+    if run_id:
+        log_decision(run_id, "coverage_cells_rerun", {"policy_id": policy_id, "exposures": sorted(new)})
+    return old, list(new.values())
 
 
 def build_matrix(policy_ids: list[str], assumed_sum_insured: int | None = None, run_id: str | None = None, *,

@@ -60,7 +60,9 @@ exposures:
     baseline: false
   - id: EXP-INFLATION
     name: Medical cost inflation / sum insured growth
-    description: Cover keeping pace with rising treatment costs over time.
+    description: >-
+      Cover keeping pace with rising treatment costs over time through sum-insured growth: cumulative bonus,
+      booster / carry-forward of unused sum insured, sum insured added each year, or a CPI-linked increase.
     keywords: [booster, cumulative bonus, infinite benefit, super credit, cpi, inflation]
     baseline: false
   - id: EXP-MATERNITY

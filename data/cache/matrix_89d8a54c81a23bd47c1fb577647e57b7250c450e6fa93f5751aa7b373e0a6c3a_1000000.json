@@ -3,7 +3,7 @@
   "sha256": "89d8a54c81a23bd47c1fb577647e57b7250c450e6fa93f5751aa7b373e0a6c3a",
   "assumed_sum_insured": 1000000,
   "model": "gemini-2.5-flash",
-  "taxonomy_hash": "930f42cc3fe05573",
+  "taxonomy_hash": "39140e186aa61bb7",
   "evidence_hash": "3f6164196916100b",
   "prompt_hash": "fa2243f988353ea5",
   "drafts": [
@@ -58,10 +58,19 @@
             "EV-NIVA-2-069"
           ],
           "quote": "Safeguard+ is an optional benefit and is available on payment of an extra premium."
+        },
+        {
+          "type": "OTHER_CONDITION",
+          "description": "Hospitalisation covered for 2 hours and more.",
+          "evidence_ids": [
+            "EV-NIVA-1-041"
+          ],
+          "quote": "Hospitalisation covered for 2 hours and more (11)"
         }
       ],
       "benefit_evidence_ids": [
         "EV-NIVA-1-041",
+        "EV-NIVA-2-048",
         "EV-NIVA-2-049"
       ],
       "limitation_evidence_ids": [
@@ -79,7 +88,7 @@
           "quote": "Claim Safeguard+: Non-payable items will be covered (as per list I, II, III, IV of Annexure I)"
         }
       ],
-      "reasoning": "Day-care procedures (hospitalisation for less than 24 hours) are covered only if the optional Safeguard+ benefit is chosen."
+      "reasoning": "Day-care procedures are covered under the optional 'Safeguard+' benefit, which explicitly covers hospitalisation for 2 hours or more."
     },
     {
       "exposure_id": "EXP-MODERN",
@@ -270,31 +279,40 @@
     },
     {
       "exposure_id": "EXP-INFLATION",
-      "coverage_status": "COVERED_VIA_ADDON",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
       "limitations": [
         {
-          "type": "OPTIONAL_EXTRA_PREMIUM",
-          "description": "Safeguard+ is an optional benefit and is available on payment of an extra premium.",
+          "type": "VARIANT_ONLY",
+          "description": "Booster+ benefit carries forward unutilised sum insured up to 5 times for Platinum+ variant and up to 10 times for Titanium+ variant.",
           "evidence_ids": [
-            "EV-NIVA-2-069"
+            "EV-NIVA-2-026",
+            "EV-NIVA-2-027"
           ],
-          "quote": "Safeguard+ is an optional benefit and is available on payment of an extra premium."
+          "quote": "5X: Unutilised Base Sum Insured carries forward to the next policy year, maximum up to 5 times of Base Sum Insured."
         }
       ],
       "benefit_evidence_ids": [
-        "EV-NIVA-2-051"
+        "EV-NIVA-1-035",
+        "EV-NIVA-1-037",
+        "EV-NIVA-2-026",
+        "EV-NIVA-2-027"
       ],
       "limitation_evidence_ids": [
-        "EV-NIVA-2-069"
+        "EV-NIVA-2-026",
+        "EV-NIVA-2-027"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
         {
-          "evidence_id": "EV-NIVA-2-051",
-          "quote": "Sum Insured Safeguard+: CPI linked increase in Base Sum Insured"
+          "evidence_id": "EV-NIVA-1-037",
+          "quote": "Carry forward the balance sum insured."
+        },
+        {
+          "evidence_id": "EV-NIVA-2-026",
+          "quote": "5X: Unutilised Base Sum Insured carries forward to the next policy year, maximum up to 5 times of Base Sum Insured."
         }
       ],
-      "reasoning": "Sum insured growth linked to CPI is available only as part of the optional Safeguard or Safeguard+ benefits."
+      "reasoning": "The policy includes a Booster+ benefit that carries forward unused sum insured, with limits depending on the chosen variant."
     },
     {
       "exposure_id": "EXP-MATERNITY",
@@ -538,14 +556,69 @@
     },
     {
       "exposure_id": "EXP-WELLNESS",
-      "coverage_status": "NOT_STATED",
-      "limitations": [],
-      "benefit_evidence_ids": [],
-      "limitation_evidence_ids": [],
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "OTHER_CONDITION",
+          "description": "Eligible insured person for this benefit will be - a. All members except son/daughter under a Family Floater policy & b. Any member of age at least 18 years under an Individual policy.",
+          "evidence_ids": [
+            "EV-NIVA-2-071"
+          ],
+          "quote": "Eligible insured person for this benefit will be - a. All members except son/daughter under a Family Floater policy & b. Any member of age at least 18 years under an Individual policy."
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-NIVA-1-038",
+        "EV-NIVA-1-039",
+        "EV-NIVA-2-028",
+        "EV-NIVA-2-029"
+      ],
+      "limitation_evidence_ids": [
+        "EV-NIVA-2-071"
+      ],
       "exclusion_evidence_ids": [],
-      "quotes": [],
-      "reasoning": "The \"Live Healthy\" benefit offers a discount on renewal premium, which is not considered coverage for wellness programs themselves."
+      "quotes": [
+        {
+          "evidence_id": "EV-NIVA-1-039",
+          "quote": "Up to 30% discount on renewal premium basis step count."
+        },
+        {
+          "evidence_id": "EV-NIVA-2-029",
+          "quote": "Up to 30% discount on premium at the time of Renewal."
+        }
+      ],
+      "reasoning": "The 'Live Healthy' benefit offers a discount on renewal premium for healthy behavior, which is a reward for wellness, but it has specific eligibility conditions."
     }
   ],
-  "repaired": []
+  "repaired": [],
+  "cell_hashes": {
+    "EXP-HOSP": "c4fca324490cdc1b",
+    "EXP-PREPOST": "177d7b4b7d710c60",
+    "EXP-DAYCARE": "38dc8f53b699bd73",
+    "EXP-MODERN": "fd238af1891655be",
+    "EXP-AMB-ROAD": "3ccc98f7cfd5786c",
+    "EXP-AMB-AIR": "ea1cc17eb90daaf5",
+    "EXP-DOMICILIARY": "fb33883cc388a7cf",
+    "EXP-AYUSH": "cde5445bdaf3ab68",
+    "EXP-NONMED": "e381f2fc69cb5697",
+    "EXP-SI-EXHAUST": "cee22d5d2ff1b5a3",
+    "EXP-INFLATION": "9e011f22e9350500",
+    "EXP-MATERNITY": "c34bb48848bcf451",
+    "EXP-CHRONIC": "9811bdfa9db19cb8",
+    "EXP-PED": "f536172af2c4a32c",
+    "EXP-OPD": "654040b4cb3fec66",
+    "EXP-PREVENTIVE": "37f252780418deb3",
+    "EXP-INTL": "22dd92bf1cb3dcab",
+    "EXP-CRITICAL": "4fc7c3219fb33f7f",
+    "EXP-ACCIDENT": "08b3e5bb770aaafe",
+    "EXP-DEPENDENTS": "109fcc343ac92eea",
+    "EXP-HOSPCASH": "49acfd442934ec84",
+    "EXP-ORGAN": "0996a72804153b6a",
+    "EXP-WELLNESS": "570d187430bc4930"
+  },
+  "rerun": [
+    "EXP-DAYCARE",
+    "EXP-INFLATION",
+    "EXP-WELLNESS"
+  ]
 }

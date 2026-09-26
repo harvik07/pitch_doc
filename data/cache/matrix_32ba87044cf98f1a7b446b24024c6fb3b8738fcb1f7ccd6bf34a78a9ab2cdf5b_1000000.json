@@ -3,7 +3,7 @@
   "sha256": "32ba87044cf98f1a7b446b24024c6fb3b8738fcb1f7ccd6bf34a78a9ab2cdf5b",
   "assumed_sum_insured": 1000000,
   "model": "gemini-2.5-flash",
-  "taxonomy_hash": "930f42cc3fe05573",
+  "taxonomy_hash": "39140e186aa61bb7",
   "evidence_hash": "42bff53ff8e966fa",
   "prompt_hash": "fa2243f988353ea5",
   "drafts": [
@@ -315,13 +315,24 @@
     },
     {
       "exposure_id": "EXP-INFLATION",
-      "coverage_status": "FULLY_COVERED",
-      "limitations": [],
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "SUBLIMIT",
+          "description": "max. up to 100% of SI",
+          "evidence_ids": [
+            "EV-CARE-2-046"
+          ],
+          "quote": "max. up to 100% of SI"
+        }
+      ],
       "benefit_evidence_ids": [
         "EV-CARE-2-045",
         "EV-CARE-2-046"
       ],
-      "limitation_evidence_ids": [],
+      "limitation_evidence_ids": [
+        "EV-CARE-2-046"
+      ],
       "exclusion_evidence_ids": [],
       "quotes": [
         {
@@ -333,7 +344,7 @@
           "quote": "50% of SI per year, max. up to 100% of SI; shall not reduce in case of claim"
         }
       ],
-      "reasoning": "The base plan includes a cumulative bonus that increases the sum insured by 50% per year up to 100% of SI."
+      "reasoning": "The base plan provides a cumulative bonus that increases the sum insured annually, but it is capped at 100% of the sum insured."
     },
     {
       "exposure_id": "EXP-MATERNITY",
@@ -402,25 +413,49 @@
           "type": "WAITING_PERIOD",
           "description": "36 months",
           "evidence_ids": [
+            "EV-CARE-4-027",
             "EV-CARE-4-028"
           ],
           "quote": "36 months"
         },
         {
           "type": "OPTIONAL_EXTRA_PREMIUM",
-          "description": "PED wait period can be modified to 1 or 2 years as an optional benefit with additional premium",
+          "description": "PED wait period will be modified to 1 or 2 years as opted, available on payment of additional premium.",
           "evidence_ids": [
+            "EV-CARE-4-003",
             "EV-CARE-4-004",
             "EV-CARE-4-015"
           ],
-          "quote": "PED wait period will be modified to 1 or 2 years as opted"
+          "quote": "Customer can opt either Instant Cover Benefit or Modification of PED Wait Period Benefit and these are optional Benefits available on payment of additional premium."
         }
       ],
-      "benefit_evidence_ids": [],
-      "limitation_evidence_ids": [],
+      "benefit_evidence_ids": [
+        "EV-CARE-2-023",
+        "EV-CARE-2-024"
+      ],
+      "limitation_evidence_ids": [
+        "EV-CARE-4-027",
+        "EV-CARE-4-028",
+        "EV-CARE-4-003",
+        "EV-CARE-4-004",
+        "EV-CARE-4-015"
+      ],
       "exclusion_evidence_ids": [],
-      "quotes": [],
-      "reasoning": "Pre-existing diseases are covered after a 36-month waiting period. This waiting period can be optionally reduced to 1 or 2 years by paying an additional premium, as stated in the optional benefits section for 'Modification of PED Wait Period'. The optional benefit itself is a form of coverage related to PEDs, making it a valid benefit quote from an OPTIONAL tier item."
+      "quotes": [
+        {
+          "evidence_id": "EV-CARE-2-024",
+          "quote": "Up to SI"
+        },
+        {
+          "evidence_id": "EV-CARE-4-028",
+          "quote": "36 months"
+        },
+        {
+          "evidence_id": "EV-CARE-4-015",
+          "quote": "Customer can opt either Instant Cover Benefit or Modification of PED Wait Period Benefit and these are optional Benefits available on payment of additional premium."
+        }
+      ],
+      "reasoning": "Pre-existing diseases are covered under In-Patient Care after a 36-month waiting period. This waiting period can be optionally reduced to 1 or 2 years for an additional premium."
     },
     {
       "exposure_id": "EXP-OPD",
@@ -653,6 +688,35 @@
     }
   ],
   "repaired": [
+    "EXP-PED"
+  ],
+  "cell_hashes": {
+    "EXP-HOSP": "c4fca324490cdc1b",
+    "EXP-PREPOST": "177d7b4b7d710c60",
+    "EXP-DAYCARE": "38dc8f53b699bd73",
+    "EXP-MODERN": "fd238af1891655be",
+    "EXP-AMB-ROAD": "3ccc98f7cfd5786c",
+    "EXP-AMB-AIR": "ea1cc17eb90daaf5",
+    "EXP-DOMICILIARY": "fb33883cc388a7cf",
+    "EXP-AYUSH": "cde5445bdaf3ab68",
+    "EXP-NONMED": "e381f2fc69cb5697",
+    "EXP-SI-EXHAUST": "cee22d5d2ff1b5a3",
+    "EXP-INFLATION": "9e011f22e9350500",
+    "EXP-MATERNITY": "c34bb48848bcf451",
+    "EXP-CHRONIC": "9811bdfa9db19cb8",
+    "EXP-PED": "f536172af2c4a32c",
+    "EXP-OPD": "654040b4cb3fec66",
+    "EXP-PREVENTIVE": "37f252780418deb3",
+    "EXP-INTL": "22dd92bf1cb3dcab",
+    "EXP-CRITICAL": "4fc7c3219fb33f7f",
+    "EXP-ACCIDENT": "08b3e5bb770aaafe",
+    "EXP-DEPENDENTS": "109fcc343ac92eea",
+    "EXP-HOSPCASH": "49acfd442934ec84",
+    "EXP-ORGAN": "0996a72804153b6a",
+    "EXP-WELLNESS": "570d187430bc4930"
+  },
+  "rerun": [
+    "EXP-INFLATION",
     "EXP-PED"
   ]
 }

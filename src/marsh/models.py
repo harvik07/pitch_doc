@@ -563,6 +563,8 @@ class CoverageMatrixCache(_Model):
     prompt_hash: str
     drafts: list[MatchDraft]
     repaired: list[str] = Field(default_factory=list)  # exposure IDs whose cells came from the repair retry
+    cell_hashes: dict[str, str] = Field(default_factory=dict)  # exposure_id -> hash of its taxonomy entry
+    rerun: list[str] = Field(default_factory=list)  # exposure IDs re-run by targeted cell calls (matching.rerun_cells)
 
 
 class RuleTableRow(_Model):

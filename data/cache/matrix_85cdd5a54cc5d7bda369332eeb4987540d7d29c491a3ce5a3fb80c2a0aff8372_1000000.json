@@ -3,7 +3,7 @@
   "sha256": "85cdd5a54cc5d7bda369332eeb4987540d7d29c491a3ce5a3fb80c2a0aff8372",
   "assumed_sum_insured": 1000000,
   "model": "gemini-2.5-flash",
-  "taxonomy_hash": "930f42cc3fe05573",
+  "taxonomy_hash": "39140e186aa61bb7",
   "evidence_hash": "d4dd9fdd49a5d02a",
   "prompt_hash": "fa2243f988353ea5",
   "drafts": [
@@ -157,6 +157,8 @@
       "coverage_status": "FULLY_COVERED",
       "limitations": [],
       "benefit_evidence_ids": [
+        "EV-ABHI-2-024",
+        "EV-ABHI-2-025",
         "EV-ABHI-2-026"
       ],
       "limitation_evidence_ids": [],
@@ -167,7 +169,7 @@
           "quote": "With our Super Credit feature, your Sum Insured inflates to 6 times the size of your Base Sum Insured by the 6th year of your policy irrespective of whether you claim!"
         }
       ],
-      "reasoning": "The 'Super Credit' feature allows the Sum Insured to inflate up to 6 times the Base Sum Insured over six years, addressing medical cost inflation."
+      "reasoning": "The policy includes a 'Super Credit' feature that inflates the Sum Insured over time, protecting against rising medical costs."
     },
     {
       "exposure_id": "EXP-MATERNITY",
@@ -464,5 +466,33 @@
       "reasoning": "The policy offers 'HealthReturns' for staying active and healthy, which can be used to pay for renewal premiums, diagnostic tests, and medical bills."
     }
   ],
-  "repaired": []
+  "repaired": [],
+  "cell_hashes": {
+    "EXP-HOSP": "c4fca324490cdc1b",
+    "EXP-PREPOST": "177d7b4b7d710c60",
+    "EXP-DAYCARE": "38dc8f53b699bd73",
+    "EXP-MODERN": "fd238af1891655be",
+    "EXP-AMB-ROAD": "3ccc98f7cfd5786c",
+    "EXP-AMB-AIR": "ea1cc17eb90daaf5",
+    "EXP-DOMICILIARY": "fb33883cc388a7cf",
+    "EXP-AYUSH": "cde5445bdaf3ab68",
+    "EXP-NONMED": "e381f2fc69cb5697",
+    "EXP-SI-EXHAUST": "cee22d5d2ff1b5a3",
+    "EXP-INFLATION": "9e011f22e9350500",
+    "EXP-MATERNITY": "c34bb48848bcf451",
+    "EXP-CHRONIC": "9811bdfa9db19cb8",
+    "EXP-PED": "f536172af2c4a32c",
+    "EXP-OPD": "654040b4cb3fec66",
+    "EXP-PREVENTIVE": "37f252780418deb3",
+    "EXP-INTL": "22dd92bf1cb3dcab",
+    "EXP-CRITICAL": "4fc7c3219fb33f7f",
+    "EXP-ACCIDENT": "08b3e5bb770aaafe",
+    "EXP-DEPENDENTS": "109fcc343ac92eea",
+    "EXP-HOSPCASH": "49acfd442934ec84",
+    "EXP-ORGAN": "0996a72804153b6a",
+    "EXP-WELLNESS": "570d187430bc4930"
+  },
+  "rerun": [
+    "EXP-INFLATION"
+  ]
 }

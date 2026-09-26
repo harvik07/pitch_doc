@@ -3,7 +3,7 @@
   "sha256": "706e4039bf8aa210dc09c76d6190e764355ebd7dc86445f9a4c895dee6d7c4af",
   "assumed_sum_insured": 1000000,
   "model": "gemini-2.5-flash",
-  "taxonomy_hash": "930f42cc3fe05573",
+  "taxonomy_hash": "39140e186aa61bb7",
   "evidence_hash": "cfc9e2de652c0b18",
   "prompt_hash": "fa2243f988353ea5",
   "drafts": [
@@ -295,27 +295,34 @@
         "EV-HDFC-2-010",
         "EV-HDFC-2-011",
         "EV-HDFC-2-012",
+        "EV-HDFC-2-013",
+        "EV-HDFC-2-015",
+        "EV-HDFC-2-016",
+        "EV-HDFC-2-018",
+        "EV-HDFC-3-005",
+        "EV-HDFC-3-007",
         "EV-HDFC-3-012",
+        "EV-HDFC-11-021",
         "EV-HDFC-11-025",
-        "EV-HDFC-16-005"
+        "EV-HDFC-11-027"
       ],
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [
         {
+          "evidence_id": "EV-HDFC-1-002",
+          "quote": "BASE SUM INSURED ADDED YEAR AFTER YEAR*"
+        },
+        {
+          "evidence_id": "EV-HDFC-2-018",
+          "quote": "Your base cover doubles instantly, at no extra cost"
+        },
+        {
           "evidence_id": "EV-HDFC-2-012",
           "quote": "Accumulate 100% of base sum insured year after year, infinite times, irrespective of claims made"
-        },
-        {
-          "evidence_id": "EV-HDFC-3-012",
-          "quote": "Since there is no maximum capping on Infinite Benefit, this cycle of additional 100% every year never stops & continues for infinite times"
-        },
-        {
-          "evidence_id": "EV-HDFC-16-005",
-          "quote": "*Under Infinite Benefit, a sum equal to 100% of the expiring policy year's Base Sum Insured shall be provided as an incentive irrespective of claims without any limit on accumulation."
         }
       ],
-      "reasoning": "The Infinite Benefit feature adds 100% of the base sum insured year after year, infinite times, irrespective of claims, effectively addressing medical cost inflation."
+      "reasoning": "The policy includes Secure Benefit, Infinite Benefit, and Automatic Restore Benefit, which all contribute to sum insured growth and replenishment."
     },
     {
       "exposure_id": "EXP-MATERNITY",
@@ -719,5 +726,33 @@
   ],
   "repaired": [
     "EXP-PED"
+  ],
+  "cell_hashes": {
+    "EXP-HOSP": "c4fca324490cdc1b",
+    "EXP-PREPOST": "177d7b4b7d710c60",
+    "EXP-DAYCARE": "38dc8f53b699bd73",
+    "EXP-MODERN": "fd238af1891655be",
+    "EXP-AMB-ROAD": "3ccc98f7cfd5786c",
+    "EXP-AMB-AIR": "ea1cc17eb90daaf5",
+    "EXP-DOMICILIARY": "fb33883cc388a7cf",
+    "EXP-AYUSH": "cde5445bdaf3ab68",
+    "EXP-NONMED": "e381f2fc69cb5697",
+    "EXP-SI-EXHAUST": "cee22d5d2ff1b5a3",
+    "EXP-INFLATION": "9e011f22e9350500",
+    "EXP-MATERNITY": "c34bb48848bcf451",
+    "EXP-CHRONIC": "9811bdfa9db19cb8",
+    "EXP-PED": "f536172af2c4a32c",
+    "EXP-OPD": "654040b4cb3fec66",
+    "EXP-PREVENTIVE": "37f252780418deb3",
+    "EXP-INTL": "22dd92bf1cb3dcab",
+    "EXP-CRITICAL": "4fc7c3219fb33f7f",
+    "EXP-ACCIDENT": "08b3e5bb770aaafe",
+    "EXP-DEPENDENTS": "109fcc343ac92eea",
+    "EXP-HOSPCASH": "49acfd442934ec84",
+    "EXP-ORGAN": "0996a72804153b6a",
+    "EXP-WELLNESS": "570d187430bc4930"
+  },
+  "rerun": [
+    "EXP-INFLATION"
   ]
 }

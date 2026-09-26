@@ -307,8 +307,28 @@ Prompt 2 plus additions A–E (the additions win where they conflict).
   - Niva AYUSH is covered on this run's first pass, so no repair was needed.
 - **M4 (open, strict xfail):** Niva EXP-INFLATION is still COVERED_VIA_ADDON. Gemini files Booster+ (EV-NIVA-2-026 Platinum+ 5X / 2-027 Titanium+ 10X, both BASE) under EXP-SI-EXHAUST and treats inflation as the CPI-linked Safeguard+ (optional). The evidence supports Booster+ as base SI growth. Cause: the EXP-INFLATION description doesn't name SI-growth mechanisms. Fix: add them to the description, then re-run the matrices (not done: one re-run only).
 
+### Reviewed matrices, targeted cell re-runs (T1–T4) (2026-09-26)
+- **The committed matrices are reviewed files.** A cached matrix is never rebuilt automatically. Freshness is tracked per cell (`CoverageMatrixCache.cell_hashes`: each exposure's taxonomy entry), plus the evidence and prompt hashes; stale cells are reported, not re-run.
+  - `matching.rerun_cells` / `scripts/rerun_cells.py POL-X EXP-A,EXP-B` re-runs only the named cells (one targeted call with only those exposures, plus one repair retry) and records them in `rerun`.
+  - `force=True` (a whole-matrix build) is only for new documents.
+  - `scripts/matrix_diff.py --snapshot / --against` shows every changed cell before → after.
+- **T1 (code, no LLM):** a covered cell whose benefit evidence is all add-on/optional gets ADDON_REQUIRED (tier ADDON) and/or OPTIONAL_EXTRA_PREMIUM (tier OPTIONAL) and becomes at least COVERED_VIA_ADDON. A cell with a BASE benefit item is left alone (the base plan covers it). It uses the cited benefit *evidence items*, not only the quoted ones: Care CHRONIC cites EV-CARE-3-035 (ADDON) without quoting it.
+  - Changed: CARE CHRONIC and CARE NONMED (+ADDON_REQUIRED).
+- **T2:** the EXP-INFLATION description now names the SI-growth mechanisms (cumulative bonus, booster / carry-forward of unused SI, SI added each year, CPI-linked increase). Only the 4 INFLATION cells were re-run:
+  - NIVA VIA_ADDON → LIMITS (Booster+ EV-NIVA-2-026, BASE; Gemini labels the 5X/10X-by-variant cap VARIANT_ONLY);
+  - CARE FULL → LIMITS (SUBLIMIT "max. up to 100% of SI");
+  - HDFC and ABHI stay FULL.
+- **T3 (targeted):**
+  - NIVA WELLNESS NOT_STATED → LIMITS (Live Healthy "Up to 30% discount on renewal premium basis step count", OTHER_CONDITION eligibility).
+  - NIVA DAYCARE stays COVERED_VIA_ADDON: EV-NIVA-1-041 "Hospitalisation covered for 2 hours and more" sits under Safeguard+ (OPTIONAL). The brochure never says "day care"; see Next.
+  - CARE PED failed → LIMITS (WAITING_PERIOD "36 months", plus OPTIONAL_EXTRA_PREMIUM for the optional PED-wait reduction; see Next).
+- **T4:** 9 of 92 cells changed (T1: 2, T2: 4, T3: 3); no other cell changed. No cell fails validation now.
+
 ## Next
-- **Before Prompt 6 (decide):** the M4 taxonomy-description fix plus one more matrix re-run. Run-to-run variance in this re-run: Niva WELLNESS lost Live Healthy (→ NOT_STATED), Niva DAYCARE → COVERED_VIA_ADDON, and Care CHRONIC lost its Care Advanced ADDON_REQUIRED limitation.
+- **Decide before Prompt 6** (stopped here per instruction, because T3 didn't come out cleanly):
+  1. NIVA DAYCARE: accept COVERED_VIA_ADDON (Safeguard+ "Hospitalisation covered for 2 hours and more") or require NOT_STATED (no "day care" wording)? Its second quote ("Claim Safeguard+: Non-payable items …") is irrelevant to day care.
+  2. CARE PED: an optional *improvement* (PED wait reduced to 1–2 years for extra premium) is recorded as an OPTIONAL_EXTRA_PREMIUM limitation on a base-covered cell. It counts in rule 4. Drop it (prompt rule / validation), or keep it?
+  3. NIVA INFLATION: Booster+'s variant-dependent cap (5X Platinum+ / 10X Titanium+) is labelled VARIANT_ONLY, but Booster+ is in both variants. With the Prompt 6 variant-conflict rule, VARIANT_ONLY labels matter. Treat a variant-dependent cap as SUBLIMIT instead?
 - **For Prompt 8 (audit) — required deterministic checks (not built yet):**
   - **Number check on supporting items only.** Run `number_check` against the claim's **supporting** evidence only. Against the whole brochure, three planted false claims pass, because their numbers occur elsewhere: Niva "₹5,00,000" (a SI tier "INR 5 Lac"), Niva "30-day initial waiting period" (footnote (8) "30 days/policy year"), and ABHI "100% HealthReturns every year" ("up to 100%"). `tests/test_grounding.py::test_the_whole_brochure_is_the_wrong_input` pins this.
   - **Topic-anchor check.** The claim's benefit topic (e.g. "waiting period", "air ambulance", "maternity") must appear in a supporting item's text, row_label or section, or in the claim's exposure's taxonomy keywords (`config/exposure_taxonomy.yaml`). Otherwise the claim can't be VERIFIED. This catches "Niva 30-day waiting period" being supported by footnote (8)'s "30 days/policy year" hospital-cash limit.
@@ -407,7 +427,7 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **TaxonomyEntry / ExposureTaxonomy**: `id (EXP-), name, description, keywords, baseline` / `exposures`, plus `.get(id)`
 - **ExposurePick / ExposureSelectionResponse** (Gemini output): `exposure_id, rationale, basis_fact_ids` as plain strings (code rejects unknown ones) / `exposures`
 - **LimitationDraft / QuoteDraft / MatchDraft / MatchResponse** (Gemini output for matching): `type, description, evidence_ids` / `evidence_id, quote` / `exposure_id, coverage_status, limitations, benefit/limitation/exclusion_evidence_ids, quotes, reasoning` / `matches`
-- **CoverageMatrixCache** (`data/cache/matrix_<sha>_<SI>.json`): `policy_id, sha256, assumed_sum_insured, model, taxonomy_hash, evidence_hash, prompt_hash, drafts`
+- **CoverageMatrixCache** (`data/cache/matrix_<sha>_<SI>.json`): `policy_id, sha256, assumed_sum_insured, model, taxonomy_hash, evidence_hash, prompt_hash, drafts, repaired, cell_hashes (exposure → taxonomy-entry hash), rerun (targeted re-runs)`
 - **PolicyMatch.match_id**: `MATCH-<POLICY>-<EXPOSURE>` (e.g. MATCH-NIVA-AMB-AIR). `quotes` are the verified quote strings; the evidence IDs are in the cell's evidence lists.
 - **PolicyMatch.available_at_assumed_si**: `bool`, computed by `matching.si_availability`. **Limitation.quote / LimitationDraft.quote**: `str | None` (verified verbatim; required for OTHER_CONDITION). **CoverageMatrixCache.repaired**: exposure IDs replaced by the repair retry.
 

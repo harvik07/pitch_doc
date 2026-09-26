@@ -229,3 +229,19 @@ def test_the_font_renders_the_rupee_sign():
         pytest.skip("Arial is not installed here")
     assert bytes(font.getmask("₹")) != bytes(font.getmask(""))  # a real glyph, not the missing-glyph box
     assert text_width_pt("₹10,00,000", 12) > 0
+
+
+def test_the_trace_palette(rendered):
+    """Cream canvas, navy text; the light-blue accent is decorative only (never a text colour)."""
+    from marsh.render_ppt import ACCENT, CREAM, NAVY
+
+    _, path, _ = rendered
+    prs = Presentation(path)
+    assert str(NAVY) == "000F47" and str(CREAM) == "F7F3EE" and str(ACCENT) == "9FD8E8"
+    for slide in prs.slides:
+        assert slide.background.fill.fore_color.rgb == CREAM
+        colours = {str(r.font.color.rgb) for s in slide.shapes if s.has_text_frame for p in s.text_frame.paragraphs
+                   for r in p.runs if r.font.color and r.font.color.type is not None}
+        assert str(ACCENT) not in colours
+    title = next(s for s in prs.slides[0].shapes if s.name == "Title")
+    assert title.text_frame.paragraphs[0].runs[0].font.color.rgb == NAVY

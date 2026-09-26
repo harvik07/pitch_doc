@@ -22,7 +22,7 @@ def make_pdf(path, text="placeholder page"):
 
 
 class Upload:
-    """Mimics Streamlit's UploadedFile."""
+    """An uploaded file object (name + getvalue())."""
 
     def __init__(self, name, data):
         self.name, self._data = name, data

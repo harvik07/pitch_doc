@@ -3,10 +3,11 @@
 `render(ctx)` runs the gate first (gate.run_gate) and refuses on FAIL; otherwise it builds outputs/<run_id>/pitch.pptx
 from the audited deck and runs `structural_qa` on the saved file.
 
-Template (all constants below; the LLM never controls layout), inspired by marsh.com without copying it: 16:9, a
-white header with the slide title in navy (#002C77) and the official Marsh logo (assets/brand/marsh_logo.png, aspect
-ratio kept, clear space around it) on the right, a thin accent line, Arial (its glyph for ₹ was checked), generous
-whitespace, and a footer with "Confidential" and the slide number. Four slides: Company Overview, Why Choose Marsh,
+Template (all constants below; the LLM never controls layout), inspired by marsh.com without copying it: 16:9, the
+TRACE palette shared with the web app (cream #F7F3EE canvas, deep-navy #000F47 titles and text, light blue #9FD8E8
+for decorative lines only), the official Marsh logo (assets/brand/marsh_logo.png, aspect ratio kept, clear space
+around it) on the right of the header, a thin accent line, Arial (its glyph for ₹ was checked), generous whitespace,
+and a footer with "Confidential" and the slide number. Four slides: Company Overview, Why Choose Marsh,
 Policy Benefits Mapped to Exposures, Recommended Policy.
 - Only claims whose state isn't REMOVED and whose audit status isn't UNSUPPORTED or CONTRADICTED are rendered
   (ADVISOR_ATTESTED with its label).
@@ -82,20 +83,22 @@ LOGO_PATH = settings.ROOT / "assets" / "brand" / "marsh_logo.png"
 
 # --- Template constants ------------------------------------------------------------------------------------------
 SLIDE_W, SLIDE_H = 13.333, 7.5  # inches, 16:9
-NAVY = RGBColor(0x00, 0x2C, 0x77)
-WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-ACCENT = RGBColor(0x00, 0x9D, 0xE0)
-TEXT = RGBColor(0x1E, 0x1E, 0x1E)
-GREY = RGBColor(0x5F, 0x63, 0x68)
-RULE = RGBColor(0xD9, 0xDE, 0xE6)
-ROW_SHADE = RGBColor(0xF1, 0xF4, 0xF9)
+# The TRACE / Marsh palette, shared with the web app (CLAUDE.md section 9): cream canvas, deep-navy text, light blue
+# as a decorative accent only (lines and bars, never text: it has too little contrast on cream).
+CREAM = RGBColor(0xF7, 0xF3, 0xEE)  # slide background
+NAVY = RGBColor(0x00, 0x0F, 0x47)  # titles and text: 16.4:1 on cream
+ACCENT = RGBColor(0x9F, 0xD8, 0xE8)  # decorative only
+TEXT = NAVY
+GREY = RGBColor(0x4A, 0x50, 0x72)  # secondary text: 7.1:1 on cream, 6.5:1 on ROW_SHADE
+RULE = RGBColor(0xD9, 0xD2, 0xC7)  # hairlines
+ROW_SHADE = RGBColor(0xEF, 0xE9, 0xE1)
 FONT = "Arial"  # renders ₹ (U+20B9): its glyph differs from the missing-glyph box (checked with Pillow)
 MARGIN = 0.6
-HEADER_H = 1.15  # white header: title left, logo right
+HEADER_H = 1.15  # header on the cream canvas: title left, logo right
 TITLE_PT = 28
 LOGO_H = 0.46  # the logo keeps its aspect ratio; its box sits inside the header with clear space
 ACCENT_Y = HEADER_H
-ACCENT_H = 0.035
+ACCENT_H = 0.05
 BODY_TOP = 1.45
 FOOTER_Y = 7.08
 SMALL_PRINT_BOTTOM = 6.98  # the small print ends above the footer
@@ -228,7 +231,7 @@ def _set_bullet(paragraph, char: str, indent_in: float) -> None:
         for old in p_pr.findall(qn(tag)):
             p_pr.remove(old)
     bu_clr = etree.SubElement(p_pr, qn("a:buClr"))
-    etree.SubElement(bu_clr, qn("a:srgbClr")).set("val", str(ACCENT))
+    etree.SubElement(bu_clr, qn("a:srgbClr")).set("val", str(NAVY))
     etree.SubElement(p_pr, qn("a:buFont")).set("typeface", FONT)
     etree.SubElement(p_pr, qn("a:buChar")).set("char", char)
 
@@ -347,7 +350,7 @@ def claim_text(claim: Claim, deck: _Deck) -> str:
 def _claim_runs(claim: Claim, deck: _Deck, size: float, **style) -> list[Run]:
     runs = [Run(claim_text(claim, deck), size, **style)]
     if (n := deck.marker(claim)) is not None:
-        runs.append(Run(f"[{n}]", size, bold=True, color=ACCENT, superscript=True))
+        runs.append(Run(f"[{n}]", size, bold=True, color=NAVY, superscript=True))
     return runs
 
 
@@ -425,6 +428,8 @@ def _logo(slide) -> None:
 
 def _base_slide(prs, number: int, date: str):
     slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
+    slide.background.fill.solid()
+    slide.background.fill.fore_color.rgb = CREAM
     logo_space = LOGO_H * 3.0 + 0.6
     _textbox(slide, "Title", MARGIN, 0.22, SLIDE_W - 2 * MARGIN - logo_space, HEADER_H - 0.3,
              [Para([Run(SLIDE_TITLES[number - 1], TITLE_PT, bold=True, color=NAVY)])], anchor=MSO_ANCHOR.MIDDLE)
@@ -499,7 +504,7 @@ def _slide2(prs, deck: _Deck, date: str):
     card_h = (bottom - top - gap * (rows - 1)) / rows
 
     def card(size: float, marsh: Claim, links: list[Claim], n: int) -> list[Para]:
-        paras = [Para([Run(f"{n:02d}", size - 2, bold=True, color=ACCENT)]),
+        paras = [Para([Run(f"{n:02d}", size - 2, bold=True, color=GREY)]),
                  Para(_claim_runs(marsh, deck, size, bold=True, color=NAVY), space_before=3)]
         for link in links:
             paras.append(Para([Run("Why it matters: ", size - 1.5, bold=True, color=GREY)]
@@ -553,7 +558,7 @@ def _row_pages(row, deck: _Deck) -> str:
 
 
 def _table_content(rows, deck: _Deck, size: float) -> list[list[list[Para]]]:
-    header = [[Para([Run(name, size, bold=True, color=WHITE)])] for name, _ in TABLE_COLS]
+    header = [[Para([Run(name, size, bold=True, color=CREAM)])] for name, _ in TABLE_COLS]
     body = [[[Para([Run(r.exposure_name, size, bold=True, color=NAVY)])], _cell_paras(r.benefit, deck, size),
              _cell_paras(r.condition, deck, size), [Para([Run(_row_pages(r, deck), size - 1, color=GREY)])]]
             for r in rows]
@@ -592,7 +597,7 @@ def _slide3(prs, deck: _Deck, date: str):
             cell.margin_left = cell.margin_right = _emu(CELL_INSET)
             cell.margin_top = cell.margin_bottom = _emu(CELL_INSET)
             cell.fill.solid()
-            cell.fill.fore_color.rgb = NAVY if i == 0 else (ROW_SHADE if i % 2 == 0 else WHITE)
+            cell.fill.fore_color.rgb = NAVY if i == 0 else (ROW_SHADE if i % 2 == 0 else CREAM)
             frame_ = cell.text_frame
             frame_.text = ""
             _fill_frame_cell(frame_, paras)
@@ -680,16 +685,16 @@ def _slide4(prs, deck: _Deck, date: str):
     height = bottom - top
 
     def left(size):
-        return [Para([Run(f"Why {block.policy_name}", size + 1, bold=True, color=ACCENT)])] + \
+        return [Para([Run(f"Why {block.policy_name}", size + 1, bold=True, color=NAVY)])] + \
             _with_framing(reasons, deck, framing, size, size * 0.6)
 
     def right(size):
         paras = []
         if supporting:
-            paras.append(Para([Run("Supporting benefits", size + 1, bold=True, color=ACCENT)]))
+            paras.append(Para([Run("Supporting benefits", size + 1, bold=True, color=NAVY)]))
             paras += _with_framing(supporting, deck, framing, size, size * 0.45)
         if limitations:
-            paras.append(Para([Run("Key limitations", size + 1, bold=True, color=ACCENT)],
+            paras.append(Para([Run("Key limitations", size + 1, bold=True, color=NAVY)],
                               space_before=size if supporting else 0))
             paras += _with_framing(limitations, deck, framing, size, size * 0.45)
         return paras

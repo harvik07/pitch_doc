@@ -1283,7 +1283,7 @@ def audit_deck(slides: list[PitchSlide], sources: AuditSources, run_id: str,
     return report
 
 
-def _evidence_view(evidence_id: str, sources: AuditSources) -> dict[str, Any]:
+def evidence_view(evidence_id: str, sources: AuditSources) -> dict[str, Any]:
     try:
         item = sources.item(evidence_id)
     except (KeyError, StopIteration):
@@ -1307,8 +1307,8 @@ def export_report(report: AuditReport, claims: list[Claim], sources: AuditSource
                       "policy_id": claim.policy_id, "material": claim.material, "state": claim.state.value,
                       "text": claim.text, "display_text": to_display(claim.text),
                       "qualifier_text": claim.qualifier_text, "metadata": claim.metadata},
-            "evidence": [_evidence_view(e, sources) for e in r.supporting_evidence_ids],
-            "facts": [_fact_view(facts[f], sources.profile) for f in r.supporting_fact_ids if f in facts],
+            "evidence": [evidence_view(e, sources) for e in r.supporting_evidence_ids],
+            "facts": [fact_view(facts[f], sources.profile) for f in r.supporting_fact_ids if f in facts],
         })
     directory = run_dir(report.run_id)
     json_path = directory / REPORT_JSON
@@ -1323,7 +1323,7 @@ def _cell(text: str | None) -> str:
     return " ".join((text or "").split()).replace("|", "\\|") or "—"
 
 
-def _fact_view(fact: CompanyFact, profile: CompanyProfile) -> dict:
+def fact_view(fact: CompanyFact, profile: CompanyProfile) -> dict:
     """A company fact as the audit report shows it: the display label, never the raw status."""
     urls = {s.source_id: s.url for s in profile.sources}
     return {"fact_id": fact.fact_id, "value": fact.value, "label": fact_display_label(fact.status),
@@ -1334,7 +1334,7 @@ def _fact_ref(fact_id: str, profile: CompanyProfile | None) -> str:
     fact = next((f for f in profile.facts if f.fact_id == fact_id), None) if profile else None
     if fact is None:
         return fact_id
-    view = _fact_view(fact, profile)
+    view = fact_view(fact, profile)
     return f"{fact_id} ({view['label']}" + (f": {', '.join(view['sources'])})" if view["sources"] else ")")
 
 
@@ -1370,7 +1370,7 @@ def report_markdown(report: AuditReport, claims: list[Claim], sources: AuditSour
         status = r.status.value + (" (removed)" if claim.state == ClaimState.REMOVED else "")
         evidence = []
         for e in r.supporting_evidence_ids[:3]:
-            view = _evidence_view(e, sources)
+            view = evidence_view(e, sources)
             if not view.get("missing"):
                 evidence.append(f"{view['document']}, p. {view['page']}, {view['section']} ({e})")
         if r.supporting_fact_ids:

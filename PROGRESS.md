@@ -644,10 +644,58 @@ policy evidence. CLAUDE.md §§1, 3, 4, 5, 6.2, 8, 9 and 11 amended ("V1 has no 
 - Business risks may now ground slide 2's "why it matters" lines (still never slide 3/4 policy framing).
 - Tests: 850 passing. New files: `tests/test_marsh_profile.py` and `tests/test_refresh.py`. Updated: `tests/test_gate.py` (Marsh record / condition / slide-2 section), `tests/test_render.py` (4 slides, logo, legend, sources, disclaimer placement, hidden variant, nothing internal visible), `tests/test_audit.py` (Marsh statements, links, "*"), `tests/test_pitch.py` (slide 2 generation and retry, provenance split) and the web-title tests.
 
+### TRACE web app: FastAPI + React frontend, replacing Streamlit (2026-09-27)
+- **Your decisions:**
+  - Stack: FastAPI + React/Vite/TS, no Streamlit.
+  - Palette for the UI and the deck: cream #F7F3EE, navy #000F47, and light blue #9FD8E8 as a decorative accent only.
+  - Reject closes the run; there is no "Regenerate with feedback".
+  - Real slide images in the review.
+  - No separate Recommendation panel: the deck presents the recommendation. The override is a minimal control on slide 4's statements and on selection review items.
+- **CLAUDE.md updated:**
+  - §1 table points to `server.py` + `frontend/`.
+  - §3 web UI and palette; §4 layout (`app.py` removed).
+  - §7 reuse wording; §9 deck palette.
+  - §10 Reject closes the run.
+- **requirements.txt:** −streamlit, +fastapi, uvicorn[standard], python-multipart, httpx.
+- **Deck palette (`render_ppt.py`):**
+  - Colours: cream slide background; navy titles and text; secondary text #4A5072 (7.1:1); light-blue accent line and card bars only (never a text colour, which a test checks); table header navy with cream text; rows cream / #EFE9E1.
+  - Structural QA and fit-to-box are unchanged.
+  - RUN-20260926-193409-a71b was re-rendered (0 LLM calls) and its images inspected.
+- **Advisor actions in `pipeline.py`:** each is logged, recorded in `advisor_actions` and saved. `AdvisorActionError` carries the advisor-facing message.
+  - `approve_claim`: refused for CONTRADICTED / UNSUPPORTED.
+  - `edit_and_reaudit` (`edit_claim` + `reaudit_dirty`): audits only the DIRTY statements, and keeps every other result, attestation and approval.
+  - `remove_claim`: REMOVED, kept in the audit trail; a slide-4 reason takes its framing with it.
+  - `attest_claim`: UNSUPPORTED only, justification required, CONTRADICTED never.
+  - `acknowledge_item`: current review items only; a FAIL item can't be acknowledged.
+  - `override_selection`: `apply_advisor_override`, then `pitch_run` + `audit_run`.
+  - `approve_deck`: render; EXPORTED only when `export_allowed`.
+  - `reject_run`: reason required → REJECTED.
+- **`server.py` (FastAPI, thin; it decides nothing):**
+  - Validation first (`validate_company_name` / `validate_files`, inline field errors, 422).
+  - A background job runs the pipeline steps in order, with 8 advisor-friendly stages.
+  - Review view model built from the stored run:
+    - statuses humanised;
+    - gate items reworded, with no ids or raw statuses;
+    - evidence per statement: document, page, section, quote, footnotes, web / Marsh sources.
+  - The advisor actions; slide previews (render + PowerPoint export in the background after each change, "blocked" while the gate FAILs); downloads (the PPTX only after export).
+  - Friendly errors (§11); tracebacks go to `outputs/<run_id>/errors.log`.
+  - Serves `frontend/dist`.
+- **`frontend/` (React 18 + TS strict + Vite 8 + react-router 7; Phosphor icons; self-hosted Source Serif 4 + Inter):**
+  - Landing → Create (company, the 4 brochures, PDF upload, error summary + inline errors) → Generating (live stages, progress bar, aria-live, retry) → Review → Complete (downloads) / Rejected.
+  - Review order: 01 Summary (status, confidence, what needs attention, each linking to its statement); 02 The deck (slide images + thumbnails; fallback message); 03 Statements by slide (status, evidence on request, Approve / Edit (re-checks) / Remove / Attest); 04 Review items (acknowledge checklist); 05 Final decision (Approve & export / Reject with reason).
+  - No persistent navigation (a brand bar only); refresh-safe (all state is on the server).
+  - Accessibility and layout: skip link, focus moves on route change, visible focus, AA contrast (checked), reduced motion. No horizontal overflow at 375 px on any page (checked).
+- **Verification:**
+  - `pytest -q`: 868 passed. New: `tests/test_advisor_actions.py` (8), `tests/test_server.py` (9), and the palette test.
+  - `npm run build` (tsc strict) and `npm run lint`: clean. `npm audit`: 0 vulnerabilities.
+  - In the browser on a copy of the frozen run: edit (re-checked Verified) → acknowledge both items → approve & export → downloads (PPTX, audit .md / .json); no console errors. Mobile checked.
+  - **Real run from the UI: Wipro, RUN-20260927-015814-aad8** (13 LLM calls):
+    - HDFC recommended; confidence 96%.
+    - The gate blocked CL-027 (a slide-3 check-up limit, UNSUPPORTED + number check). Removing it in the UI → REVIEW_REQUIRED, and the deck preview rendered.
+    - The run is left awaiting your review.
+
 ## Next
-- **For Prompt 10 (fact labels):** in the UI show company facts with `models.fact_display_label` only ("Web-sourced" with its source link, or "Assumption"), never "Unverified" or a raw status; the deck uses "*" + legend instead. Show `CompanyProfile.web_search_note` as an info message when set.
-- **For Prompt 10:** acknowledgements are `AdvisorActionRecord(REVIEW_ITEM_ACKNOWLEDGED, target_id=GateItem.item_id)`; re-run the gate after each advisor action; download only when `GateResult.export_allowed`.
-- **For Prompt 10:** an advisor edit goes through `pipeline.edit_claim` (DIRTY, logged); `pipeline.audit_run` re-audits it (the cache serves every other claim), then re-run the gate.
+- **Next:** Prompt 11 (sample deliverables) and Prompt 12 (write-up + README). The web UI replaced the Streamlit Prompt 10.
 - **For Prompt 7 (selection claims):** slide 4's reason comes from `reason_claims`. Several REASON claims mix a policy fact with a company framing ("…, which is important for a large, desk-based workforce"). The pitch should split them into a POLICY_* claim and a COMPANY_FACT claim, so each is audited against the right source.
 - **For Prompt 7 (Niva):** slides say "hospitalisation of 2 hours and more", never "day care". The brochure never uses the words "day care".
 - **For Prompt 7 (Care wellness grid):** claims must use the brochure's own wording, e.g. "270" days → 30% renewal discount. Never write "270 or more" (or "at least"): the brochure doesn't say it.
@@ -761,6 +809,8 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **PolicyMatch.available_at_assumed_si**: `bool`, computed by `matching.si_availability`. **Limitation.quote / LimitationDraft.quote**: `str | None` (verified verbatim; required for OTHER_CONDITION). **CoverageMatrixCache.repaired**: exposure IDs replaced by the repair retry.
 
 ## Known issues
+- **Generation jobs live in the server process.** A restart during generation loses that job (its run folder stays, incomplete); a finished run survives restarts (all review state is in `outputs/<run_id>/`).
+- **Slide previews need PowerPoint (Windows COM).** Elsewhere, or while the gate FAILs (the renderer refuses by design), the review shows the statements slide by slide instead of images.
 - **The audit LLM's verdicts vary between runs at temperature 0.** For example, the Niva in-patient/AYUSH claim was NEEDS_REVIEW in one run and CONTRADICTED in another, and the eval's "₹25 lakh deductible" was CONTRADICTED or UNSUPPORTED. The deterministic checks bound this: they can't let a false claim through as VERIFIED, but a true claim can land in VWQ or NEEDS_REVIEW.
 - **The LLM's qualifiers are accepted when their numbers are in the evidence, so their wording can be loose.** One qualifier said "a base benefit specific to Platinum+ and Titanium+", which are all the variants.
 - **"Not stated" claims map to a coverage cell through the taxonomy keywords.** "Initial waiting period" maps to the pre-existing-disease waiting-period cell.

@@ -5,9 +5,11 @@ docling
 pymupdf
 python-pptx
 python-docx
-streamlit
 pyyaml
 python-dotenv
 pytest
 tenacity
-tavily-python
+fastapi
+uvicorn[standard]
+python-multipart
+httpx

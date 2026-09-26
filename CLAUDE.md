@@ -33,13 +33,13 @@ The LLM must never:
 
 | ID | Requirement from the brief | Where it's implemented |
 |---|---|---|
-| 1.1 | UI: company name input, select/upload policy document(s) as baseline, Generate button | `app.py` |
+| 1.1 | UI: company name input, select/upload policy document(s) as baseline, Generate button | `frontend/` (TRACE web app) + `server.py` |
 | 1.2 | `generateCompanyProfile(company_name)`: industry, size, key risks; clearly labelled assumptions if data unavailable | `src/marsh/web_search.py` (Tavily) + `src/marsh/company.py`, exported in `src/marsh/api.py` |
 | 1.3 | `generateMarketingPitch()`: 3–5 slide deck covering company overview, why choose Marsh, policy benefits mapped to exposures, **one** final recommended policy | `src/marsh/pitch.py` + `render_ppt.py`, exported in `api.py` |
-| 1.4 | Input validation + error handling: missing company name, missing documents, generation failures | `src/marsh/validation.py`, `app.py`, `llm.py` |
+| 1.4 | Input validation + error handling: missing company name, missing documents, generation failures | `src/marsh/validation.py`, `server.py`, `frontend/`, `llm.py` |
 | 2.1 | Audit layer: trace each claim to a specific policy clause; flag untraceable statements for human review | `src/marsh/audit.py` |
 | 2.1 | Audit summary (confidence score **and** pass/fail flag) alongside the deck | `audit.py` → `AuditReport.summary` |
-| 2.2 | `auditPitchContent(pitch_slides, policy_docs)` returns a structured audit report; advisor can approve / edit / reject | `audit.py`, exported in `api.py`; review UI in `app.py` |
+| 2.2 | `auditPitchContent(pitch_slides, policy_docs)` returns a structured audit report; advisor can approve / edit / reject | `audit.py`, exported in `api.py`; review UI in `frontend/` (actions in `pipeline.py`, served by `server.py`) |
 | Deliverables | Working app; ≥1 sample 3–5 slide PPTX; audit results showing traceability; short Word/PDF write-up (approach, tools, design decisions) | `outputs/`, `deliverables/` |
 
 The three public function names must be **exactly** `generateCompanyProfile`, `generateMarketingPitch`, `auditPitchContent`
@@ -103,7 +103,7 @@ Planted **false** claims the audit must NOT verify:
 - Python 3.11, `pydantic` v2 for every data object
 - **Docling** for PDF parsing (OCR on, table structure on). Fallback: PyMuPDF text layer, marked `extraction_method="pymupdf_fallback"`
 - **Gemini** via the `google-genai` SDK (Vertex AI on GCP). Config via env: `GOOGLE_GENAI_USE_VERTEXAI`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GEMINI_MODEL`, `GEMINI_AUDIT_MODEL` (may be a stronger model). Check the installed SDK's docs for the structured-output API — don't guess signatures. `temperature=0` for extraction, matching and audit calls.
-- **Streamlit** UI (`app.py`)
+- **Web UI "TRACE — Marsh Pitch Intelligence"** (no Streamlit): `server.py` (FastAPI + uvicorn, a thin JSON layer that only calls `src/marsh`) + `frontend/` (React + TypeScript + Vite). The palette is shared with the deck (section 9): cream `#F7F3EE` background, deep navy `#000F47` text, light blue `#9FD8E8` as a decorative accent only (never text).
 - **python-pptx** for rendering; `python-docx` for the write-up
 - **Tavily** (`tavily-python`) web search for the company profile only. Config via env: `TAVILY_API_KEY`, `WEB_SEARCH_ENABLED`. No key, disabled, an error or no results → the profile falls back to model knowledge (never the SDK's keyless mode).
 - Storage: JSON files on disk (no DB, **no vector DB**). Evidence cache keyed by file SHA-256; web search results cached by company name in `data/cache/web/`.
@@ -114,7 +114,8 @@ Planted **false** claims the audit must NOT verify:
 ## 4. Repository layout
 
 ```
-app.py                         Streamlit UI
+server.py                      FastAPI: generation jobs with progress, review view model, advisor actions, downloads
+frontend/                      TRACE web app (React + TS + Vite); `npm run build` → frontend/dist, served by server.py
 src/marsh/
   api.py                       generateCompanyProfile / generateMarketingPitch / auditPitchContent
   models.py                    all pydantic models (section 5)
@@ -261,7 +262,7 @@ A selection that fails gets **one** repair retry with the errors fed back. Error
 advisor and block export (section 10) until the advisor overrides the selection.
 
 **Reuse**: the selection is made once per run, saved in the RunContext, and reused by every later step and every
-re-run of that run (including "Regenerate with feedback"). Only an advisor override changes it.
+re-run of that run. Only an advisor override changes it (the pitch is then regenerated and re-audited).
 
 **Advisor override**: the advisor may pick a different policy from `compared_policy_ids` with a written reason;
 this sets `decided_by=ADVISOR` and `advisor_reason`, is logged to the decision log, and makes the run
@@ -317,7 +318,7 @@ There is no slide 5. Each slide's small print (bottom, above the footer) carries
 - on slides 3 and 4, the disclaimer "Summary based on insurer brochures; the policy wording prevails in case of conflict."
 Nothing internal is visible: no file paths, ".md", ".pdf", "data/", "LLM", "audited", "Selected by", "Variant: not specified", "(Assumption)", record / source / evidence ids or raw statuses (structural QA fails otherwise).
 
-Design (inspired by marsh.com, not copied): 16:9; white header with the navy (#002C77) title and the official logo (`assets/brand/marsh_logo.png`, aspect ratio kept, clear space) on the right; a thin accent line; Arial (renders ₹); generous whitespace; navy plus one accent colour; a footer with "Confidential" and the slide number. Every text box is sized to fit (fit-to-box estimate with the real Arial metrics) and structural QA re-measures overflow.
+Design (inspired by marsh.com, not copied; the same palette as the TRACE web app): 16:9; cream `#F7F3EE` slide background; deep-navy `#000F47` title and text (secondary text `#4A5072`); the official logo (`assets/brand/marsh_logo.png`, aspect ratio kept, clear space) on the right of the header; a thin light-blue `#9FD8E8` accent line (decorative only, never text); Arial (renders ₹); generous whitespace; a footer with "Confidential" and the slide number. Every text box is sized to fit (fit-to-box estimate with the real Arial metrics) and structural QA re-measures overflow.
 
 Speaker notes on each slide list `claim_id → status → evidence_id (doc, page)` for traceability (slide 4's also say how the policy was selected).
 Colours, fonts, positions and slide count are constants in `render_ppt.py`. The LLM never controls layout.
@@ -334,7 +335,7 @@ Colours, fonts, positions and slide count are constants in `render_ppt.py`. The 
 
 **Advisor attestation**: an advisor may attest an UNSUPPORTED claim (e.g. a fact from the full policy wording) with a written justification. It's logged and shown on its own slide as "(Advisor-attested)". CONTRADICTED claims **cannot** be attested — they must be edited or removed.
 
-**Reject**: requires a reason; closes the run with `final_status=REJECTED`; logged; offers "Regenerate with feedback".
+**Reject**: requires a reason; closes the run with `final_status=REJECTED`; logged. The advisor starts a new run for a new pitch.
 
 ---
 

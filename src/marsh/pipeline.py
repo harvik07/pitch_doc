@@ -10,7 +10,7 @@ the selection LLM. An uploaded PDF is validated, extracted, annotated and gets i
 bundled brochure.
 
 Steps so far: start_run (validate + profile), identify_run_exposures, prepare_policies, match_run, select_run;
-prepare_run chains them. Later steps are added in Prompts 7-10.
+prepare_run chains them; pitch_run (Prompt 7). Later steps are added in Prompts 8-10.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from marsh import settings
-from marsh.company import CompanyNameError, generate_company_profile, load_profile
+from marsh.company import CompanyNameError, generate_company_profile, load_frozen
 from marsh.decision_log import log_decision
 from marsh.exposures import identify_exposures
 from marsh.models import PolicyDocument, RunContext, ValidatedFile
@@ -37,8 +37,10 @@ class PolicyDocsError(ValueError):
 
 def start_run(company_name: str | None = None, *, profile_path: str | Path | None = None,
               assumed_sum_insured: int | None = None) -> RunContext:
-    """Create a run and fix its company profile: loaded from `profile_path`, or generated once."""
-    profile = load_profile(profile_path) if profile_path else None
+    """Create a run and fix its company profile: loaded from `profile_path` (with its frozen exposures, if the file
+    has them), or generated once."""
+    frozen = load_frozen(profile_path) if profile_path else None
+    profile = frozen.company_profile if frozen else None
     check = validate_company_name(company_name if company_name is not None else
                                   (profile.company_name if profile else None))
     if not check.ok:
@@ -48,7 +50,9 @@ def start_run(company_name: str | None = None, *, profile_path: str | Path | Non
     ctx = new_run_context(check.name, assumed_sum_insured=assumed_sum_insured or settings.DEFAULT_SUM_INSURED)
     if profile:
         ctx.company_profile = profile
-        log_decision(ctx.run_id, "company_profile_loaded", {"path": str(profile_path)})
+        ctx.exposures = list(frozen.exposures)
+        log_decision(ctx.run_id, "company_profile_loaded", {
+            "path": str(profile_path), "frozen_exposures": [e.exposure_id for e in frozen.exposures]})
     else:
         ctx.company_profile = generate_company_profile(check.name, ctx.run_id)
     save_run_context(ctx)
@@ -190,7 +194,17 @@ def prepare_run(company_name: str | None, policy_docs: Any, *, profile_path: str
     The documents are checked before any LLM call."""
     resolve_policy_docs(policy_docs)  # user-facing errors first
     ctx = start_run(company_name, profile_path=profile_path, assumed_sum_insured=assumed_sum_insured)
-    ctx = identify_run_exposures(ctx)
+    if not ctx.exposures:  # a frozen profile brings its exposures: no exposure LLM call
+        ctx = identify_run_exposures(ctx)
     documents = prepare_policies(policy_docs, ctx.run_id)
     ctx = match_run(ctx, [d.document_id for d in documents])
     return select_run(ctx)
+
+
+def pitch_run(ctx: RunContext) -> RunContext:
+    """The PitchDeck for the run's locked selection (saved in the RunContext and outputs/<run_id>/pitch_deck.json)."""
+    from marsh.pitch import generate_pitch
+
+    generate_pitch(ctx)
+    save_run_context(ctx)
+    return ctx

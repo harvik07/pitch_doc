@@ -182,7 +182,7 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`
 - `reason_claims`: the LLM's atomic statements (kind REASON | LIMITATION | CONDITION), each about ONE policy with its evidence IDs and verbatim quotes, and the errors of its pre-pitch check. `reason`, `important_limitations`, `important_conditions`, `supporting_evidence_ids` and `supporting_quotes` are derived from them.
 - `reason`, `important_limitations` and `important_conditions` are LLM text: they reach the deck only as audited `Claim` objects (section 9).
 
-**Claim**: `claim_id, slide_number, text, claim_type, policy_id (nullable), cited_evidence_ids (generator's citation — logged, never trusted), basis_fact_ids, material: bool, qualifier_text (nullable), state (DRAFT|DIRTY|AUDITED|REMOVED)`
+**Claim**: `claim_id, slide_number, text, claim_type, policy_id (nullable), cited_evidence_ids (generator's citation — logged, never trusted), basis_fact_ids, material: bool, qualifier_text (nullable), state (DRAFT|DIRTY|AUDITED|REMOVED), metadata (e.g. a WM claim's wm_id + condition for the gate; a slide-4 claim's source selection claim)`
 - `claim_type ∈ {POLICY_FACT, POLICY_BENEFIT, POLICY_LIMIT, POLICY_PRICING, POLICY_CONDITION, POLICY_EXCLUSION, COMPANY_FACT, MARSH_STATEMENT, ASSUMPTION, NON_FACTUAL}`
 
 **AuditResult**: `audit_id, claim_id, status, supporting_evidence_ids, quotes, number_check (PASS|FAIL|NA + details), quote_check (PASS|FAIL|NA), required_qualifier (nullable), explanation, repair_attempts, advisor_action (None|APPROVED|EDITED|REMOVED|ATTESTED), advisor_note`
@@ -295,7 +295,7 @@ Per claim:
 | 1 | Company Overview | company name; industry; size; key business risks; relevant employee-health exposures; each unverified/assumption fact labelled | ≤ 6 bullets, ≤ 140 chars each |
 | 2 | Why Choose Marsh | 3–4 points from `marsh_profile.md` only | ≤ 4 bullets |
 | 3 | Policy Benefits Mapped to Exposures | table: Exposure → Benefit → Condition/Limitation → Source (doc, page); the Source column is filled by code from evidence | ≤ 6 rows |
-| 4 | Recommended Policy | exactly one policy name + variant + required add-ons (code-injected from `PolicySelection`); the selection reason as Claim objects (LLM, audited like every claim, never injected unaudited); 3 supporting benefits; 2 key limitations (LLM, audited) | exactly one policy |
+| 4 | Recommended Policy | exactly one policy name + variant + required add-ons (code-injected from `PolicySelection`); the selection reason as Claim objects (LLM, audited like every claim, never injected unaudited); 3 supporting benefits; 2 key limitations (LLM, audited) | exactly one policy; ≤ 8 reason / condition bullets, ≤ 3 supporting benefits, ≤ 2 key limitations |
 | 5 | Key Terms, Sources & Assumptions | qualifier footnotes; source list; assumptions; disclaimer "Summary based on insurer brochures; the policy wording prevails in case of conflict." | — |
 
 Speaker notes on each slide list `claim_id → evidence_id (doc, page)` for traceability.

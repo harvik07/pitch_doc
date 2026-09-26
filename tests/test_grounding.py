@@ -224,8 +224,9 @@ SWEEP = [
     ("EV-NIVA-2-041", "Hospital cash tier ₹6,000/day above ₹15 lakh SI", CONTRA),
     ("EV-CARE-3-025", "Level 2 - 40% renewal discount for 270 days of activity", CONTRA),
     ("EV-CARE-3-025", "Wellness renewal discount of 10-15-25% based on 270 days", CONTRA),
-    # A Sum-Insured tier in a column label cannot stand in for the cell's own amount.
-    (("EV-HDFC-7-004", "EV-HDFC-7-005"), "A ₹25 lakh deductible gives a 22.5% premium discount", CONTRA),
+    # F1: label amounts count, so a SI tier in a column label can satisfy a claim about the cell's own amount.
+    # Accepted trade-off: the audit's topic check (Prompt 8) must catch this, not the number check.
+    (("EV-HDFC-7-004", "EV-HDFC-7-005"), "A ₹25 lakh deductible gives a 22.5% premium discount", PASS),
     (("EV-HDFC-7-004", "EV-HDFC-7-005"), "A ₹25,000 deductible gives a 22.5% premium discount", PASS),
 ]
 
@@ -267,6 +268,23 @@ def test_sweep_regressions(store, evidence_ids, claim, expected):
     ids = (evidence_ids,) if isinstance(evidence_ids, str) else evidence_ids
     outcome = number_check(claim, [store.get(i) for i in ids])
     assert outcome.status == expected, outcome.details
+
+
+def test_f1_a_column_label_amount_counts(store):
+    """HDFC p5 check-up table: the SI "10 L" is only in the column label; the cell says "2,000"."""
+    cell = store.get("EV-HDFC-5-005")
+    assert "10 L" in (cell.column_label or "") and "10 L" not in cell.text
+    assert number_check("For a 10 L Base Sum Insured, the sub-limit is 2,000 per individual", [cell]).status == PASS
+    assert number_check("For a 15 L Base Sum Insured, the sub-limit is 2,000 per individual", [cell]).status == CONTRA
+
+
+def test_f1_footnote_markers_in_labels_are_not_numbers(store):
+    """Care p3: the row label "Air Ambulance 5" carries footnote marker 5; "Care OPD 9" carries 9."""
+    air = next(i for i in store.items_for_policy("POL-CARE") if i.row_label == "Air Ambulance 5" and i.text != i.row_label)
+    assert "5" in air.footnote_markers and all(n.value != 5 for n in label_numbers(air))
+    assert number_check("Care Supreme covers 5 air ambulance trips a year", [air]).status != PASS
+    opd = store.get("EV-CARE-3-002")
+    assert opd.row_label == "Care OPD 9" and all(n.value != 9 for n in label_numbers(opd))
 
 
 def test_table_labels_carry_numbers(store):

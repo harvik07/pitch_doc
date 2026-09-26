@@ -66,6 +66,12 @@ from marsh.models import (
     ExposurePick,
     ExposureSelectionResponse,
     ExposureTaxonomy,
+    DraftCompanyBullet,
+    DraftPolicyClaim,
+    DraftRow,
+    DraftSplit,
+    PitchDraft,
+    FrozenProfile,
     TaxonomyEntry,
     NumberCheckStatus,
     NumberUnit,
@@ -244,6 +250,17 @@ def make_file_validation() -> FileValidation:
 ALL_MODELS = [
     make_fact, make_profile, make_document, make_evidence, make_exposure, make_match, make_selection,
     make_selection_claim,
+    lambda: PitchDraft(slide1_bullets=[DraftCompanyBullet(text="Placeholder.", basis_fact_ids=["CF-001"])],
+                       slide3_rows=[DraftRow(exposure_id="EXP-AMB-AIR", benefit_text=NIVA_AIR,
+                                             evidence_ids=["EV-NIVA-2-015"])],
+                       supporting_benefits=[DraftPolicyClaim(text=NIVA_AIR, evidence_ids=["EV-NIVA-2-015"])],
+                       splits=[DraftSplit(selection_claim_id="SC-1", policy_text=NIVA_AIR)]),
+    lambda: DraftCompanyBullet(text="Placeholder.", basis_fact_ids=["CF-001"]),
+    lambda: DraftRow(exposure_id="EXP-HOSP", benefit_text="Placeholder."),
+    lambda: DraftPolicyClaim(text="Placeholder."),
+    lambda: DraftSplit(selection_claim_id="SC-2", policy_text="Placeholder.", company_text="Placeholder.",
+                       basis_fact_ids=["CF-001"]),
+    lambda: FrozenProfile(company_profile=make_profile(), exposures=[make_exposure()]),
     lambda: SelectionResponse(selected_policy_id="POL-NIVA", confidence=Confidence.LOW, claims=[SelectionClaimDraft(
         kind=SelectionClaimKind.REASON, text="Placeholder.", policy_id="POL-NIVA")]),
     lambda: SelectionClaimDraft(kind=SelectionClaimKind.CONDITION, text="Placeholder.", policy_id="POL-NIVA"),
@@ -491,7 +508,10 @@ def test_content_must_sit_on_its_own_slide():
         PitchSlide(slide_number=1, title=SLIDE_TITLES[0],
                    table_rows=[BenefitRow(exposure_id="EXP-HOSP", exposure_name="x", benefit=claim(1, 1))])
     with pytest.raises(ValidationError, match="no free bullets"):
-        PitchSlide(slide_number=4, title=SLIDE_TITLES[3], bullets=[claim(1, 4)])
+        PitchSlide(slide_number=3, title=SLIDE_TITLES[2], bullets=[claim(1, 3)])
+    PitchSlide(slide_number=4, title=SLIDE_TITLES[3], bullets=[claim(1, 4)])  # the selection's reason bullets
+    with pytest.raises(ValidationError, match="at most 8 reason"):
+        PitchSlide(slide_number=4, title=SLIDE_TITLES[3], bullets=[claim(n, 4) for n in range(1, 10)])
     with pytest.raises(ValidationError, match="sits on slide"):
         PitchSlide(slide_number=2, title=SLIDE_TITLES[1], bullets=[claim(1, 1)])
 

@@ -106,6 +106,11 @@ class FakeGemini:
                     "claims": [{"kind": "REASON", "text": NIVA_AIR, "policy_id": "POL-NIVA",
                                 "evidence_ids": ["EV-NIVA-2-015"],
                                 "quotes": [{"evidence_id": "EV-NIVA-2-015", "quote": NIVA_AIR}]}]}
+        if prompt.startswith("You write parts of a 5-slide"):
+            return {"slide1_bullets": [{"text": "Placeholder industry company", "basis_fact_ids": ["CF-001"]}],
+                    "slide3_rows": [{"exposure_id": "EXP-AMB-AIR", "benefit_text": NIVA_AIR,
+                                     "evidence_ids": ["EV-NIVA-2-015"]}],
+                    "splits": [{"selection_claim_id": "SC-1", "policy_text": NIVA_AIR}]}
         raise AssertionError(f"unexpected prompt: {prompt[:80]!r}")
 
 
@@ -190,10 +195,45 @@ def test_a_saved_selection_is_reused_unless_reselect_or_the_compared_set_changes
     assert "policy_selection_reused" in events and events.count("policy_reselected") == 2
 
 
-def test_generate_marketing_pitch_takes_policy_docs_as_the_compared_set(tmp_path):
+def test_generate_marketing_pitch_takes_policy_docs_as_the_compared_set(bundled_cache):
     with pytest.raises(PolicyDocsError):
         api.generateMarketingPitch("Example Co", policy_docs=[])
     with pytest.raises(CompanyNameError):
         api.generateMarketingPitch("", policy_docs=["POL-NIVA"])
-    with pytest.raises(NotImplementedError, match="Prompt 7"):
-        api.generateMarketingPitch("Example Co", policy_docs=["POL-NIVA", "POL-HDFC"])
+    assert bundled_cache.prompts == []  # invalid inputs never reach the LLM
+    deck = api.generateMarketingPitch("Example Co", policy_docs=["POL-NIVA", "POL-HDFC"])
+    assert len(deck.slides) == 5 and deck.recommended.policy_id == "POL-NIVA"
+    assert deck.recommended.policy_name == "Niva Bupa ReAssure 2.0"
+    for text in bundled_cache.prompts:  # CARE and ABHI reach no LLM call, pitch included
+        assert not any(marker in text for marker in OTHER_POLICY_MARKERS)
+
+
+# --- F2: frozen exposures -------------------------------------------------------------------------------------
+
+from marsh.company import load_frozen  # noqa: E402
+from marsh.models import Exposure  # noqa: E402
+
+FROZEN_EXPOSURE = Exposure(exposure_id="EXP-AMB-AIR", name="Air ambulance", rationale="Placeholder.",
+                           basis_fact_ids=["CF-005"], assumption_based=True)
+
+
+def test_frozen_exposures_are_reused_with_no_exposure_llm_call(bundled_cache, tmp_path):
+    path = save_profile(PROFILE, tmp_path / "frozen.json", exposures=[FROZEN_EXPOSURE])
+    ctx = prepare_run(None, ["POL-NIVA"], profile_path=path)
+    assert ctx.exposures == [FROZEN_EXPOSURE]
+    assert [e["prompt_name"] for e in llm_log(ctx.run_id)] == ["select_policy"]  # no profile, no exposures call
+    loaded = next(d for d in read_decisions(ctx.run_id) if d["event"] == "company_profile_loaded")
+    assert loaded["payload"]["frozen_exposures"] == ["EXP-AMB-AIR"]
+
+
+def test_an_older_profile_file_without_exposures_still_loads(tmp_path):
+    path = tmp_path / "old.json"
+    path.write_text(PROFILE.model_dump_json(), encoding="utf-8")
+    frozen = load_frozen(path)
+    assert frozen.company_profile == PROFILE and frozen.exposures == []
+
+
+def test_frozen_exposures_must_rest_on_profile_facts(tmp_path):
+    bad = FROZEN_EXPOSURE.model_copy(update={"basis_fact_ids": ["CF-099"]})
+    with pytest.raises(ValueError, match="CF-099"):
+        save_profile(PROFILE, tmp_path / "bad.json", exposures=[bad])

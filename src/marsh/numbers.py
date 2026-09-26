@@ -393,11 +393,12 @@ def _mask_label(label: str, markers: set[str]) -> str:
 
 
 def label_numbers(item: EvidenceItem) -> list[NormalisedNumber]:
-    """Quantities in a table cell's row and column labels ("Pre-Hospitalisation (60 days)"). A cell's citable
-    unit includes its row and column, so the number check reads them too. Spans point into the label.
-    A grid row's label (repeated in its text) is skipped, and so are rupee amounts: a label amount is
-    usually a Sum-Insured tier ("Base SI <25 Lakhs", "10 L"), and it must not satisfy a claim about the
-    cell's own amount (a ₹25 lakh "deductible" against a ₹25,000 cell)."""
+    """Quantities in a table cell's row and column labels ("Pre-Hospitalisation (60 days)", "10 L",
+    "Base SI <25 Lakhs"). The labels are verbatim PDF text and a cell's citable unit includes its row and column,
+    so the number check reads them too. Evidence-side parsing rules apply: the cell's recorded footnote markers
+    are masked ("Air Ambulance 5", "Care OPD 9"). Spans point into the label. A grid row's label (repeated in its
+    text) and a label cell (text = row label) are skipped. Trade-off: a label SI tier can satisfy a claim about the
+    cell's own amount ("₹25 lakh deductible" against a ₹25,000 cell); the audit's topic check must catch that."""
     if item.item_type != ItemType.TABLE_CELL:
         return []
     markers = set(item.footnote_markers)
@@ -407,7 +408,7 @@ def label_numbers(item: EvidenceItem) -> list[NormalisedNumber]:
     numbers: list[NormalisedNumber] = []
     for label in labels:
         for segment in label.split(" | "):
-            numbers += [n for n in parse_numbers(_mask_label(segment, markers)) if n.unit != NumberUnit.INR]
+            numbers += parse_numbers(_mask_label(segment, markers))
     return numbers
 
 

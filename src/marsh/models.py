@@ -488,6 +488,21 @@ class Exposure(_Model):
     assumption_based: bool = False
 
 
+class FrozenProfile(_Model):
+    """data/profiles/<slug>.json: a company profile and its identified exposures, reused by later runs so they
+    make no profile or exposure LLM call."""
+    company_profile: CompanyProfile
+    exposures: list[Exposure] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _basis_facts_exist(self) -> FrozenProfile:
+        facts = {f.fact_id for f in self.company_profile.facts}
+        unknown = sorted({b for e in self.exposures for b in e.basis_fact_ids} - facts)
+        if unknown:
+            raise ValueError(f"exposure basis facts not in the profile: {unknown}")
+        return self
+
+
 class ExposurePick(_Model):
     """One exposure as the exposure-identification LLM returns it. IDs are plain strings here so that
     code, not schema validation, rejects (and logs) unknown ones."""
@@ -642,6 +657,7 @@ class Claim(_Model):
     material: bool = True
     qualifier_text: str | None = None
     state: ClaimState = ClaimState.DRAFT
+    metadata: dict[str, str] = Field(default_factory=dict)  # e.g. wm_id + condition (slide 2), selection_claim (slide 4)
 
 
 class NumberCheck(_Model):
@@ -723,6 +739,7 @@ SLIDE2_MAX_BULLETS = 4
 SLIDE3_MAX_ROWS = 6
 SLIDE4_MAX_SUPPORTING_BENEFITS = 3
 SLIDE4_MAX_KEY_LIMITATIONS = 2
+SLIDE4_MAX_BULLETS = 8  # the selection's reason / condition claims (split into policy + company parts)
 
 
 class BenefitRow(_Model):
@@ -738,7 +755,7 @@ class BenefitRow(_Model):
 class PitchSlide(_Model):
     slide_number: int = Field(ge=1, le=SLIDE_COUNT)
     title: str
-    bullets: list[Claim] = Field(default_factory=list)  # slides 1, 2, 5
+    bullets: list[Claim] = Field(default_factory=list)  # slides 1, 2, 5; slide 4: the selection's reason / conditions
     table_rows: list[BenefitRow] = Field(default_factory=list)  # slide 3 only
     supporting_benefits: list[Claim] = Field(default_factory=list)  # slide 4 only
     key_limitations: list[Claim] = Field(default_factory=list)  # slide 4 only
@@ -761,8 +778,10 @@ class PitchSlide(_Model):
             raise ValueError("only slide 3 has table rows")
         if n != 4 and (self.supporting_benefits or self.key_limitations):
             raise ValueError("only slide 4 has supporting benefits / key limitations")
-        if n in (3, 4) and self.bullets:
-            raise ValueError(f"slide {n} has no free bullets")
+        if n == 3 and self.bullets:
+            raise ValueError("slide 3 has no free bullets")
+        if n == 4 and len(self.bullets) > SLIDE4_MAX_BULLETS:
+            raise ValueError(f"slide 4 allows at most {SLIDE4_MAX_BULLETS} reason / condition bullets")
         if n == 1:
             if len(self.bullets) > SLIDE1_MAX_BULLETS:
                 raise ValueError(f"slide 1 allows at most {SLIDE1_MAX_BULLETS} bullets")
@@ -782,6 +801,42 @@ class PitchSlide(_Model):
             if claim.slide_number != n:
                 raise ValueError(f"{claim.claim_id} has slide_number {claim.slide_number} but sits on slide {n}")
         return self
+
+
+class DraftCompanyBullet(_Model):
+    text: str = Field(min_length=1, max_length=125)  # code may append " (Assumption)"; slide 1 allows 140
+    basis_fact_ids: list[str] = Field(min_length=1)
+
+
+class DraftRow(_Model):
+    exposure_id: str
+    benefit_text: str = Field(min_length=1, max_length=200)
+    condition_text: str | None = Field(default=None, max_length=200)
+    evidence_ids: list[str] = Field(default_factory=list)
+    source: str | None = None  # ignored: code fills the Source column from evidence
+
+
+class DraftPolicyClaim(_Model):
+    text: str = Field(min_length=1, max_length=200)
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class DraftSplit(_Model):
+    """A selection claim split into its policy fact and (optional) company framing."""
+    selection_claim_id: str
+    policy_text: str = Field(min_length=1)
+    company_text: str | None = None
+    basis_fact_ids: list[str] = Field(default_factory=list)
+
+
+class PitchDraft(_Model):
+    """Gemini output for prompts/generate_pitch.md. Lists are capped by the CLAUDE.md section 9 limits."""
+    slide1_bullets: list[DraftCompanyBullet] = Field(min_length=1, max_length=SLIDE1_MAX_BULLETS)
+    slide3_rows: list[DraftRow] = Field(default_factory=list, max_length=SLIDE3_MAX_ROWS)
+    supporting_benefits: list[DraftPolicyClaim] = Field(default_factory=list, max_length=SLIDE4_MAX_SUPPORTING_BENEFITS)
+    key_limitations: list[DraftPolicyClaim] = Field(default_factory=list, max_length=SLIDE4_MAX_KEY_LIMITATIONS)
+    splits: list[DraftSplit] = Field(default_factory=list)
+    recommended_policy_name: str | None = None  # ignored: code injects the selected policy
 
 
 class RecommendedPolicyBlock(_Model):

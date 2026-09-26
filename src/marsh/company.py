@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from pathlib import Path
@@ -21,6 +22,8 @@ from marsh.decision_log import log_decision
 from marsh.llm import call_structured
 from marsh.models import (
     CompanyFact,
+    Exposure,
+    FrozenProfile,
     CompanyProfile,
     CompanyProfileResponse,
     Confidence,
@@ -101,10 +104,24 @@ def profile_slug(company_name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", company_name.casefold()).strip("-") or "company"
 
 
-def save_profile(profile: CompanyProfile, path: str | Path | None = None) -> Path:
-    """Save a profile to data/profiles/<slug>.json (or `path`) so later runs can reuse it exactly."""
-    return save_json(profile, Path(path) if path else settings.PROFILES_DIR / f"{profile_slug(profile.company_name)}.json")
+def profile_path(company_name: str) -> Path:
+    return settings.PROFILES_DIR / f"{profile_slug(company_name)}.json"
+
+
+def save_profile(profile: CompanyProfile, path: str | Path | None = None,
+                 exposures: list[Exposure] | None = None) -> Path:
+    """Save a profile and its exposures to data/profiles/<slug>.json (or `path`) so later runs reuse them exactly."""
+    frozen = FrozenProfile(company_profile=profile, exposures=exposures or [])
+    return save_json(frozen, Path(path) if path else profile_path(profile.company_name))
+
+
+def load_frozen(path: str | Path) -> FrozenProfile:
+    """A frozen profile file; an older file holding only a CompanyProfile loads with no exposures."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if "company_profile" not in data:
+        data = {"company_profile": data, "exposures": []}
+    return FrozenProfile.model_validate(data)
 
 
 def load_profile(path: str | Path) -> CompanyProfile:
-    return load_json(CompanyProfile, path)
+    return load_frozen(path).company_profile

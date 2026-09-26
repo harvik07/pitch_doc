@@ -1,109 +1,198 @@
 {
-  "company_name": "Infosys",
-  "industry": "Global information technology, consulting, and outsourcing services.",
-  "size": "Very large enterprise.",
-  "key_risks": [
-    "Intense competition in the global IT services market.",
-    "Talent attraction and retention, leading to high attrition rates.",
-    "Currency fluctuations and geopolitical risks impacting global operations.",
-    "Rapid technological changes requiring continuous upskilling and adaptation."
-  ],
-  "facts": [
+  "company_profile": {
+    "company_name": "Infosys",
+    "industry": "Global information technology, consulting, and outsourcing services.",
+    "size": "Very large enterprise.",
+    "key_risks": [
+      "Intense competition in the global IT services market.",
+      "Talent attraction and retention, leading to high attrition rates.",
+      "Currency fluctuations and geopolitical risks impacting global operations.",
+      "Rapid technological changes requiring continuous upskilling and adaptation."
+    ],
+    "facts": [
+      {
+        "fact_id": "CF-001",
+        "field": "industry",
+        "value": "Global information technology, consulting, and outsourcing services.",
+        "status": "MODEL_KNOWLEDGE",
+        "confidence": "high",
+        "rationale": "Infosys is widely known as a major player in the IT services industry."
+      },
+      {
+        "fact_id": "CF-002",
+        "field": "size",
+        "value": "Very large enterprise.",
+        "status": "MODEL_KNOWLEDGE",
+        "confidence": "high",
+        "rationale": "Infosys is a publicly traded multinational corporation with significant global operations and revenue."
+      },
+      {
+        "fact_id": "CF-003",
+        "field": "headcount_band",
+        "value": "200,000+ employees.",
+        "status": "MODEL_KNOWLEDGE",
+        "confidence": "high",
+        "rationale": "Infosys is one of the largest IT employers globally, with hundreds of thousands of employees."
+      },
+      {
+        "fact_id": "CF-004",
+        "field": "geography",
+        "value": "Headquartered in India, with a significant global presence across many continents.",
+        "status": "MODEL_KNOWLEDGE",
+        "confidence": "high",
+        "rationale": "Infosys is an Indian multinational corporation with offices and operations worldwide."
+      },
+      {
+        "fact_id": "CF-005",
+        "field": "business_risk",
+        "value": "Intense competition in the global IT services market.",
+        "status": "MODEL_KNOWLEDGE",
+        "confidence": "high",
+        "rationale": "The IT services industry is highly competitive with many established players and new entrants."
+      },
+      {
+        "fact_id": "CF-006",
+        "field": "business_risk",
+        "value": "Talent attraction and retention, leading to high attrition rates.",
+        "status": "MODEL_KNOWLEDGE",
+        "confidence": "high",
+        "rationale": "Skilled IT professionals are in high demand, making talent management a critical risk for large IT firms."
+      },
+      {
+        "fact_id": "CF-007",
+        "field": "business_risk",
+        "value": "Currency fluctuations and geopolitical risks impacting global operations.",
+        "status": "MODEL_KNOWLEDGE",
+        "confidence": "medium",
+        "rationale": "As a global company, Infosys is exposed to exchange rate volatility and political instability in various markets."
+      },
+      {
+        "fact_id": "CF-008",
+        "field": "business_risk",
+        "value": "Rapid technological changes requiring continuous upskilling and adaptation.",
+        "status": "MODEL_KNOWLEDGE",
+        "confidence": "high",
+        "rationale": "The IT industry evolves quickly, necessitating constant investment in new technologies and employee training."
+      },
+      {
+        "fact_id": "CF-009",
+        "field": "workforce_profile",
+        "value": "Predominantly desk-based and office-based professionals.",
+        "status": "ASSUMPTION",
+        "confidence": "high",
+        "rationale": "Typical for an IT services company, most employees work in office environments or remotely on computers."
+      },
+      {
+        "fact_id": "CF-010",
+        "field": "workforce_profile",
+        "value": "Significant international travel for client engagements and project delivery.",
+        "status": "MODEL_KNOWLEDGE",
+        "confidence": "high",
+        "rationale": "As a global consulting and services firm, frequent international travel is inherent to many roles."
+      },
+      {
+        "fact_id": "CF-011",
+        "field": "workforce_profile",
+        "value": "Relatively young workforce, common in the technology sector.",
+        "status": "ASSUMPTION",
+        "confidence": "medium",
+        "rationale": "The IT industry often attracts and retains a younger demographic compared to traditional industries."
+      },
+      {
+        "fact_id": "CF-012",
+        "field": "workforce_profile",
+        "value": "Global workforce requiring support across multiple time zones, potentially involving shift work.",
+        "status": "ASSUMPTION",
+        "confidence": "medium",
+        "rationale": "To support global clients 24/7, some roles likely involve working non-standard hours or shifts."
+      }
+    ]
+  },
+  "exposures": [
     {
-      "fact_id": "CF-001",
-      "field": "industry",
-      "value": "Global information technology, consulting, and outsourcing services.",
-      "status": "MODEL_KNOWLEDGE",
-      "confidence": "high",
-      "rationale": "Infosys is widely known as a major player in the IT services industry."
+      "exposure_id": "EXP-HOSP",
+      "name": "In-patient hospitalisation",
+      "rationale": "As a very large enterprise with 200,000+ employees globally, in-patient hospitalisation costs will be a significant and unavoidable exposure.",
+      "basis_fact_ids": [
+        "CF-002",
+        "CF-003",
+        "CF-004"
+      ],
+      "assumption_based": false
     },
     {
-      "fact_id": "CF-002",
-      "field": "size",
-      "value": "Very large enterprise.",
-      "status": "MODEL_KNOWLEDGE",
-      "confidence": "high",
-      "rationale": "Infosys is a publicly traded multinational corporation with significant global operations and revenue."
+      "exposure_id": "EXP-PREPOST",
+      "name": "Pre/post-hospitalisation expenses",
+      "rationale": "Pre/post-hospitalisation expenses applies to every employer's workforce (baseline exposure).",
+      "basis_fact_ids": [
+        "CF-002",
+        "CF-003"
+      ],
+      "assumption_based": false
     },
     {
-      "fact_id": "CF-003",
-      "field": "headcount_band",
-      "value": "200,000+ employees.",
-      "status": "MODEL_KNOWLEDGE",
-      "confidence": "high",
-      "rationale": "Infosys is one of the largest IT employers globally, with hundreds of thousands of employees."
+      "exposure_id": "EXP-INTL",
+      "name": "Treatment abroad",
+      "rationale": "Infosys has a significant global presence and its workforce undertakes significant international travel, making treatment abroad a relevant concern.",
+      "basis_fact_ids": [
+        "CF-004",
+        "CF-010"
+      ],
+      "assumption_based": false
     },
     {
-      "fact_id": "CF-004",
-      "field": "geography",
-      "value": "Headquartered in India, with a significant global presence across many continents.",
-      "status": "MODEL_KNOWLEDGE",
-      "confidence": "high",
-      "rationale": "Infosys is an Indian multinational corporation with offices and operations worldwide."
+      "exposure_id": "EXP-PREVENTIVE",
+      "name": "Preventive health check-ups",
+      "rationale": "With a very large global workforce, preventive health check-ups are crucial for maintaining employee well-being and managing long-term health costs.",
+      "basis_fact_ids": [
+        "CF-002",
+        "CF-003",
+        "CF-004"
+      ],
+      "assumption_based": false
     },
     {
-      "fact_id": "CF-005",
-      "field": "business_risk",
-      "value": "Intense competition in the global IT services market.",
-      "status": "MODEL_KNOWLEDGE",
-      "confidence": "high",
-      "rationale": "The IT services industry is highly competitive with many established players and new entrants."
+      "exposure_id": "EXP-WELLNESS",
+      "name": "Wellness programmes",
+      "rationale": "For a very large global IT company with a predominantly desk-based workforce, wellness programs can help address sedentary lifestyle issues and improve overall employee health.",
+      "basis_fact_ids": [
+        "CF-002",
+        "CF-003",
+        "CF-009"
+      ],
+      "assumption_based": true
     },
     {
-      "fact_id": "CF-006",
-      "field": "business_risk",
-      "value": "Talent attraction and retention, leading to high attrition rates.",
-      "status": "MODEL_KNOWLEDGE",
-      "confidence": "high",
-      "rationale": "Skilled IT professionals are in high demand, making talent management a critical risk for large IT firms."
+      "exposure_id": "EXP-OPD",
+      "name": "Outpatient consultations",
+      "rationale": "With a very large global workforce, outpatient consultations will be a frequent and significant healthcare need, especially for a predominantly desk-based workforce.",
+      "basis_fact_ids": [
+        "CF-002",
+        "CF-003",
+        "CF-009"
+      ],
+      "assumption_based": true
     },
     {
-      "fact_id": "CF-007",
-      "field": "business_risk",
-      "value": "Currency fluctuations and geopolitical risks impacting global operations.",
-      "status": "MODEL_KNOWLEDGE",
-      "confidence": "medium",
-      "rationale": "As a global company, Infosys is exposed to exchange rate volatility and political instability in various markets."
+      "exposure_id": "EXP-CHRONIC",
+      "name": "Chronic conditions",
+      "rationale": "Even with a relatively young workforce, a very large global employee base will inevitably include a significant number of individuals with chronic conditions that require ongoing management.",
+      "basis_fact_ids": [
+        "CF-002",
+        "CF-003",
+        "CF-011"
+      ],
+      "assumption_based": true
     },
     {
-      "fact_id": "CF-008",
-      "field": "business_risk",
-      "value": "Rapid technological changes requiring continuous upskilling and adaptation.",
-      "status": "MODEL_KNOWLEDGE",
-      "confidence": "high",
-      "rationale": "The IT industry evolves quickly, necessitating constant investment in new technologies and employee training."
-    },
-    {
-      "fact_id": "CF-009",
-      "field": "workforce_profile",
-      "value": "Predominantly desk-based and office-based professionals.",
-      "status": "ASSUMPTION",
-      "confidence": "high",
-      "rationale": "Typical for an IT services company, most employees work in office environments or remotely on computers."
-    },
-    {
-      "fact_id": "CF-010",
-      "field": "workforce_profile",
-      "value": "Significant international travel for client engagements and project delivery.",
-      "status": "MODEL_KNOWLEDGE",
-      "confidence": "high",
-      "rationale": "As a global consulting and services firm, frequent international travel is inherent to many roles."
-    },
-    {
-      "fact_id": "CF-011",
-      "field": "workforce_profile",
-      "value": "Relatively young workforce, common in the technology sector.",
-      "status": "ASSUMPTION",
-      "confidence": "medium",
-      "rationale": "The IT industry often attracts and retains a younger demographic compared to traditional industries."
-    },
-    {
-      "fact_id": "CF-012",
-      "field": "workforce_profile",
-      "value": "Global workforce requiring support across multiple time zones, potentially involving shift work.",
-      "status": "ASSUMPTION",
-      "confidence": "medium",
-      "rationale": "To support global clients 24/7, some roles likely involve working non-standard hours or shifts."
+      "exposure_id": "EXP-SI-EXHAUST",
+      "name": "Sum insured exhaustion / multiple claims",
+      "rationale": "Given the very large global employee base, there is a higher statistical probability of large or multiple claims leading to sum insured exhaustion.",
+      "basis_fact_ids": [
+        "CF-002",
+        "CF-003"
+      ],
+      "assumption_based": true
     }
   ]
 }

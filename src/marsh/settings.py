@@ -19,6 +19,7 @@ DATA_DIR = ROOT / "data"
 POLICIES_DIR = DATA_DIR / "policies"
 MARSH_PROFILE_PATH = DATA_DIR / "marsh" / "marsh_profile.md"
 CACHE_DIR = DATA_DIR / "cache"
+PROFILES_DIR = DATA_DIR / "profiles"  # frozen company profiles (scripts/freeze_profile.py)
 EVIDENCE_OVERRIDES_PATH = DATA_DIR / "evidence_overrides.yaml"
 CONFIG_DIR = ROOT / "config"
 EXPOSURE_TAXONOMY_PATH = CONFIG_DIR / "exposure_taxonomy.yaml"

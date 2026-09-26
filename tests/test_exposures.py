@@ -132,6 +132,37 @@ def test_assumption_based_means_every_basis_fact_is_an_assumption(profile, taxon
     assert facts["CF-005"].status == FactStatus.ASSUMPTION
 
 
+@pytest.mark.parametrize("basis, expected", [
+    (["CF-002", "CF-005"], True),    # size (generic, known) + ASSUMPTION workforce fact: the known fact is ignored
+    (["CF-001", "CF-002"], True),    # only generic facts: nothing specific backs the exposure
+    (["CF-002", "CF-006"], False),   # a known workforce fact
+    (["CF-005", "CF-006"], False),   # one known specific fact is enough
+])
+def test_assumption_based_ignores_generic_facts(profile, taxonomy, basis, expected):
+    (_, _, maternity) = select_exposures(profile, taxonomy, picks(("EXP-MATERNITY", basis)))
+    assert maternity.assumption_based is expected
+
+
+def test_infosys_style_maternity_is_assumption_based(taxonomy):
+    """Infosys run: MATERNITY based on CF-003 (headcount band, MODEL_KNOWLEDGE) + CF-011 (ASSUMPTION)."""
+    profile = build_profile("Example Co", CompanyProfileResponse.model_validate({"company_recognised": True, "facts": [
+        fact("industry", "Placeholder industry", "MODEL_KNOWLEDGE"),       # CF-001
+        fact("size", "Large enterprise", "MODEL_KNOWLEDGE"),               # CF-002
+        fact("headcount_band", "10,000+ employees", "MODEL_KNOWLEDGE"),    # CF-003
+        fact("business_risk", "Client concentration", "ASSUMPTION"),       # CF-004
+        fact("business_risk", "Talent attrition", "MODEL_KNOWLEDGE"),      # CF-005
+        *[fact("other", "Placeholder", "ASSUMPTION")] * 5,                 # CF-006..CF-010
+        fact("workforce_profile", "Young to middle-aged staff", "ASSUMPTION"),  # CF-011
+    ]}))
+    kept = select_exposures(profile, taxonomy, picks(("EXP-MATERNITY", ["CF-003", "CF-011"])))
+    assert kept[-1].exposure_id == "EXP-MATERNITY" and kept[-1].assumption_based
+
+
+def test_baselines_keep_the_plain_rule(profile, taxonomy):
+    kept = select_exposures(profile, taxonomy, picks(("EXP-HOSP", ["CF-002"])))  # size only: known
+    assert kept[0].exposure_id == "EXP-HOSP" and not kept[0].assumption_based
+
+
 def test_cap_keeps_baselines_then_llm_order(profile, taxonomy):
     order = ["EXP-WELLNESS", "EXP-OPD", "EXP-AMB-AIR", "EXP-INTL", "EXP-MATERNITY", "EXP-CHRONIC", "EXP-PED",
              "EXP-CRITICAL", "EXP-DEPENDENTS"]

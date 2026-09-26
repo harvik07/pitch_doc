@@ -1,0 +1,493 @@
+{
+  "policy_id": "POL-ABHI",
+  "sha256": "85cdd5a54cc5d7bda369332eeb4987540d7d29c491a3ce5a3fb80c2a0aff8372",
+  "assumed_sum_insured": 1000000,
+  "model": "gemini-2.5-flash",
+  "taxonomy_hash": "930f42cc3fe05573",
+  "evidence_hash": "d4dd9fdd49a5d02a",
+  "prompt_hash": "62564040e7a0d803",
+  "drafts": [
+    {
+      "exposure_id": "EXP-HOSP",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-ABHI-1-043",
+        "EV-ABHI-1-042",
+        "EV-ABHI-2-059"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-1-043",
+          "quote": "on hospitalization expenses, procedures & benefits such as room rent, ICU charges, road ambulance cover, day care treatments, organ donor expenses, and a lot more, up to your Base Sum Insured."
+        },
+        {
+          "evidence_id": "EV-ABHI-1-042",
+          "quote": "NO CAPPING ^"
+        },
+        {
+          "evidence_id": "EV-ABHI-2-059",
+          "quote": "Limitless here means there are no sub-limits and every base benefit is covered up to Sum Insured."
+        }
+      ],
+      "reasoning": "The brochure explicitly states no capping on hospitalization expenses up to the Base Sum Insured, including room rent and ICU charges."
+    },
+    {
+      "exposure_id": "EXP-PREPOST",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not mention coverage for pre or post-hospitalisation expenses."
+    },
+    {
+      "exposure_id": "EXP-DAYCARE",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-ABHI-1-043"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-1-043",
+          "quote": "on hospitalization expenses, procedures & benefits such as room rent, ICU charges, road ambulance cover, day care treatments, organ donor expenses, and a lot more, up to your Base Sum Insured."
+        }
+      ],
+      "reasoning": "Day care treatments are explicitly mentioned as covered up to the Base Sum Insured with no capping."
+    },
+    {
+      "exposure_id": "EXP-MODERN",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not mention coverage for modern treatments."
+    },
+    {
+      "exposure_id": "EXP-AMB-ROAD",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-ABHI-1-043"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-1-043",
+          "quote": "on hospitalization expenses, procedures & benefits such as room rent, ICU charges, road ambulance cover, day care treatments, organ donor expenses, and a lot more, up to your Base Sum Insured."
+        }
+      ],
+      "reasoning": "Road ambulance cover is explicitly mentioned as covered up to the Base Sum Insured with no capping."
+    },
+    {
+      "exposure_id": "EXP-AMB-AIR",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not mention coverage for air ambulance services."
+    },
+    {
+      "exposure_id": "EXP-DOMICILIARY",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not mention coverage for home or domiciliary care."
+    },
+    {
+      "exposure_id": "EXP-AYUSH",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not mention coverage for AYUSH treatments."
+    },
+    {
+      "exposure_id": "EXP-NONMED",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-ABHI-1-031",
+        "EV-ABHI-1-032",
+        "EV-ABHI-1-033",
+        "EV-ABHI-2-060"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-1-032",
+          "quote": "feature comes to your rescue and takes care of 100% out-of-pocket expenses!"
+        },
+        {
+          "evidence_id": "EV-ABHI-1-033",
+          "quote": "Get up to 100% of your hospital bills covered with us (up to your Sum Insured), for a worry-free experience if and when you have to claim!"
+        },
+        {
+          "evidence_id": "EV-ABHI-2-060",
+          "quote": "Coverage for non-medical expenses (as per List 1, 2, 3, 4 under Annexure I of the Policy Wording), for items like gloves, gown, face mask and more."
+        }
+      ],
+      "reasoning": "The 'Claim Protect' feature covers 100% of out-of-pocket non-medical expenses up to the Sum Insured."
+    },
+    {
+      "exposure_id": "EXP-SI-EXHAUST",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-ABHI-2-035",
+        "EV-ABHI-2-036",
+        "EV-ABHI-2-063"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-2-036",
+          "quote": "With Activ One, you will never run out of your health insurance coverage, as we will refill your cover up to 100% of your Base Sum Insured unlimited times in a policy year."
+        },
+        {
+          "evidence_id": "EV-ABHI-2-063",
+          "quote": "~ Unlimited refill upto base Sum Insured."
+        }
+      ],
+      "reasoning": "The 'Super Reload' feature provides unlimited refills of the Sum Insured up to 100% of the Base Sum Insured in a policy year."
+    },
+    {
+      "exposure_id": "EXP-INFLATION",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-ABHI-2-026"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-2-026",
+          "quote": "With our Super Credit feature, your Sum Insured inflates to 6 times the size of your Base Sum Insured by the 6th year of your policy irrespective of whether you claim!"
+        }
+      ],
+      "reasoning": "The 'Super Credit' feature allows the Sum Insured to inflate up to 6 times by the 6th year, addressing medical cost inflation."
+    },
+    {
+      "exposure_id": "EXP-MATERNITY",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "VARIANT_ONLY",
+          "description": "Available only for the VIP+ plan variant.",
+          "evidence_ids": [
+            "EV-ABHI-2-009"
+          ]
+        },
+        {
+          "type": "SI_TIER_CONDITION",
+          "description": "Domestic Maternity up to INR 1 Lac for BSI INR 50 Lacs and 75 Lacs; Worldwide Maternity up to INR 2 Lacs for BSI INR 1 Cr and Above. Not applicable for assumed SI of ₹10,00,000.",
+          "evidence_ids": [
+            "EV-ABHI-2-009",
+            "EV-ABHI-2-065"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-ABHI-2-009"
+      ],
+      "limitation_evidence_ids": [
+        "EV-ABHI-2-009",
+        "EV-ABHI-2-065"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-2-009",
+          "quote": "International & Domestic Maternity Cover %"
+        },
+        {
+          "evidence_id": "EV-ABHI-2-065",
+          "quote": "For BSI INR 50 Lacs and 75 Lacs - Domestic Maternity up to INR 1 Lac; For BSI INR 1 Cr and Above - WW Maternity up to of INR 2 Lacs."
+        }
+      ],
+      "reasoning": "Maternity cover is available only for the VIP+ variant and for Sum Insured tiers of INR 50 Lacs and above, which does not include the assumed SI of ₹10,00,000."
+    },
+    {
+      "exposure_id": "EXP-CHRONIC",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-ABHI-2-013",
+        "EV-ABHI-2-014",
+        "EV-ABHI-2-015",
+        "EV-ABHI-2-016",
+        "EV-ABHI-2-017",
+        "EV-ABHI-2-018",
+        "EV-ABHI-2-019",
+        "EV-ABHI-2-020"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-2-013",
+          "quote": "Now get Day 1 cover for listed 7 chronic conditions with zero waiting period:"
+        },
+        {
+          "evidence_id": "EV-ABHI-2-014",
+          "quote": "Asthma"
+        },
+        {
+          "evidence_id": "EV-ABHI-2-017",
+          "quote": "Diabetes"
+        }
+      ],
+      "reasoning": "The policy provides Day 1 cover with zero waiting period for 7 listed chronic conditions."
+    },
+    {
+      "exposure_id": "EXP-PED",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "While specific chronic conditions have zero waiting periods, the brochure does not state a general waiting period for pre-existing diseases."
+    },
+    {
+      "exposure_id": "EXP-OPD",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not mention coverage for outpatient consultations."
+    },
+    {
+      "exposure_id": "EXP-PREVENTIVE",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "VARIANT_ONLY",
+          "description": "Available only for the SAVR plan variant.",
+          "evidence_ids": [
+            "EV-ABHI-2-046"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-ABHI-2-046",
+        "EV-ABHI-2-047"
+      ],
+      "limitation_evidence_ids": [
+        "EV-ABHI-2-046"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-2-047",
+          "quote": "including Computed Tomography Angiography (CTA) and Positron Emission Tomography (PET) Scan at no extra cost."
+        }
+      ],
+      "reasoning": "Advanced health check-ups are offered at no extra cost, but only under the Activ One SAVR plan."
+    },
+    {
+      "exposure_id": "EXP-INTL",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "VARIANT_ONLY",
+          "description": "Available only for the VIP+ plan variant.",
+          "evidence_ids": [
+            "EV-ABHI-2-008"
+          ]
+        },
+        {
+          "type": "SI_TIER_CONDITION",
+          "description": "International and Domestic Sum Insured from INR 50 Lacs to INR 6 Crores. Not applicable for assumed SI of ₹10,00,000.",
+          "evidence_ids": [
+            "EV-ABHI-2-034",
+            "EV-ABHI-2-064"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-ABHI-2-007",
+        "EV-ABHI-2-008",
+        "EV-ABHI-2-034"
+      ],
+      "limitation_evidence_ids": [
+        "EV-ABHI-2-008",
+        "EV-ABHI-2-034",
+        "EV-ABHI-2-064"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-2-008",
+          "quote": "For emergency and planned treatments abroad (any illness / injury)"
+        },
+        {
+          "evidence_id": "EV-ABHI-2-034",
+          "quote": "International and Domestic Sum Insured from INR 50 Lacs to INR 6 Crores !"
+        }
+      ],
+      "reasoning": "Global Cover is available for the VIP+ variant, but only for Sum Insureds ranging from INR 50 Lacs to INR 6 Crores, which does not include the assumed SI of ₹10,00,000."
+    },
+    {
+      "exposure_id": "EXP-CRITICAL",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not mention coverage for critical illnesses."
+    },
+    {
+      "exposure_id": "EXP-ACCIDENT",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not mention coverage for personal accidents."
+    },
+    {
+      "exposure_id": "EXP-DEPENDENTS",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "VARIANT_ONLY",
+          "description": "Coverage for parents or parents-in-law is available under the Activ One SAVR plan.",
+          "evidence_ids": [
+            "EV-ABHI-2-041",
+            "EV-ABHI-2-066"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-ABHI-2-041",
+        "EV-ABHI-2-066"
+      ],
+      "limitation_evidence_ids": [
+        "EV-ABHI-2-041",
+        "EV-ABHI-2-066"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-2-041",
+          "quote": "save up to INR 50,000 every year on your taxes by simply declaring your parents or parents-in-law under your policy with Activ One SAVR plan @ ."
+        },
+        {
+          "evidence_id": "EV-ABHI-2-066",
+          "quote": "Coverage under SAVR includes parents OR parents-in-law, with tax benefits applicable exclusively for parents."
+        }
+      ],
+      "reasoning": "The SAVR plan allows for covering parents or parents-in-law for tax benefits and other benefits."
+    },
+    {
+      "exposure_id": "EXP-HOSPCASH",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "VARIANT_ONLY",
+          "description": "Available only for the SAVR plan variant.",
+          "evidence_ids": [
+            "EV-ABHI-2-044"
+          ]
+        },
+        {
+          "type": "SUBLIMIT",
+          "description": "INR 500 per day, maximum up to 30 days, for hospitalization of parents / parents-in-law.",
+          "evidence_ids": [
+            "EV-ABHI-2-045"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-ABHI-2-044",
+        "EV-ABHI-2-045"
+      ],
+      "limitation_evidence_ids": [
+        "EV-ABHI-2-044",
+        "EV-ABHI-2-045"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-2-045",
+          "quote": "where you get INR 500 per day (maximum up to 30 days) for the hospitalization of your parents / parents-in-law."
+        }
+      ],
+      "reasoning": "Hospi Cash is provided under the SAVR plan with a daily limit and maximum duration, specifically for parents/parents-in-law."
+    },
+    {
+      "exposure_id": "EXP-ORGAN",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-ABHI-1-043"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-1-043",
+          "quote": "on hospitalization expenses, procedures & benefits such as room rent, ICU charges, road ambulance cover, day care treatments, organ donor expenses, and a lot more, up to your Base Sum Insured."
+        }
+      ],
+      "reasoning": "Organ donor expenses are explicitly mentioned as covered up to the Base Sum Insured with no capping."
+    },
+    {
+      "exposure_id": "EXP-WELLNESS",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-ABHI-1-012",
+        "EV-ABHI-1-013",
+        "EV-ABHI-1-014",
+        "EV-ABHI-1-015",
+        "EV-ABHI-1-018",
+        "EV-ABHI-1-020",
+        "EV-ABHI-1-022",
+        "EV-ABHI-1-023",
+        "EV-ABHI-1-024"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-ABHI-1-012",
+          "quote": "100% HealthReturns TM*"
+        },
+        {
+          "evidence_id": "EV-ABHI-1-020",
+          "quote": "WITH ACTIV ONE, STAY ACTIVE & HEALTHY TO EARN UP TO 100% HealthReturns TM*"
+        },
+        {
+          "evidence_id": "EV-ABHI-1-024",
+          "quote": "Sync app and walk 10,000 steps a day or burn 300 calories per session"
+        }
+      ],
+      "reasoning": "The policy offers 'HealthReturns' for staying active and healthy, which can be used for various medical expenses or renewal premiums."
+    }
+  ]
+}

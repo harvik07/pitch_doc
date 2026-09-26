@@ -245,8 +245,42 @@ Prompt 2 plus additions A–E (the additions win where they conflict).
   - caps at `settings.MAX_EXPOSURES = 8` (baselines, then the LLM's order), logging what was cut.
 - **Real run (Infosys, `pytest -m llm tests/test_exposures.py`):** 14 labelled facts (4 of them ASSUMPTION) and 8 exposures: HOSP, PREPOST, INTL, CHRONIC, OPD, PREVENTIVE, WELLNESS, MATERNITY, none assumption-based.
 
+### Prompt 4 fixes + Prompt 5: coverage matrix and match validation (2026-09-26)
+- **assumption_based (fix 1):** for non-baseline exposures, generic facts (industry, size, headcount_band) are ignored. The exposure is assumption-based if every remaining basis fact is an ASSUMPTION, or if no non-generic basis fact remains. Baselines keep the plain rule (`exposures.is_assumption_based`). An Infosys-style MATERNITY based on CF-003 (headcount) + CF-011 (ASSUMPTION) → True (tested).
+- **Reproducible profiles (fix 2):**
+  - `pipeline.start_run` generates the company profile once per run, or loads a frozen one, and stores it in the RunContext. `identify_run_exposures` and `match_run` read it from there.
+  - `scripts/freeze_profile.py "<company>"` → `data/profiles/<slug>.json`. `scripts/run_pipeline.py --profile <path>` reuses it and refuses a profile whose company name differs.
+  - `data/profiles/infosys.json` is committed (12 facts).
+  - Exposure *selection* is still one LLM call per run, and it's stored in the RunContext.
+- **`matching.build_coverage_matrix(policy_id, assumed_sum_insured, run_id)`:**
+  - One Gemini call per policy (`prompts/match_policy.md`) with the policy's full citable evidence (id, page, section, row, column, tier, variant, SI condition, footnotes, display text) and the whole taxonomy.
+  - The raw cells are cached at `data/cache/matrix_<sha>_<SI>.json` (`CoverageMatrixCache`) with taxonomy, evidence and prompt hashes; a stale cache is rebuilt.
+  - Validation re-runs on every load (no LLM).
+  - The 4 matrices for the default SI (₹10,00,000) are committed; they match the .gitignore whitelist (tested with `git check-ignore`).
+- **`validate_match` (deterministic):**
+  - IDs exist, belong to the policy and are citable.
+  - Each quote is verbatim in its own cited item. The prompt forbids "…", joining items, and quoting the line's metadata.
+  - Non-NOT_STATED cells need a verified quote.
+  - EXCLUDED needs exclusion evidence that reads as an exclusion (an exclusions section, or excluded / not covered / not payable).
+  - COVERED_* needs benefit evidence and a **benefit quote**: not from a company-information section, not from an UNKNOWN-tier item, and not about a discount. So About Us text and "Discount Connect … maternity" never produce cover. Exceptions: EXP-WELLNESS may quote a discount (its rewards are discounts), and EXP-DEPENDENTS may quote UNKNOWN-tier eligibility items (for dependents, the eligibility rule is the cover).
+  - COVERED_WITH_LIMITATIONS needs a limitation.
+  - A failure → NOT_STATED, validated=False, errors logged.
+  - Deterministic corrections (noted as "corrected: …"): VIA_ADDON without ADDON/OPTIONAL-tier evidence → WITH_LIMITATIONS (or FULL); VIA_ADDON without an add-on limitation → one added; FULL with limitations → WITH_LIMITATIONS.
+  - NOT_STATED claims nothing and is validated.
+- **`select_relevant(matrix, exposures)`**, **`pipeline.match_run`**, **`scripts/show_matrix.py [--detail EXP-…]`** (the grid and the cell details).
+- **Checked cells (all match):**
+  - MATERNITY: HDFC via add-on (Parenthood); ABHI with VARIANT_ONLY + SI_TIER_CONDITION; CARE and NIVA NOT_STATED.
+  - AMB-AIR: NIVA and HDFC with SUBLIMIT; CARE via add-on (optional).
+  - INTL: ABHI with VARIANT_ONLY + SI_TIER_CONDITION (VIP+ SI "from INR 50 Lacs"); CARE, NIVA and HDFC NOT_STATED.
+  - CHRONIC: ABHI FULL; HDFC via add-on (ABCD Chronic Care, from the 31st day); CARE via add-on (Instant Cover OPTIONAL + Care Advanced ADDON, 30-day wait); NIVA NOT_STATED.
+  - The evidence agreed with every expected cell; nothing was forced.
+- **Prompt iterations (3 runs):**
+  - The first run put HDFC INTL = EXCLUDED on "Limitless (For claims made in India only)", which is a benefit's scope. The exclusion-evidence rule and a prompt line fixed that.
+  - It also missed ABHI's INTL SI tier (fixed by a generic "variant SI range" prompt line), and it joined ABHI's "NO CAPPING ^" heading into a quote (fixed by the "one item per quote" rule).
+  - **One cell still fails validation:** MATCH-NIVA-AYUSH. Gemini's quote joins the row label and text with "…", so the cell is NOT_STATED.
+
 ## Next
-- Prompt 5 (waiting for your go): coverage matrix + match validation. Matching retrieves by the taxonomy keywords; an exposure a brochure never mentions is NOT_STATED.
+- **For Prompt 6:** an SI_TIER_CONDITION can mean "not available at the assumed SI" (ABHI MATERNITY and INTL: VIP+ starts at ₹50 lakh; assumed ₹10 lakh). The cell still counts as covered (rule 3), with the limitation counted in rule 4. The pitch must show that qualifier.
 - **For Prompt 8 (audit) — required deterministic checks (not built yet):**
   - **Number check on supporting items only.** Run `number_check` against the claim's **supporting** evidence only. Against the whole brochure, three planted false claims pass, because their numbers occur elsewhere: Niva "₹5,00,000" (a SI tier "INR 5 Lac"), Niva "30-day initial waiting period" (footnote (8) "30 days/policy year"), and ABHI "100% HealthReturns every year" ("up to 100%"). `tests/test_grounding.py::test_the_whole_brochure_is_the_wrong_input` pins this.
   - **Topic-anchor check.** The claim's benefit topic (e.g. "waiting period", "air ambulance", "maternity") must appear in a supporting item's text, row_label or section, or in the claim's exposure's taxonomy keywords (`config/exposure_taxonomy.yaml`). Otherwise the claim can't be VERIFIED. This catches "Niva 30-day waiting period" being supported by footnote (8)'s "30 days/policy year" hospital-cash limit.
@@ -344,8 +378,12 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **CompanyFactDraft / CompanyProfileResponse** (Gemini output): `field, value, status, confidence, rationale` / `company_recognised, facts` (validator: 1 industry, 1 size, 2–5 business_risk, ≥ 1 workforce_profile)
 - **TaxonomyEntry / ExposureTaxonomy**: `id (EXP-), name, description, keywords, baseline` / `exposures`, plus `.get(id)`
 - **ExposurePick / ExposureSelectionResponse** (Gemini output): `exposure_id, rationale, basis_fact_ids` as plain strings (code rejects unknown ones) / `exposures`
+- **LimitationDraft / QuoteDraft / MatchDraft / MatchResponse** (Gemini output for matching): `type, description, evidence_ids` / `evidence_id, quote` / `exposure_id, coverage_status, limitations, benefit/limitation/exclusion_evidence_ids, quotes, reasoning` / `matches`
+- **CoverageMatrixCache** (`data/cache/matrix_<sha>_<SI>.json`): `policy_id, sha256, assumed_sum_insured, model, taxonomy_hash, evidence_hash, prompt_hash, drafts`
+- **PolicyMatch.match_id**: `MATCH-<POLICY>-<EXPOSURE>` (e.g. MATCH-NIVA-AMB-AIR). `quotes` are the verified quote strings; the evidence IDs are in the cell's evidence lists.
 
 ## Known issues
+- **Matching cells are LLM judgements within the validation rules.** The committed matrices are the reviewed run. A `--force` re-run may classify borderline cells differently (e.g. NIVA DAYCARE flipped between FULL, ADDON and LIMITS across the three runs); the checked cells stayed stable.
 - **Company profiles vary between runs** at temperature 0 (two Infosys runs gave 12 and 14 facts, and different business risks). Every fact is labelled either way; the run's profile is stored in the RunContext and decision log, so a pitch always uses one fixed profile.
 - **Gemini labels some industry-typical business risks MODEL_KNOWLEDGE.** They're shown as "Unverified" on slide 1 anyway (no web lookup in V1), and business risks never feed exposures or recommendation.
 - google-genai installed as 2.25.0 (a newer major version than the 1.67 used to plan). The API used is unchanged: `response_json_schema`, `HttpOptions.timeout` in ms, `errors.ClientError/ServerError(code, response_json)`, and the SDK does no retries by default.

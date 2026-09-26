@@ -6,7 +6,10 @@
   - unknown fact IDs, and business_risk facts (business risks stay on slide 1), are dropped from the basis
     and logged; an exposure left without a valid basis fact is rejected;
   - baseline exposures (EXP-HOSP, EXP-PREPOST) are always included, based on the size facts;
-  - assumption_based = every basis fact is an ASSUMPTION;
+  - assumption_based (non-baseline): generic facts (industry, size, headcount_band) are ignored; True if
+    every remaining basis fact is an ASSUMPTION, or if no non-generic basis fact is left. A headcount band
+    says nothing about maternity or travel, so it can't make such an exposure "known". Baselines keep the
+    plain rule (every basis fact is an ASSUMPTION);
   - at most settings.MAX_EXPOSURES: baselines first, then the LLM's order.
 - `taxonomy_keyword_hits` reports which brochures mention each exposure (by keyword, citable items only).
   An exposure with no hits stays in the taxonomy; matching marks it NOT_STATED.
@@ -25,6 +28,7 @@ from marsh.decision_log import log_decision
 from marsh.evidence_store import EvidenceStore
 from marsh.llm import call_structured
 from marsh.models import (
+    CompanyFact,
     CompanyProfile,
     Exposure,
     ExposureSelectionResponse,
@@ -38,6 +42,15 @@ log = logging.getLogger(__name__)
 
 PROMPT = "identify_exposures"
 _BASELINE_BASIS_FIELDS = (FactField.SIZE, FactField.HEADCOUNT_BAND)
+GENERIC_FIELDS = frozenset({FactField.INDUSTRY, FactField.SIZE, FactField.HEADCOUNT_BAND})
+
+
+def is_assumption_based(basis: list[CompanyFact], *, baseline: bool) -> bool:
+    """See the module docstring. `basis` must be non-empty."""
+    if baseline:
+        return all(f.status == FactStatus.ASSUMPTION for f in basis)
+    specific = [f for f in basis if f.field not in GENERIC_FIELDS]
+    return all(f.status == FactStatus.ASSUMPTION for f in specific)  # True when `specific` is empty
 
 
 def load_taxonomy(path: str | Path | None = None) -> ExposureTaxonomy:
@@ -83,9 +96,10 @@ def _prompt_variables(profile: CompanyProfile, taxonomy: ExposureTaxonomy) -> di
 
 def _baseline(entry: TaxonomyEntry, profile: CompanyProfile) -> Exposure:
     basis = [f.fact_id for f in profile.facts if f.field in _BASELINE_BASIS_FIELDS]
+    facts = {f.fact_id: f for f in profile.facts}
     return Exposure(exposure_id=entry.id, name=entry.name,
                     rationale=f"{entry.name} applies to every employer's workforce (baseline exposure).",
-                    basis_fact_ids=basis, assumption_based=False)
+                    basis_fact_ids=basis, assumption_based=is_assumption_based([facts[i] for i in basis], baseline=True))
 
 
 def select_exposures(profile: CompanyProfile, taxonomy: ExposureTaxonomy, response: ExposureSelectionResponse,
@@ -112,7 +126,7 @@ def select_exposures(profile: CompanyProfile, taxonomy: ExposureTaxonomy, respon
             continue
         picked[entry.id] = Exposure(
             exposure_id=entry.id, name=entry.name, rationale=pick.rationale, basis_fact_ids=good,
-            assumption_based=all(facts[fid].status == FactStatus.ASSUMPTION for fid in good))
+            assumption_based=is_assumption_based([facts[fid] for fid in good], baseline=entry.baseline))
 
     baselines = [picked.pop(e.id, None) or _baseline(e, profile) for e in taxonomy.exposures if e.baseline]
     ordered = baselines + list(picked.values())

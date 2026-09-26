@@ -1,0 +1,735 @@
+{
+  "policy_id": "POL-HDFC",
+  "sha256": "706e4039bf8aa210dc09c76d6190e764355ebd7dc86445f9a4c895dee6d7c4af",
+  "assumed_sum_insured": 1000000,
+  "model": "gemini-2.5-flash",
+  "taxonomy_hash": "930f42cc3fe05573",
+  "evidence_hash": "cfc9e2de652c0b18",
+  "prompt_hash": "62564040e7a0d803",
+  "drafts": [
+    {
+      "exposure_id": "EXP-HOSP",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-HDFC-5-017",
+        "EV-HDFC-11-007",
+        "EV-HDFC-11-009"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-5-017",
+          "quote": "Covers medical expenses incurred at the time of hospitalisation that include room rent at actuals, ICU expenses, nursing expenses, surgeon's fee, road ambulance charges and so on."
+        },
+        {
+          "evidence_id": "EV-HDFC-11-007",
+          "quote": "At actuals"
+        },
+        {
+          "evidence_id": "EV-HDFC-11-009",
+          "quote": "Up to sum insured"
+        }
+      ],
+      "reasoning": "The policy covers various hospitalisation expenses including room rent at actuals and other expenses up to the sum insured."
+    },
+    {
+      "exposure_id": "EXP-PREPOST",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "OTHER_CONDITION",
+          "description": "60 days pre and 180 days post hospitalisation",
+          "evidence_ids": [
+            "EV-HDFC-4-003",
+            "EV-HDFC-11-017",
+            "EV-HDFC-11-019"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-4-003",
+        "EV-HDFC-11-017",
+        "EV-HDFC-11-019"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-4-003",
+        "EV-HDFC-11-017",
+        "EV-HDFC-11-019"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-4-003",
+          "quote": "Optima Secure+ covers medical expenses for 60 days pre and 180 days post hospitalisation."
+        },
+        {
+          "evidence_id": "EV-HDFC-11-017",
+          "quote": "Up to sum insured"
+        },
+        {
+          "evidence_id": "EV-HDFC-11-019",
+          "quote": "Up to sum insured"
+        }
+      ],
+      "reasoning": "The policy covers pre-hospitalisation expenses for 60 days and post-hospitalisation expenses for 180 days."
+    },
+    {
+      "exposure_id": "EXP-DAYCARE",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-HDFC-5-017"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-5-017",
+          "quote": "It also covers all day care treatments that require hospitalisation for less than 24 hours."
+        }
+      ],
+      "reasoning": "The policy covers all day care treatments that require hospitalisation for less than 24 hours."
+    },
+    {
+      "exposure_id": "EXP-MODERN",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not explicitly mention coverage for modern treatments."
+    },
+    {
+      "exposure_id": "EXP-AMB-ROAD",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-HDFC-5-017",
+        "EV-HDFC-11-029"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-5-017",
+          "quote": "road ambulance charges and so on."
+        },
+        {
+          "evidence_id": "EV-HDFC-11-029",
+          "quote": "Road: Up to sum insured"
+        }
+      ],
+      "reasoning": "Road ambulance charges are covered up to the sum insured as part of hospitalisation expenses."
+    },
+    {
+      "exposure_id": "EXP-AMB-AIR",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "SUBLIMIT",
+          "description": "Up to INR 5,00,000",
+          "evidence_ids": [
+            "EV-HDFC-11-029"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-6-006",
+        "EV-HDFC-11-029"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-11-029"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-6-006",
+          "quote": "The policy pays for air ambulance transportation services during your emergency needs."
+        },
+        {
+          "evidence_id": "EV-HDFC-11-029",
+          "quote": "Air: Up to INR 5,00,000"
+        }
+      ],
+      "reasoning": "Emergency air ambulance services are covered up to a sublimit of INR 5,00,000."
+    },
+    {
+      "exposure_id": "EXP-DOMICILIARY",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "NETWORK_ONLY",
+          "description": "Home health care available only on cashless basis",
+          "evidence_ids": [
+            "EV-HDFC-16-016"
+          ]
+        },
+        {
+          "type": "OTHER_CONDITION",
+          "description": "Home health care available only... in select cities only.",
+          "evidence_ids": [
+            "EV-HDFC-16-016"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-4-006",
+        "EV-HDFC-11-013"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-16-016"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-4-006",
+          "quote": "This policy covers treatment availed from the comfort of your home, and as per everyone's convenience on cashless basis."
+        },
+        {
+          "evidence_id": "EV-HDFC-11-013",
+          "quote": "Up to sum insured"
+        },
+        {
+          "evidence_id": "EV-HDFC-16-016",
+          "quote": "Home health care available only on cashless basis in select cities only."
+        }
+      ],
+      "reasoning": "Home healthcare is covered up to the sum insured but is limited to cashless treatment in select cities."
+    },
+    {
+      "exposure_id": "EXP-AYUSH",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-HDFC-5-019",
+        "EV-HDFC-11-011"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-5-019",
+          "quote": "Optima Secure+ covers in-patient care treatment expenses even for alternate treatment methods viz. Ayurveda, Yoga and Naturopathy, Unani, Siddha and Homeopathy."
+        },
+        {
+          "evidence_id": "EV-HDFC-11-011",
+          "quote": "Up to sum insured"
+        }
+      ],
+      "reasoning": "In-patient care treatment expenses for AYUSH methods are covered up to the sum insured."
+    },
+    {
+      "exposure_id": "EXP-NONMED",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "OTHER_CONDITION",
+          "description": "Zero deductions on listed non-medical expenses",
+          "evidence_ids": [
+            "EV-HDFC-2-020",
+            "EV-HDFC-16-010"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-2-020",
+        "EV-HDFC-3-016",
+        "EV-HDFC-11-023"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-2-020",
+        "EV-HDFC-16-010"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-2-020",
+          "quote": "Zero deductions on listed non-medical expenses to maximise your claim during hospitalisation"
+        },
+        {
+          "evidence_id": "EV-HDFC-3-016",
+          "quote": "During hospitalisation, his non-medical expenses that add up to 10-20% of the total bill amount also get covered by Protect Benefit"
+        },
+        {
+          "evidence_id": "EV-HDFC-11-023",
+          "quote": "Up to sum insured"
+        }
+      ],
+      "reasoning": "Non-medical expenses are covered under Protect Benefit, but only for listed items."
+    },
+    {
+      "exposure_id": "EXP-SI-EXHAUST",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "OTHER_CONDITION",
+          "description": "A Single claim in a policy year cannot exceed the cumulative addition of Base SI (at the start of the policy year) + Secure Benefit (remaining amount) + Infinite Benefit (if applicable - remaining amount).",
+          "evidence_ids": [
+            "EV-HDFC-16-006"
+          ]
+        },
+        {
+          "type": "SUBLIMIT",
+          "description": "Up to 100% of base sum insured for restoration",
+          "evidence_ids": [
+            "EV-HDFC-11-027"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-2-015",
+        "EV-HDFC-3-007",
+        "EV-HDFC-11-027"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-16-006",
+        "EV-HDFC-11-027"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-2-015",
+          "quote": "Every time you claim, your base cover is restored, as many times as needed"
+        },
+        {
+          "evidence_id": "EV-HDFC-11-027",
+          "quote": "Up to 100% of base sum insured, for any illness, for any insured person, unlimited times in a policy year"
+        },
+        {
+          "evidence_id": "EV-HDFC-16-006",
+          "quote": "A Single claim in a policy year cannot exceed the cumulative addition of Base SI (at the start of the policy year) + Secure Benefit (remaining amount) + Infinite Benefit (if applicable - remaining amount)."
+        }
+      ],
+      "reasoning": "The Automatic Restore Benefit restores the base cover up to 100% for any illness, unlimited times, but a single claim has a cap based on the cumulative sum insured."
+    },
+    {
+      "exposure_id": "EXP-INFLATION",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-HDFC-2-012",
+        "EV-HDFC-3-012",
+        "EV-HDFC-11-025"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-2-012",
+          "quote": "Accumulate 100% of base sum insured year after year, infinite times, irrespective of claims made"
+        },
+        {
+          "evidence_id": "EV-HDFC-3-012",
+          "quote": "Since there is no maximum capping on Infinite Benefit, this cycle of additional 100% every year never stops & continues for infinite times"
+        },
+        {
+          "evidence_id": "EV-HDFC-11-025",
+          "quote": "Irrespective of claim status, 100% of base sum insured will be added post completion of each policy year, up to infinite times"
+        }
+      ],
+      "reasoning": "The Infinite Benefit feature adds 100% of the base sum insured year after year, without any maximum capping."
+    },
+    {
+      "exposure_id": "EXP-MATERNITY",
+      "coverage_status": "COVERED_VIA_ADDON",
+      "limitations": [
+        {
+          "type": "ADDON_REQUIRED",
+          "description": "Covers maternity expenses, embryo storage costs and IVF treatments is available via the \"Parenthood\" add-on.",
+          "evidence_ids": [
+            "EV-HDFC-8-019",
+            "EV-HDFC-8-018"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-8-019"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-8-019",
+        "EV-HDFC-8-018"
+      ],
+      "exclusion_evidence_ids": [
+        "EV-HDFC-14-017"
+      ],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-14-017",
+          "quote": "maternity"
+        },
+        {
+          "evidence_id": "EV-HDFC-8-019",
+          "quote": "Covers maternity expenses, embryo storage costs and IVF treatments"
+        }
+      ],
+      "reasoning": "Maternity is explicitly excluded from the base plan but can be covered through the \"Parenthood\" add-on."
+    },
+    {
+      "exposure_id": "EXP-CHRONIC",
+      "coverage_status": "COVERED_VIA_ADDON",
+      "limitations": [
+        {
+          "type": "ADDON_REQUIRED",
+          "description": "Covers hospitalisation expenses for Asthma, Blood pressure, Cholesterol and Diabetes is available via the \"ABCD Chronic Care\" add-on.",
+          "evidence_ids": [
+            "EV-HDFC-8-007",
+            "EV-HDFC-8-006"
+          ]
+        },
+        {
+          "type": "WAITING_PERIOD",
+          "description": "from the 31 st day",
+          "evidence_ids": [
+            "EV-HDFC-8-007"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-8-007"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-8-007",
+        "EV-HDFC-8-006"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-8-007",
+          "quote": "Covers hospitalisation expenses for Asthma, Blood pressure, Cholesterol and Diabetes from the 31 st day"
+        }
+      ],
+      "reasoning": "Hospitalisation expenses for specific chronic conditions like Asthma, Blood pressure, Cholesterol, and Diabetes are covered via the \"ABCD Chronic Care\" add-on after a 31-day waiting period."
+    },
+    {
+      "exposure_id": "EXP-PED",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "WAITING_PERIOD",
+          "description": "36 months waiting period on pre-existing diseases",
+          "evidence_ids": [
+            "EV-HDFC-14-021"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-13-005",
+        "EV-HDFC-13-008"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-14-021"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-14-021",
+          "quote": "36 months waiting period on pre-existing diseases"
+        },
+        {
+          "evidence_id": "EV-HDFC-13-005",
+          "quote": "The waiting periods mentioned in the policy wordings will reduce by 1 year for every continuous policy year completed."
+        }
+      ],
+      "reasoning": "Pre-existing diseases are covered after a 36-month waiting period, which reduces by 1 year for every continuous policy year."
+    },
+    {
+      "exposure_id": "EXP-OPD",
+      "coverage_status": "COVERED_VIA_ADDON",
+      "limitations": [
+        {
+          "type": "ADDON_REQUIRED",
+          "description": "Covers various outpatient benefits is available via the \"Optima Wellbeing\" add-on.",
+          "evidence_ids": [
+            "EV-HDFC-8-009",
+            "EV-HDFC-8-008"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-8-009"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-8-009",
+        "EV-HDFC-8-008"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-8-009",
+          "quote": "Covers various outpatient benefits"
+        }
+      ],
+      "reasoning": "Various outpatient benefits are covered through the \"Optima Wellbeing\" add-on."
+    },
+    {
+      "exposure_id": "EXP-PREVENTIVE",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "SUBLIMIT",
+          "description": "up to a sub-limit as mentioned below for any insured person (including children). For a 10L SI, it's \"2,000\" for Individual Policy (per insured) or \"5,000\" for Floater Policy (per policy).",
+          "evidence_ids": [
+            "EV-HDFC-5-003",
+            "EV-HDFC-5-005",
+            "EV-HDFC-5-010"
+          ]
+        },
+        {
+          "type": "SI_TIER_CONDITION",
+          "description": "Sub-limit varies based on Base Sum Insured (10L SI: 2,000 for Individual, 5,000 for Floater)",
+          "evidence_ids": [
+            "EV-HDFC-5-005",
+            "EV-HDFC-5-010"
+          ]
+        },
+        {
+          "type": "OTHER_CONDITION",
+          "description": "provided preventive health check-up benefits post completion of every policy year",
+          "evidence_ids": [
+            "EV-HDFC-5-002"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-5-002",
+        "EV-HDFC-5-003",
+        "EV-HDFC-5-005",
+        "EV-HDFC-5-010"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-5-003",
+        "EV-HDFC-5-005",
+        "EV-HDFC-5-010",
+        "EV-HDFC-5-002"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-5-002",
+          "quote": "You will be provided preventive health check-up benefits post completion of every policy year, irrespective of claim status."
+        },
+        {
+          "evidence_id": "EV-HDFC-5-003",
+          "quote": "Mr. Sharma can choose tests of his choice up to a sub-limit as mentioned below for any insured person (including children)."
+        },
+        {
+          "evidence_id": "EV-HDFC-5-005",
+          "quote": "2,000"
+        },
+        {
+          "evidence_id": "EV-HDFC-5-010",
+          "quote": "5,000"
+        }
+      ],
+      "reasoning": "Preventive health check-ups are provided annually with a sub-limit that depends on the sum insured and policy type (e.g., ₹2,000 for individual, ₹5,000 for floater at 10L SI)."
+    },
+    {
+      "exposure_id": "EXP-INTL",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not explicitly state whether treatment abroad is covered or excluded for the base plan."
+    },
+    {
+      "exposure_id": "EXP-CRITICAL",
+      "coverage_status": "COVERED_VIA_ADDON",
+      "limitations": [
+        {
+          "type": "ADDON_REQUIRED",
+          "description": "Lumpsum payout on diagnosis of a listed critical illness is available via the \"my: health Critical Illness\" add-on.",
+          "evidence_ids": [
+            "EV-HDFC-8-015",
+            "EV-HDFC-8-014"
+          ]
+        },
+        {
+          "type": "ADDON_REQUIRED",
+          "description": "Critical illness add-on that works on an indemnity basis with double sum insured is available via the \"Serious Illness Booster\" add-on.",
+          "evidence_ids": [
+            "EV-HDFC-8-021",
+            "EV-HDFC-8-020"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-8-015",
+        "EV-HDFC-8-021"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-8-015",
+        "EV-HDFC-8-014",
+        "EV-HDFC-8-021",
+        "EV-HDFC-8-020"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-8-015",
+          "quote": "Lumpsum payout on diagnosis of a listed critical illness"
+        },
+        {
+          "evidence_id": "EV-HDFC-8-021",
+          "quote": "Critical illness add-on that works on an indemnity basis with double sum insured - reimbursing actual medical expenses for listed critical illnesses"
+        }
+      ],
+      "reasoning": "Critical illness coverage is available through the \"my: health Critical Illness\" add-on (lumpsum payout) or the \"Serious Illness Booster\" add-on (indemnity basis)."
+    },
+    {
+      "exposure_id": "EXP-ACCIDENT",
+      "coverage_status": "COVERED_VIA_ADDON",
+      "limitations": [
+        {
+          "type": "ADDON_REQUIRED",
+          "description": "Lumpsum payout in case of an unfortunate Accidental Death or Permanent Disability is available via the \"Individual Personal Accident Rider\".",
+          "evidence_ids": [
+            "EV-HDFC-8-013",
+            "EV-HDFC-8-012"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-8-013"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-8-013",
+        "EV-HDFC-8-012"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-8-013",
+          "quote": "Lumpsum payout in case of an unfortunate Accidental Death or Permanent Disability"
+        }
+      ],
+      "reasoning": "Personal accident coverage for accidental death or permanent disability is available through the \"Individual Personal Accident Rider\"."
+    },
+    {
+      "exposure_id": "EXP-DEPENDENTS",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-HDFC-10-005",
+        "EV-HDFC-10-006",
+        "EV-HDFC-10-011"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-10-005",
+          "quote": "A maximum of 4 adults and a maximum of 6 children can be included in a single policy having a common sum insured."
+        },
+        {
+          "evidence_id": "EV-HDFC-10-006",
+          "quote": "A maximum of 6 adults and a maximum of 6 children can be included in a single policy having separate sum insured individually."
+        },
+        {
+          "evidence_id": "EV-HDFC-10-011",
+          "quote": "Adults can be a combination of self, spouse, parents and parents-in-law."
+        }
+      ],
+      "reasoning": "The policy allows for the inclusion of parents and parents-in-law as adults in both family floater and individual policy options."
+    },
+    {
+      "exposure_id": "EXP-HOSPCASH",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "limitations": [
+        {
+          "type": "SUBLIMIT",
+          "description": "INR 800 per day up to a maximum of INR 4,800",
+          "evidence_ids": [
+            "EV-HDFC-4-009",
+            "EV-HDFC-11-031"
+          ]
+        },
+        {
+          "type": "OTHER_CONDITION",
+          "description": "when you choose a shared accommodation",
+          "evidence_ids": [
+            "EV-HDFC-4-009",
+            "EV-HDFC-16-016"
+          ]
+        },
+        {
+          "type": "NETWORK_ONLY",
+          "description": "in a network hospital",
+          "evidence_ids": [
+            "EV-HDFC-4-009",
+            "EV-HDFC-16-016"
+          ]
+        },
+        {
+          "type": "OTHER_CONDITION",
+          "description": "hospitalisation period exceeds 48 hours",
+          "evidence_ids": [
+            "EV-HDFC-4-009",
+            "EV-HDFC-16-016"
+          ]
+        }
+      ],
+      "benefit_evidence_ids": [
+        "EV-HDFC-4-009",
+        "EV-HDFC-11-031"
+      ],
+      "limitation_evidence_ids": [
+        "EV-HDFC-4-009",
+        "EV-HDFC-11-031",
+        "EV-HDFC-16-016"
+      ],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-4-009",
+          "quote": "With this, daily cash of INR 800 per day up to a maximum of INR 4,800 on hospitalisation is provided as out-of-pocket expenses when you choose a shared accommodation in a network hospital, and the hospitalisation period exceeds 48 hours."
+        },
+        {
+          "evidence_id": "EV-HDFC-11-031",
+          "quote": "INR 800 per day (max up to INR 4,800)"
+        },
+        {
+          "evidence_id": "EV-HDFC-16-016",
+          "quote": "Daily cash in case of hospitalisation for more than 48 hours in a Network Hospital's shared accommodation."
+        }
+      ],
+      "reasoning": "Daily cash for shared room is provided at INR 800 per day up to a maximum of INR 4,800, subject to choosing shared accommodation in a network hospital and hospitalisation exceeding 48 hours."
+    },
+    {
+      "exposure_id": "EXP-ORGAN",
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
+      "benefit_evidence_ids": [
+        "EV-HDFC-6-004",
+        "EV-HDFC-11-015"
+      ],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [
+        {
+          "evidence_id": "EV-HDFC-6-004",
+          "quote": "Get reimbursements for medical expenses incurred for organ donor's in-patient treatment for harvesting of the organ donated."
+        },
+        {
+          "evidence_id": "EV-HDFC-11-015",
+          "quote": "Up to sum insured"
+        }
+      ],
+      "reasoning": "Medical expenses for organ donor's in-patient treatment for harvesting the organ are reimbursed up to the sum insured."
+    },
+    {
+      "exposure_id": "EXP-WELLNESS",
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "The brochure does not explicitly mention coverage for wellness programmes."
+    }
+  ]
+}

@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 
+from marsh import settings
 from marsh.decision_log import log_decision
 from marsh.llm import call_structured
 from marsh.models import (
@@ -24,6 +26,8 @@ from marsh.models import (
     Confidence,
     FactField,
     FactStatus,
+    load_json,
+    save_json,
 )
 from marsh.validation import validate_company_name
 
@@ -88,3 +92,19 @@ def generate_company_profile(company_name: str, run_id: str | None = None) -> Co
     if downgraded:
         log.info("downgraded to ASSUMPTION (specific figures): %s", downgraded)
     return profile
+
+
+# --- Frozen profiles (reproducible runs) ----------------------------------------------------------------------
+
+
+def profile_slug(company_name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", company_name.casefold()).strip("-") or "company"
+
+
+def save_profile(profile: CompanyProfile, path: str | Path | None = None) -> Path:
+    """Save a profile to data/profiles/<slug>.json (or `path`) so later runs can reuse it exactly."""
+    return save_json(profile, Path(path) if path else settings.PROFILES_DIR / f"{profile_slug(profile.company_name)}.json")
+
+
+def load_profile(path: str | Path) -> CompanyProfile:
+    return load_json(CompanyProfile, path)

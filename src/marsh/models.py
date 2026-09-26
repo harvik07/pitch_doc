@@ -520,6 +520,47 @@ class PolicyMatch(_Model):
     validation_errors: list[str] = Field(default_factory=list)
 
 
+class LimitationDraft(_Model):
+    type: LimitationType
+    description: str = Field(min_length=1)
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class QuoteDraft(_Model):
+    evidence_id: str
+    quote: str = Field(min_length=1)
+
+
+class MatchDraft(_Model):
+    """One coverage cell as the matching LLM returns it (prompts/match_policy.md). IDs are plain strings:
+    code, not schema validation, rejects unknown ones (matching.validate_match)."""
+    exposure_id: str
+    coverage_status: CoverageStatus
+    limitations: list[LimitationDraft] = Field(default_factory=list)
+    benefit_evidence_ids: list[str] = Field(default_factory=list)
+    limitation_evidence_ids: list[str] = Field(default_factory=list)
+    exclusion_evidence_ids: list[str] = Field(default_factory=list)
+    quotes: list[QuoteDraft] = Field(default_factory=list)
+    reasoning: str = ""
+
+
+class MatchResponse(_Model):
+    matches: list[MatchDraft]
+
+
+class CoverageMatrixCache(_Model):
+    """data/cache/matrix_<sha>_<SI>.json: the LLM's raw cells for one policy at one assumed SI, plus hashes
+    of what they were built from. Validation is re-run on every load (deterministic, no LLM)."""
+    policy_id: PolicyId
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    assumed_sum_insured: int = Field(gt=0)
+    model: str
+    taxonomy_hash: str
+    evidence_hash: str
+    prompt_hash: str
+    drafts: list[MatchDraft]
+
+
 class RuleTableRow(_Model):
     """Per-policy counts for the ordered rules in CLAUDE.md section 7."""
 

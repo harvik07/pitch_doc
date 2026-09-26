@@ -1,0 +1,109 @@
+{
+  "company_name": "Infosys",
+  "industry": "Global information technology, consulting, and outsourcing services.",
+  "size": "Very large enterprise.",
+  "key_risks": [
+    "Intense competition in the global IT services market.",
+    "Talent attraction and retention, leading to high attrition rates.",
+    "Currency fluctuations and geopolitical risks impacting global operations.",
+    "Rapid technological changes requiring continuous upskilling and adaptation."
+  ],
+  "facts": [
+    {
+      "fact_id": "CF-001",
+      "field": "industry",
+      "value": "Global information technology, consulting, and outsourcing services.",
+      "status": "MODEL_KNOWLEDGE",
+      "confidence": "high",
+      "rationale": "Infosys is widely known as a major player in the IT services industry."
+    },
+    {
+      "fact_id": "CF-002",
+      "field": "size",
+      "value": "Very large enterprise.",
+      "status": "MODEL_KNOWLEDGE",
+      "confidence": "high",
+      "rationale": "Infosys is a publicly traded multinational corporation with significant global operations and revenue."
+    },
+    {
+      "fact_id": "CF-003",
+      "field": "headcount_band",
+      "value": "200,000+ employees.",
+      "status": "MODEL_KNOWLEDGE",
+      "confidence": "high",
+      "rationale": "Infosys is one of the largest IT employers globally, with hundreds of thousands of employees."
+    },
+    {
+      "fact_id": "CF-004",
+      "field": "geography",
+      "value": "Headquartered in India, with a significant global presence across many continents.",
+      "status": "MODEL_KNOWLEDGE",
+      "confidence": "high",
+      "rationale": "Infosys is an Indian multinational corporation with offices and operations worldwide."
+    },
+    {
+      "fact_id": "CF-005",
+      "field": "business_risk",
+      "value": "Intense competition in the global IT services market.",
+      "status": "MODEL_KNOWLEDGE",
+      "confidence": "high",
+      "rationale": "The IT services industry is highly competitive with many established players and new entrants."
+    },
+    {
+      "fact_id": "CF-006",
+      "field": "business_risk",
+      "value": "Talent attraction and retention, leading to high attrition rates.",
+      "status": "MODEL_KNOWLEDGE",
+      "confidence": "high",
+      "rationale": "Skilled IT professionals are in high demand, making talent management a critical risk for large IT firms."
+    },
+    {
+      "fact_id": "CF-007",
+      "field": "business_risk",
+      "value": "Currency fluctuations and geopolitical risks impacting global operations.",
+      "status": "MODEL_KNOWLEDGE",
+      "confidence": "medium",
+      "rationale": "As a global company, Infosys is exposed to exchange rate volatility and political instability in various markets."
+    },
+    {
+      "fact_id": "CF-008",
+      "field": "business_risk",
+      "value": "Rapid technological changes requiring continuous upskilling and adaptation.",
+      "status": "MODEL_KNOWLEDGE",
+      "confidence": "high",
+      "rationale": "The IT industry evolves quickly, necessitating constant investment in new technologies and employee training."
+    },
+    {
+      "fact_id": "CF-009",
+      "field": "workforce_profile",
+      "value": "Predominantly desk-based and office-based professionals.",
+      "status": "ASSUMPTION",
+      "confidence": "high",
+      "rationale": "Typical for an IT services company, most employees work in office environments or remotely on computers."
+    },
+    {
+      "fact_id": "CF-010",
+      "field": "workforce_profile",
+      "value": "Significant international travel for client engagements and project delivery.",
+      "status": "MODEL_KNOWLEDGE",
+      "confidence": "high",
+      "rationale": "As a global consulting and services firm, frequent international travel is inherent to many roles."
+    },
+    {
+      "fact_id": "CF-011",
+      "field": "workforce_profile",
+      "value": "Relatively young workforce, common in the technology sector.",
+      "status": "ASSUMPTION",
+      "confidence": "medium",
+      "rationale": "The IT industry often attracts and retains a younger demographic compared to traditional industries."
+    },
+    {
+      "fact_id": "CF-012",
+      "field": "workforce_profile",
+      "value": "Global workforce requiring support across multiple time zones, potentially involving shift work.",
+      "status": "ASSUMPTION",
+      "confidence": "medium",
+      "rationale": "To support global clients 24/7, some roles likely involve working non-standard hours or shifts."
+    }
+  ]
+}

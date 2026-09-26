@@ -81,6 +81,6 @@ MAX_EXPOSURES = 8  # identified exposures per company (baselines first)
 # --- Gemini (google-genai on Vertex AI) ------------------------------------------------------------
 USE_VERTEXAI = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "true").strip().lower() in {"1", "true", "yes"}
 GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
-GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1").strip()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "global").strip()  # gemini-3.8-flash is served on "global" only
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
 GEMINI_AUDIT_MODEL = os.getenv("GEMINI_AUDIT_MODEL", "").strip() or GEMINI_MODEL

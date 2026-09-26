@@ -64,8 +64,8 @@ from pathlib import Path
 from marsh import settings
 from marsh.decision_log import log_decision
 from marsh.evidence_store import EvidenceStore, display_label, load_evidence, to_display
-from marsh.exposures import load_taxonomy
-from marsh.grounding import format_indian, quote_in_evidence
+from marsh.exposures import _keyword_pattern, load_taxonomy
+from marsh.grounding import _alias_pattern, format_indian, normalise_text, quote_in_evidence
 from marsh.llm import LLMError, call_structured, load_prompt
 from marsh.models import (
     BenefitTier,
@@ -94,6 +94,8 @@ REPAIR_MAX_OUTPUT_TOKENS = 8192  # a few cells; stops a runaway reply (one ABHI 
 COVERED = {CoverageStatus.FULLY_COVERED, CoverageStatus.COVERED_WITH_LIMITATIONS, CoverageStatus.COVERED_VIA_ADDON}
 ADDON_TIERS = {BenefitTier.ADDON, BenefitTier.OPTIONAL}
 ADDON_LIMITS = {LimitationType.ADDON_REQUIRED, LimitationType.OPTIONAL_EXTRA_PREMIUM}
+TIER_LIMITATION_TEXT = {LimitationType.ADDON_REQUIRED: "Available as an add-on at extra premium",
+                        LimitationType.OPTIONAL_EXTRA_PREMIUM: "Optional benefit at extra premium"}
 DISCOUNT_EXEMPT = {"EXP-WELLNESS"}  # wellness programmes reward with discounts; that IS the benefit
 ELIGIBILITY_EXPOSURES = {"EXP-DEPENDENTS"}  # covered by an eligibility rule (tier UNKNOWN by annotation design)
 SI_UNREADABLE = "SI condition unreadable"
@@ -439,7 +441,7 @@ def validate_match(draft: MatchDraft, policy_id: str, store: EvidenceStore,
                            (BenefitTier.OPTIONAL, LimitationType.OPTIONAL_EXTRA_PREMIUM)):
             tier_ids = [e for e, t in benefit_tiers.items() if t == tier]
             if tier_ids and not any(lim.type == kind for lim in limitations):
-                limitations.append(Limitation(type=kind, description=f"Benefit evidence is tier {tier.value}.",
+                limitations.append(Limitation(type=kind, description=TIER_LIMITATION_TEXT[kind],
                                               evidence_ids=tier_ids))
                 notes.append(f"added: {kind.value} from the tier of {', '.join(tier_ids)}")
                 if status != CoverageStatus.COVERED_VIA_ADDON:
@@ -604,6 +606,66 @@ def build_matrix(policy_ids: list[str], assumed_sum_insured: int | None = None, 
     taxonomy = load_taxonomy()
     return {p: build_coverage_matrix(p, assumed_sum_insured, run_id, store=store, taxonomy=taxonomy, force=force)
             for p in policy_ids}
+
+
+# --- Absence claims (P1) --------------------------------------------------------------------------------------
+
+_ABSENCE = re.compile(
+    r"\b(?:does not|doesn't|do not|don't|will not|won't|cannot|can't)\s+(?:cover|provide|include|offer|pay)\b|"
+    r"\bexclud(?:es|ed|ing|e)\b|\bno\s+(?:coverage|cover|benefit)s?\s+(?:for|of)\b|"
+    r"\bnot\s+(?:covered|provided|included|offered)\b", re.IGNORECASE)
+_NOT_STATED_PHRASE = re.compile(r"\bnot stated in the\b", re.IGNORECASE)
+
+
+def claim_exposures(text: str, taxonomy: ExposureTaxonomy) -> list[str]:
+    """Exposure IDs a sentence is about: an exposure's name or one of its keywords at a word start. Product names
+    are masked first ("ReAssure 2.0" is a product, not the SI-restore keyword "reassure")."""
+    lowered = normalise_text(text)
+    for aliases in settings.PRODUCT_ALIASES.values():
+        for alias in aliases:
+            lowered = _alias_pattern(alias).sub(" ", lowered)
+    return [e.id for e in taxonomy.exposures
+            if e.name.casefold() in lowered or any(_keyword_pattern(k).search(lowered) for k in e.keywords)]
+
+
+def is_not_stated_statement(text: str) -> bool:
+    return bool(_NOT_STATED_PHRASE.search(text))
+
+
+def absence_errors(text: str, policy_id: str, cells: list[PolicyMatch], product_name: str,
+                   taxonomy: ExposureTaxonomy | None = None) -> list[str]:
+    """A claim that a policy does not cover / excludes X is valid only if the policy's cell for X is EXCLUDED with
+    exclusion evidence (or covered only via an add-on, with base-plan exclusion evidence). If the cell is
+    NOT_STATED, the claim must say "not stated in the <product> brochure"; such a claim must match a NOT_STATED cell."""
+    taxonomy = taxonomy or load_taxonomy()
+    by_exposure = {m.exposure_id: m for m in cells if m.policy_id == policy_id}
+    if is_not_stated_statement(text):
+        exposures = claim_exposures(text, taxonomy)
+        if not exposures:
+            return ["a 'not stated' claim must name an exposure the coverage cells can confirm"]
+        return [f"says {e} is not stated, but {product_name}'s cell is {by_exposure[e].coverage_status.value}"
+                for e in exposures if e in by_exposure and by_exposure[e].coverage_status != CoverageStatus.NOT_STATED]
+    if not _ABSENCE.search(text):
+        return []
+    exposures = claim_exposures(text, taxonomy)
+    if not exposures:
+        return ["an absence claim ('does not cover', 'excludes', 'no coverage for') must name an exposure the "
+                "coverage cells can confirm"]
+    errors = []
+    for e in exposures:
+        cell = by_exposure.get(e)
+        if cell is None:
+            errors.append(f"absence claim about {e}, but {product_name} has no cell for it")
+        elif cell.exclusion_evidence_ids and cell.coverage_status in (CoverageStatus.EXCLUDED,
+                                                                       CoverageStatus.COVERED_VIA_ADDON):
+            continue
+        elif cell.coverage_status == CoverageStatus.NOT_STATED:
+            errors.append(f"{e} is NOT_STATED for {product_name}: write that it is \"not stated in the "
+                          f"{product_name} brochure\", not that it is excluded or not covered")
+        else:
+            errors.append(f"says {product_name} does not cover {e}, but its cell is {cell.coverage_status.value}"
+                          + ("" if cell.exclusion_evidence_ids else " without exclusion evidence"))
+    return errors
 
 
 def select_relevant(matrix: Matrix, exposures: list[Exposure]) -> list[PolicyMatch]:

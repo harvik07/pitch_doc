@@ -28,10 +28,10 @@ Return:
 - required_addons: the add-ons / optional benefits the company needs for its exposures, named as in the evidence.
 - relevant_exposure_ids: the exposures above that your choice rests on.
 - claims: short atomic statements, each with kind, text, policy_id, evidence_ids and quotes:
-  - kind REASON: why this policy fits this company (2–5 claims, about the selected policy);
-  - kind LIMITATION: the most important limitations of the selected policy for this company (1–3 claims);
+  - kind REASON: why this policy fits this company (2 to 5 claims, never more, about the selected policy);
+  - kind LIMITATION: the most important limitations of the selected policy for this company (0 to 3 claims);
   - kind CONDITION: what the recommendation depends on: the variant, add-ons or optional benefits needed, and any
-    sum-insured condition (0–3 claims).
+    sum-insured condition (0 to 3 claims).
   Each claim:
   - states ONE fact about ONE policy (policy_id). To compare, write one claim per policy.
   - cites evidence_ids of that policy only, and 1–2 quotes {evidence_id, quote} copied VERBATIM from ONE item's
@@ -45,8 +45,9 @@ Return:
 
 Rules:
 - Use only the evidence and cells above. No outside knowledge about insurers, products or prices.
-- NOT_STATED is neither covered nor excluded: the brochure is silent. Don't write claims about what a brochure
-  doesn't say.
+- NOT_STATED is neither covered nor excluded: the brochure is silent. Never write that a policy "does not cover",
+  "does not provide", "excludes" or has "no coverage for" something unless its cell is EXCLUDED. For a NOT_STATED
+  cell, if it matters, write "<exposure> is not stated in the <product> brochure" (no evidence needed for that).
 - A cell not available at the assumed SI is not coverage at that SI. If it matters, say so in a CONDITION claim.
 - State variant, add-on and optional-benefit needs, and sum-insured conditions.
 - A discount on services is not cover. Never compare premiums or prices.

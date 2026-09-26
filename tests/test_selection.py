@@ -25,6 +25,7 @@ from marsh.models import (
     ItemType,
     PolicyDocument,
     PolicyMatch,
+    SelectionClaim,
     SelectionResponse,
 )
 from marsh.run_context import new_run_context, new_run_id
@@ -69,8 +70,20 @@ def claim(kind, text, policy_id, evidence_id, quote=None):
             "quotes": [{"evidence_id": evidence_id, "quote": quote or text}]}
 
 
+FILLER = {  # a second, valid REASON claim per policy (the schema needs 2–5), quoted verbatim from its evidence
+    "POL-NIVA": ("EV-NIVA-2-006", "Covered up to Sum Insured."),
+    "POL-HDFC": ("EV-HDFC-11-009", "Up to sum insured"),
+    "POL-ABHI": ("EV-ABHI-2-008", "For emergency and planned treatments abroad (any illness / injury)"),
+    UPLOAD: ("EV-UPL-abc123-1-001", "Placeholder benefit text for an uploaded policy."),
+}
+
+
 def response(selected="POL-NIVA", claims=None, **fields):
-    claims = claims if claims is not None else [claim("REASON", NIVA_AIR, "POL-NIVA", "EV-NIVA-2-015")]
+    claims = list(claims if claims is not None else [claim("REASON", NIVA_AIR, "POL-NIVA", "EV-NIVA-2-015")])
+    owner = selected if selected in FILLER else "POL-NIVA"
+    while sum(c["kind"] == "REASON" for c in claims) < 2:
+        evidence_id, text = FILLER[owner]
+        claims.append(claim("REASON", text, owner, evidence_id))
     return SelectionResponse.model_validate({"selected_policy_id": selected, "claims": claims, "confidence": "medium",
                                              "relevant_exposure_ids": ["EXP-AMB-AIR"], **fields})
 
@@ -122,8 +135,9 @@ def test_two_policies_one_is_chosen(monkeypatch, store, matrices):
     result, _ = run(monkeypatch, store, matrices, ["POL-NIVA", "POL-HDFC"],
                     response(claims=[claim("REASON", NIVA_AIR, "POL-NIVA", "EV-NIVA-2-015"), hdfc_limit]))
     assert result.selected_policy_id == "POL-NIVA" and result.validation_errors == []
-    assert result.reason == NIVA_AIR and result.important_limitations == ["Air: Up to INR 5,00,000"]
-    assert result.supporting_evidence_ids == ["EV-NIVA-2-015", "EV-HDFC-11-029"]
+    assert result.reason == f"{NIVA_AIR} Covered up to Sum Insured."
+    assert result.important_limitations == ["Air: Up to INR 5,00,000"]
+    assert result.supporting_evidence_ids == ["EV-NIVA-2-015", "EV-HDFC-11-029", "EV-NIVA-2-006"]
     assert result.decided_by == DecidedBy.LLM
 
 
@@ -131,7 +145,7 @@ def test_one_policy_is_selected_and_the_llm_still_writes_the_reason(monkeypatch,
     hdfc = claim("REASON", "Air: Up to INR 5,00,000", "POL-HDFC", "EV-HDFC-11-029")
     result, fake = run(monkeypatch, store, matrices, ["POL-HDFC"], response(selected="POL-HDFC", claims=[hdfc]))
     assert len(fake.calls) == 1 and result.selected_policy_id == "POL-HDFC"
-    assert result.reason == "Air: Up to INR 5,00,000" and result.validation_errors == []
+    assert result.reason == "Air: Up to INR 5,00,000 Up to sum insured" and result.validation_errors == []
 
 
 def upload_store(store):
@@ -175,6 +189,27 @@ def test_bad_claims_are_rejected(monkeypatch, store, matrices, bad_claim, error)
                        response(claims=[claim("REASON", NIVA_AIR, "POL-NIVA", "EV-NIVA-2-015"), bad_claim]))
     assert [c[0] for c in fake.calls] == ["select_policy", "select_policy_repair"]  # one repair retry
     assert any(error in e for e in result.validation_errors), result.validation_errors
+
+
+def test_absence_claims_need_an_excluded_cell(monkeypatch, store, matrices):
+    """P1: NIVA maternity is NOT_STATED, so "does not cover maternity" fails and goes to the repair retry;
+    "not stated in the <product> brochure" passes without evidence; a "not stated" claim on a covered cell fails."""
+    compared = ["POL-NIVA", "POL-HDFC"]
+    absent = claim("LIMITATION", "Niva Bupa ReAssure 2.0 does not cover maternity.", "POL-NIVA", "EV-NIVA-2-015",
+                   quote=NIVA_AIR)
+    result, fake = run(monkeypatch, store, matrices, compared, response(claims=[
+        claim("REASON", NIVA_AIR, "POL-NIVA", "EV-NIVA-2-015"), absent]))
+    assert [c[0] for c in fake.calls] == ["select_policy", "select_policy_repair"]
+    assert any('not stated in the Niva Bupa ReAssure 2.0 brochure' in e for e in result.validation_errors)
+
+    ok = SelectionClaim(kind="LIMITATION", text="Maternity is not stated in the Niva Bupa ReAssure 2.0 brochure.",
+                        policy_id="POL-NIVA")
+    assert selection.check_claim(ok, compared, store, matrices) == []
+    wrong = ok.model_copy(update={"text": "Air ambulance is not stated in the Niva Bupa ReAssure 2.0 brochure."})
+    assert any("cell is" in e for e in selection.check_claim(wrong, compared, store, matrices))
+    hdfc = SelectionClaim(kind="LIMITATION", text="HDFC ERGO Optima Secure+ does not cover air ambulance.",
+                          policy_id="POL-HDFC")
+    assert any("does not cover" in e for e in selection.check_claim(hdfc, compared, store, matrices))
 
 
 def test_a_selection_outside_the_compared_set_is_rejected(monkeypatch, store, matrices):

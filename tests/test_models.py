@@ -12,7 +12,15 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from marsh.models import (
+    SELECTION_MAX_CONDITIONS,
+    SELECTION_MAX_LIMITATIONS,
+    SELECTION_MAX_REASONS,
+    SLIDE4_MAX_FRAMING_BULLETS,
+    SLIDE4_MAX_KEY_LIMITATIONS,
+    SLIDE4_MAX_POLICY_BULLETS,
     SLIDE_TITLES,
+    ClaimRepair,
+    PitchRepairResponse,
     AdvisorAction,
     AnnotationInfo,
     AnnotationResponse,
@@ -262,7 +270,7 @@ ALL_MODELS = [
                        basis_fact_ids=["CF-001"]),
     lambda: FrozenProfile(company_profile=make_profile(), exposures=[make_exposure()]),
     lambda: SelectionResponse(selected_policy_id="POL-NIVA", confidence=Confidence.LOW, claims=[SelectionClaimDraft(
-        kind=SelectionClaimKind.REASON, text="Placeholder.", policy_id="POL-NIVA")]),
+        kind=SelectionClaimKind.REASON, text=f"Placeholder {n}.", policy_id="POL-NIVA") for n in (1, 2)]),
     lambda: SelectionClaimDraft(kind=SelectionClaimKind.CONDITION, text="Placeholder.", policy_id="POL-NIVA"),
     make_deck, make_audit_report, make_run_context, make_extracted, make_file_validation,
     make_overrides_file, make_annotation_response,
@@ -310,6 +318,9 @@ ALL_MODELS = [
     lambda: make_audit_report().results[0],
     lambda: make_audit_report().results[0].number_check,
     lambda: make_deck().recommended,
+    lambda: PitchRepairResponse(repairs=[ClaimRepair(claim_id="CL-001", text="Placeholder.",
+                                                     evidence_ids=["EV-NIVA-2-015"])]),
+    lambda: ClaimRepair(claim_id="CL-002"),
     lambda: make_slides()[2].table_rows[0],
     lambda: make_run_context().advisor_actions[0],
     lambda: claim(1, 1),
@@ -489,12 +500,30 @@ def test_slide1_bullet_length_limit():
     (1, "bullets", 7, "at most 6"),
     (2, "bullets", 5, "at most 4"),
     (4, "supporting_benefits", 4, "at most 3"),
-    (4, "key_limitations", 3, "at most 2"),
+    (4, "key_limitations", 4, "at most 3"),
 ])
 def test_slide_count_limits(slide, field, count, message):
     claims = [claim(n, slide) for n in range(1, count + 1)]
     with pytest.raises(ValidationError, match=message):
         PitchSlide(slide_number=slide, title=SLIDE_TITLES[slide - 1], **{field: claims})
+
+
+def _selection_response(reasons: int, limitations: int = 0, conditions: int = 0) -> SelectionResponse:
+    kinds = ([SelectionClaimKind.REASON] * reasons + [SelectionClaimKind.LIMITATION] * limitations
+             + [SelectionClaimKind.CONDITION] * conditions)
+    return SelectionResponse(selected_policy_id="POL-NIVA", confidence=Confidence.LOW, claims=[
+        SelectionClaimDraft(kind=k, text=f"Placeholder {n}.", policy_id="POL-NIVA") for n, k in enumerate(kinds)])
+
+
+def test_selection_claim_caps_match_slide4_limits():
+    """P3: REASON 2-5, LIMITATION <= 3, CONDITION <= 3; slide 4 holds the largest selection without a cut."""
+    _selection_response(5, 3, 3)
+    for counts, kind in (((1,), "REASON"), ((6,), "REASON"), ((2, 4), "LIMITATION"), ((2, 0, 4), "CONDITION")):
+        with pytest.raises(ValidationError, match=kind):
+            _selection_response(*counts)
+    assert SLIDE4_MAX_POLICY_BULLETS == SELECTION_MAX_REASONS + SELECTION_MAX_CONDITIONS
+    assert SLIDE4_MAX_KEY_LIMITATIONS == SELECTION_MAX_LIMITATIONS
+    assert SLIDE4_MAX_FRAMING_BULLETS == SELECTION_MAX_REASONS + SELECTION_MAX_CONDITIONS + SELECTION_MAX_LIMITATIONS
 
 
 def test_slide3_row_limit():
@@ -510,8 +539,13 @@ def test_content_must_sit_on_its_own_slide():
     with pytest.raises(ValidationError, match="no free bullets"):
         PitchSlide(slide_number=3, title=SLIDE_TITLES[2], bullets=[claim(1, 3)])
     PitchSlide(slide_number=4, title=SLIDE_TITLES[3], bullets=[claim(1, 4)])  # the selection's reason bullets
+    policy = [claim(n, 4, ClaimType.POLICY_BENEFIT, policy_id="POL-NIVA") for n in range(1, 10)]
+    framing = [claim(n, 4) for n in range(20, 32)]
+    PitchSlide(slide_number=4, title=SLIDE_TITLES[3], bullets=policy[:8] + framing[:11])  # P3: the largest selection
     with pytest.raises(ValidationError, match="at most 8 reason"):
-        PitchSlide(slide_number=4, title=SLIDE_TITLES[3], bullets=[claim(n, 4) for n in range(1, 10)])
+        PitchSlide(slide_number=4, title=SLIDE_TITLES[3], bullets=policy)
+    with pytest.raises(ValidationError, match="at most 11 company-framing"):
+        PitchSlide(slide_number=4, title=SLIDE_TITLES[3], bullets=framing)
     with pytest.raises(ValidationError, match="sits on slide"):
         PitchSlide(slide_number=2, title=SLIDE_TITLES[1], bullets=[claim(1, 1)])
 

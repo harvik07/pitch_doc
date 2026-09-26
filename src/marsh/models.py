@@ -585,6 +585,11 @@ class CoverageMatrixCache(_Model):
     rerun: list[str] = Field(default_factory=list)  # exposure IDs re-run by targeted cell calls (matching.rerun_cells)
 
 
+SELECTION_MIN_REASONS, SELECTION_MAX_REASONS = 2, 5
+SELECTION_MAX_LIMITATIONS = 3
+SELECTION_MAX_CONDITIONS = 3
+
+
 class SelectionClaimDraft(_Model):
     """One atomic statement of the selection LLM, about ONE policy, with its evidence. IDs are plain strings so
     that code, not schema validation, rejects (and records) unknown ones."""
@@ -605,9 +610,15 @@ class SelectionResponse(_Model):
     confidence: Confidence
 
     @model_validator(mode="after")
-    def _has_reason(self) -> SelectionResponse:
-        if not any(c.kind == SelectionClaimKind.REASON for c in self.claims):
-            raise ValueError("return at least one claim with kind=REASON")
+    def _claim_counts(self) -> SelectionResponse:
+        counts = {k: sum(1 for c in self.claims if c.kind == k) for k in SelectionClaimKind}
+        if not SELECTION_MIN_REASONS <= counts[SelectionClaimKind.REASON] <= SELECTION_MAX_REASONS:
+            raise ValueError(f"return {SELECTION_MIN_REASONS}–{SELECTION_MAX_REASONS} claims with kind=REASON "
+                             f"(got {counts[SelectionClaimKind.REASON]})")
+        if counts[SelectionClaimKind.LIMITATION] > SELECTION_MAX_LIMITATIONS:
+            raise ValueError(f"return at most {SELECTION_MAX_LIMITATIONS} claims with kind=LIMITATION")
+        if counts[SelectionClaimKind.CONDITION] > SELECTION_MAX_CONDITIONS:
+            raise ValueError(f"return at most {SELECTION_MAX_CONDITIONS} claims with kind=CONDITION")
         return self
 
 
@@ -738,8 +749,9 @@ SLIDE1_MAX_BULLET_CHARS = 140
 SLIDE2_MAX_BULLETS = 4
 SLIDE3_MAX_ROWS = 6
 SLIDE4_MAX_SUPPORTING_BENEFITS = 3
-SLIDE4_MAX_KEY_LIMITATIONS = 2
-SLIDE4_MAX_BULLETS = 8  # the selection's reason / condition claims (split into policy + company parts)
+SLIDE4_MAX_KEY_LIMITATIONS = 3  # = the selection's LIMITATION cap
+SLIDE4_MAX_POLICY_BULLETS = 8  # the selection's REASON (≤ 5) + CONDITION (≤ 3) claims
+SLIDE4_MAX_FRAMING_BULLETS = 11  # at most one company-framing claim per selection claim (5 + 3 + 3)
 
 
 class BenefitRow(_Model):
@@ -780,8 +792,12 @@ class PitchSlide(_Model):
             raise ValueError("only slide 4 has supporting benefits / key limitations")
         if n == 3 and self.bullets:
             raise ValueError("slide 3 has no free bullets")
-        if n == 4 and len(self.bullets) > SLIDE4_MAX_BULLETS:
-            raise ValueError(f"slide 4 allows at most {SLIDE4_MAX_BULLETS} reason / condition bullets")
+        if n == 4:
+            policy_bullets = [c for c in self.bullets if c.policy_id is not None]
+            if len(policy_bullets) > SLIDE4_MAX_POLICY_BULLETS:
+                raise ValueError(f"slide 4 allows at most {SLIDE4_MAX_POLICY_BULLETS} reason / condition bullets")
+            if len(self.bullets) - len(policy_bullets) > SLIDE4_MAX_FRAMING_BULLETS:
+                raise ValueError(f"slide 4 allows at most {SLIDE4_MAX_FRAMING_BULLETS} company-framing bullets")
         if n == 1:
             if len(self.bullets) > SLIDE1_MAX_BULLETS:
                 raise ValueError(f"slide 1 allows at most {SLIDE1_MAX_BULLETS} bullets")
@@ -834,9 +850,21 @@ class PitchDraft(_Model):
     slide1_bullets: list[DraftCompanyBullet] = Field(min_length=1, max_length=SLIDE1_MAX_BULLETS)
     slide3_rows: list[DraftRow] = Field(default_factory=list, max_length=SLIDE3_MAX_ROWS)
     supporting_benefits: list[DraftPolicyClaim] = Field(default_factory=list, max_length=SLIDE4_MAX_SUPPORTING_BENEFITS)
-    key_limitations: list[DraftPolicyClaim] = Field(default_factory=list, max_length=SLIDE4_MAX_KEY_LIMITATIONS)
     splits: list[DraftSplit] = Field(default_factory=list)
     recommended_policy_name: str | None = None  # ignored: code injects the selected policy
+
+
+class ClaimRepair(_Model):
+    """One repaired pitch claim: new text (null = drop the claim) and its evidence / basis facts."""
+    claim_id: str
+    text: str | None = Field(default=None, max_length=200)
+    evidence_ids: list[str] = Field(default_factory=list)
+    basis_fact_ids: list[str] = Field(default_factory=list)
+
+
+class PitchRepairResponse(_Model):
+    """Gemini output for prompts/repair_pitch_claims.md: only the failing claims."""
+    repairs: list[ClaimRepair] = Field(default_factory=list)
 
 
 class RecommendedPolicyBlock(_Model):

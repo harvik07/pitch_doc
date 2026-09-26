@@ -32,11 +32,13 @@ Return JSON with:
   condition, or null), evidence_ids (the selected policy's items you used). One fact per text.
 - supporting_benefits (0–3): other benefits of the selected policy that matter to this company, each with
   evidence_ids.
-- key_limitations (0–2): only if the selection has fewer than 2 LIMITATION claims; important limitations of the
-  selected policy, each with evidence_ids.
 - splits: one entry for EVERY selection claim (by id). policy_text = the claim's policy fact only, keeping its
   wording and numbers; company_text = its company framing ("…important for a desk-based workforce"), or null if
   there is none; basis_fact_ids = the company facts that framing rests on (never business_risk facts).
+  company_text must be a complete sentence on its own: it starts with a capital letter, has a subject and a verb and
+  ends with a full stop (e.g. "Infosys's large desk-based workforce makes this relevant."), never a fragment such as
+  "which is important for…" or "essential for…".
+- Do not add key limitations: slide 4's limitations come from the selection and the coverage cells (code).
 
 Wording rules:
 - Use only the evidence. Keep every number exactly as the evidence states it; write money with "₹" and Indian digit
@@ -44,6 +46,10 @@ Wording rules:
 - Include the qualifier the evidence carries: sum-insured tier, variant, add-on or optional benefit, waiting period,
   footnote condition.
 - Never compare premiums or prices. Never recommend or praise another policy.
+- NOT_STATED is neither covered nor excluded: the brochure is silent. Never write that the policy "does not cover",
+  "does not provide", "excludes" or has "no coverage for" something unless its cell is EXCLUDED. For a NOT_STATED
+  cell write "<exposure> is not stated in the <product> brochure".
+- Every policy sentence cites evidence_ids, and no two sentences on the deck say the same thing.
 - Niva Bupa: write "hospitalisation of 2 hours and more" (with its AYUSH 24-hour qualifier), never "day care".
 - Care wellness grid: state it in the brochure's form (e.g. "270" days → 30% renewal discount); never "or more" or
   "at least".

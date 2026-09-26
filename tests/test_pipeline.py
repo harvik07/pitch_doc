@@ -105,7 +105,10 @@ class FakeGemini:
             return {"selected_policy_id": "POL-NIVA", "confidence": "medium", "relevant_exposure_ids": ["EXP-AMB-AIR"],
                     "claims": [{"kind": "REASON", "text": NIVA_AIR, "policy_id": "POL-NIVA",
                                 "evidence_ids": ["EV-NIVA-2-015"],
-                                "quotes": [{"evidence_id": "EV-NIVA-2-015", "quote": NIVA_AIR}]}]}
+                                "quotes": [{"evidence_id": "EV-NIVA-2-015", "quote": NIVA_AIR}]},
+                               {"kind": "REASON", "text": "In-patient care: Covered up to Sum Insured.",
+                                "policy_id": "POL-NIVA", "evidence_ids": ["EV-NIVA-2-006"],
+                                "quotes": [{"evidence_id": "EV-NIVA-2-006", "quote": "Covered up to Sum Insured."}]}]}
         if prompt.startswith("You write parts of a 5-slide"):
             return {"slide1_bullets": [{"text": "Placeholder industry company", "basis_fact_ids": ["CF-001"]}],
                     "slide3_rows": [{"exposure_id": "EXP-AMB-AIR", "benefit_text": NIVA_AIR,

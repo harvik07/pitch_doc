@@ -8,9 +8,13 @@ from pydantic import ValidationError
 from marsh import api, pitch, settings
 from marsh.company import build_profile
 from marsh.evidence_store import load_evidence
-from marsh.matching import build_matrix
+from marsh.matching import build_coverage_matrix, build_matrix
+from marsh.decision_log import read_decisions
 from marsh.models import (
     ClaimType,
+    Limitation,
+    LimitationType,
+    PitchRepairResponse,
     CompanyProfileResponse,
     Exposure,
     PitchDeck,
@@ -18,7 +22,15 @@ from marsh.models import (
     SelectionResponse,
     load_json,
 )
-from marsh.pitch import MarshProfileError, PitchValidationError, generate_pitch, load_marsh_claims, validate_deck
+from marsh.pitch import (
+    MarshProfileError,
+    generate_pitch,
+    is_complete_sentence,
+    is_duplicate,
+    load_marsh_claims,
+    readable_qualifier,
+    validate_deck,
+)
 from marsh.run_context import new_run_context, run_dir
 from marsh.selection import build_selection
 
@@ -60,6 +72,8 @@ def ctx(store, monkeypatch):
              "quotes": [{"evidence_id": "EV-NIVA-2-015", "quote": NIVA_AIR}]},
             {"kind": "LIMITATION", "text": HDFC_AIR, "policy_id": "POL-HDFC", "evidence_ids": ["EV-HDFC-11-029"],
              "quotes": [{"evidence_id": "EV-HDFC-11-029", "quote": HDFC_AIR}]},
+            {"kind": "REASON", "text": "In-patient care: Covered up to Sum Insured.", "policy_id": "POL-NIVA",
+             "evidence_ids": ["EV-NIVA-2-006"], "quotes": [{"evidence_id": "EV-NIVA-2-006", "quote": "Covered up to Sum Insured."}]},
         ]})
     selection = build_selection(response, ["POL-NIVA", "POL-HDFC"], store)
     return new_run_context("Example Co", company_profile=PROFILE, exposures=EXPOSURES, selection=selection,
@@ -113,11 +127,23 @@ def test_code_injected_fields_override_the_llm(monkeypatch, ctx):
     assert [s.title for s in deck.slides][3] == "Recommended Policy" and deck.disclaimer.startswith("Summary based")
 
 
-def test_a_slide_recommending_another_policy_fails(monkeypatch, ctx):
+def repair(*fixes) -> PitchRepairResponse:
+    return PitchRepairResponse.model_validate({"repairs": list(fixes)})
+
+
+def repair_log(ctx) -> dict:
+    return next(e["payload"] for e in read_decisions(ctx.run_id) if e["event"] == "pitch_claims_repaired")
+
+
+def test_a_claim_recommending_another_policy_is_repaired_or_removed(monkeypatch, ctx):
     bad = draft(supporting_benefits=[{"text": "We recommend HDFC ERGO Optima Secure+ instead.",
                                       "evidence_ids": ["EV-NIVA-2-015"]}])
-    with pytest.raises(PitchValidationError, match="names another policy"):
-        run(monkeypatch, ctx, bad)
+    still_bad = "We recommend it anyway: HDFC ERGO Optima Secure+."
+    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-013", "text": still_bad,
+                                                    "evidence_ids": ["EV-NIVA-2-015"]}))
+    assert [c[0] for c in fake.calls] == ["generate_pitch", "repair_pitch_claims"]
+    assert deck.slides[3].supporting_benefits == []  # still failing after the one repair → removed
+    assert list(repair_log(ctx)["removed_after_repair"]) == [still_bad]
 
 
 def test_the_validator_catches_a_changed_recommendation(monkeypatch, ctx, store):
@@ -193,8 +219,8 @@ def test_no_backtick_before_a_digit_anywhere(monkeypatch, ctx, store):
 
 def test_wording_rules(monkeypatch, ctx):
     bad = draft(supporting_benefits=[{"text": "Day care procedures are covered.", "evidence_ids": ["EV-NIVA-1-041"]}])
-    with pytest.raises(PitchValidationError, match="day care"):
-        run(monkeypatch, ctx, bad)
+    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-013", "text": None}))
+    assert "day care" in fake.calls[1][1]["failing_claims"] and deck.slides[3].supporting_benefits == []
 
 
 # --- Limits, errors, API --------------------------------------------------------------------------------------
@@ -218,11 +244,102 @@ def test_a_missing_marsh_profile_errors_before_any_llm_call(monkeypatch, ctx, tm
     assert fake.calls == []
 
 
-def test_the_retry_gets_the_errors(monkeypatch, ctx):
+def test_the_repair_gets_only_the_failing_claims_and_their_errors(monkeypatch, ctx):
     bad = draft(supporting_benefits=[{"text": "Better than HDFC ERGO Optima Secure+.", "evidence_ids": []}])
-    deck, fake = run(monkeypatch, ctx, bad, draft())
-    assert len(fake.calls) == 2 and "names another policy" in fake.calls[1][1]["previous_errors"]
+    deck, fake = run(monkeypatch, ctx, bad, repair(
+        {"claim_id": "CL-013", "text": "Pre-hospitalisation is covered.", "evidence_ids": []},
+        {"claim_id": "CL-001", "text": "Changed by the repair."}))  # not a failing claim: ignored
+    failing = fake.calls[1][1]["failing_claims"]
+    assert "CL-013" in failing and "CL-001" not in failing
+    assert "names another policy" in failing and "no cited evidence" in failing
+    assert deck.slides[0].bullets[0].text == "Placeholder industry company"
+    assert deck.slides[3].supporting_benefits == []  # the repaired text still has no evidence → removed
     assert len(deck.slides) == 5
+
+
+# --- P1: absence claims ---------------------------------------------------------------------------------------
+
+
+def test_an_absence_claim_on_a_not_stated_cell_is_repaired_to_not_stated(monkeypatch, ctx):
+    bad = draft(supporting_benefits=[{"text": "Niva Bupa ReAssure 2.0 does not cover maternity.",
+                                      "evidence_ids": ["EV-NIVA-2-015"]}])  # NIVA maternity: NOT_STATED
+    ok = "Maternity is not stated in the Niva Bupa ReAssure 2.0 brochure."
+    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-013", "text": ok, "evidence_ids": []}))
+    assert "not stated in the" in fake.calls[1][1]["failing_claims"]
+    assert [c.text for c in deck.slides[3].supporting_benefits] == [ok]  # a confirmed "not stated" needs no evidence
+    assert repair_log(ctx)["removed_after_repair"] == {}
+
+
+def test_absence_rule_in_pitch_validation(monkeypatch, ctx, store):
+    deck, _ = run(monkeypatch, ctx, draft())
+    raw = deck.model_copy(deep=True)
+    raw.slides[3].supporting_benefits.append(raw.slides[3].bullets[0].model_copy(update={
+        "claim_id": "CL-099", "text": "Niva Bupa ReAssure 2.0 excludes maternity.", "metadata": {}}))
+    assert any("NOT_STATED" in e and "CL-099" in e for e in validate_deck(raw, ctx, store))
+
+
+# --- P2: evidence, duplicates, no LLM key limitations ---------------------------------------------------------
+
+
+def test_a_duplicate_claim_is_repaired_or_removed(monkeypatch, ctx):
+    dup = draft(supporting_benefits=[{"text": NIVA_AIR + ".", "evidence_ids": ["EV-NIVA-2-015"]}])
+    deck, fake = run(monkeypatch, ctx, dup, repair({"claim_id": "CL-013", "text": None}))
+    assert "duplicates CL-" in fake.calls[1][1]["failing_claims"]
+    assert deck.slides[3].supporting_benefits == [] and "CL-013" in str(repair_log(ctx)["problems"])
+
+
+def test_duplicate_detection():
+    assert is_duplicate("Air Ambulance: up to INR 2,50,000 per Hospitalisation",
+                        "air ambulance up to INR 2,50,000 per hospitalisation.")
+    assert not is_duplicate("Air Ambulance: up to INR 2,50,000 per Hospitalisation", "Maternity is not stated.")
+
+
+def test_the_llm_cannot_add_key_limitations(monkeypatch, ctx):
+    with pytest.raises(ValidationError):
+        draft(key_limitations=[{"text": "Invented limitation.", "evidence_ids": []}])
+    deck, _ = run(monkeypatch, ctx, draft())
+    assert deck.slides[3].key_limitations
+    for claim in deck.slides[3].key_limitations:  # from the selection or the selected policy's cells (code)
+        assert "selection_claim" in claim.metadata or claim.metadata.get("source") == "coverage cell"
+
+
+# --- P4: readable qualifiers, P5: complete framing sentences ----------------------------------------------------
+
+
+@pytest.mark.parametrize("policy, exposure, kind, expected", [
+    ("POL-HDFC", "EXP-MATERNITY", "ADDON_REQUIRED", "Available as an add-on at extra premium"),
+    ("POL-CARE", "EXP-AMB-AIR", "OPTIONAL_EXTRA_PREMIUM", "Optional benefit at extra premium"),
+    ("POL-ABHI", "EXP-MATERNITY", "VARIANT_ONLY", "Applies to VIP+ only"),
+    ("POL-ABHI", "EXP-INTL", "SI_TIER_CONDITION", "Applies for sum insured ₹50,00,000 to ₹6,00,00,000"),
+    ("POL-CARE", "EXP-AMB-ROAD", "SI_TIER_CONDITION",
+     "Limit depends on the sum insured (below ₹15,00,000; from ₹15,00,000)"),
+])
+def test_readable_qualifiers(store, monkeypatch, policy, exposure, kind, expected):
+    monkeypatch.setattr(settings, "CACHE_DIR", REAL_CACHE_DIR)
+    cell = next(m for m in build_coverage_matrix(policy, 1_000_000, store=store) if m.exposure_id == exposure)
+    lim = next(lim for lim in cell.limitations if lim.type.value == kind)
+    assert readable_qualifier(lim, cell, store) == expected
+
+
+def test_no_auto_generated_tier_wording(monkeypatch, ctx, store):
+    deck, _ = run(monkeypatch, ctx, draft())
+    assert not any("tier" in f.casefold() for f in deck.slides[4].footnotes)
+    cell = build_coverage_matrix("POL-NIVA", 1_000_000, store=store)[0]
+    lim = Limitation(type=LimitationType.OPTIONAL_EXTRA_PREMIUM, description="Benefit evidence is tier OPTIONAL.")
+    assert readable_qualifier(lim, cell, store) == "Optional benefit at extra premium"
+
+
+def test_company_framing_must_be_a_complete_sentence(monkeypatch, ctx):
+    splits = [{"selection_claim_id": "SC-1", "policy_text": NIVA_AIR,
+               "company_text": "which matters for a travelling workforce", "basis_fact_ids": ["CF-005"]}]
+    fixed = "Frequent international travel makes air ambulance cover relevant."
+    deck, fake = run(monkeypatch, ctx, draft(splits=splits), repair({"claim_id": "CL-011", "text": fixed}))
+    assert "complete sentence" in fake.calls[1][1]["failing_claims"]
+    framing = deck.slides[3].bullets[1]
+    assert framing.text == fixed + " (Assumption)" and framing.metadata["framing_of"] == "SC-1"
+    assert is_complete_sentence("Infosys has a large desk-based workforce. (Assumption)")
+    assert not is_complete_sentence("Essential for a large workforce.")
+    assert not is_complete_sentence("which matters for a travelling workforce")
 
 
 def test_generate_marketing_pitch_returns_a_5_slide_deck(monkeypatch, ctx):

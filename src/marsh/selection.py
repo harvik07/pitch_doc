@@ -9,7 +9,9 @@
   verbatim quotes. `reason`, `important_limitations`, `important_conditions`, `supporting_evidence_ids` and
   `supporting_quotes` are derived from them.
 - `validate_selection`: the checks in CLAUDE.md section 7, plus a pre-pitch check of every claim
-  (`check_claim`: evidence ownership, verbatim quote, number check on the claim's cited items, policy-name check).
+  (`check_claim`: evidence ownership, verbatim quote, number check on the claim's cited items, policy-name check,
+  and the absence-claim rule: "does not cover X" needs an EXCLUDED cell; a NOT_STATED cell is "not stated in the
+  <product> brochure").
   A failing selection gets ONE repair call with the errors fed back; errors still unresolved stay in
   `validation_errors` (the gate FAILs until the advisor overrides).
   NOTE: once audit.py exists (Prompt 8), `check_claim` must call the same audit function the deck uses.
@@ -29,7 +31,7 @@ from marsh.decision_log import log_decision
 from marsh.evidence_store import EvidenceStore
 from marsh.grounding import format_indian, named_policies, normalise_text, number_check
 from marsh.llm import call_structured
-from marsh.matching import COVERED, Matrix, _evidence_lines, quote_in_item
+from marsh.matching import COVERED, Matrix, _evidence_lines, absence_errors, is_not_stated_statement, quote_in_item
 from marsh.models import (
     CompanyProfile,
     DecidedBy,
@@ -103,11 +105,19 @@ def _assert_only_compared(variables: dict[str, str], compared: list[str], store:
 # --- Checks ---------------------------------------------------------------------------------------------------
 
 
-def check_claim(claim: SelectionClaim, compared: list[str], store: EvidenceStore) -> list[str]:
-    """Pre-pitch check of one selection claim (the checks that exist before audit.py)."""
+def check_claim(claim: SelectionClaim, compared: list[str], store: EvidenceStore,
+                cells: Matrix | None = None) -> list[str]:
+    """Pre-pitch check of one selection claim (the checks that exist before audit.py). With `cells`, an absence
+    claim ("does not cover X") must match an EXCLUDED cell, and a NOT_STATED cell must be called "not stated in the
+    <product> brochure" (P1); such a "not stated" claim needs no evidence."""
     errors: list[str] = []
     if claim.policy_id not in compared:
         return [f"claim is about {claim.policy_id}, which is not a compared policy"]
+    if cells is not None:
+        name = store.document(claim.policy_id).display_name
+        errors += absence_errors(claim.text, claim.policy_id, cells.get(claim.policy_id, []), name)
+        if is_not_stated_statement(claim.text) and not errors and not claim.evidence_ids:
+            return []  # a confirmed "not stated in the brochure" claim: the NOT_STATED cell is its evidence
     items: list[EvidenceItem] = []
     for eid in dict.fromkeys(claim.evidence_ids):
         try:
@@ -205,12 +215,12 @@ def _owner(evidence_id: str, store: EvidenceStore) -> str | None:
 
 
 def build_selection(response: SelectionResponse, compared: list[str], store: EvidenceStore,
-                    selection_id: str = "SEL-001") -> PolicySelection:
+                    selection_id: str = "SEL-001", cells: Matrix | None = None) -> PolicySelection:
     """PolicySelection from the LLM's response: claims checked, derived fields filled."""
     claims = []
     for draft in response.claims:
         claim = SelectionClaim(**draft.model_dump())
-        claims.append(claim.model_copy(update={"check_errors": check_claim(claim, compared, store)}))
+        claims.append(claim.model_copy(update={"check_errors": check_claim(claim, compared, store, cells)}))
 
     def texts(kind: SelectionClaimKind) -> list[str]:
         return [c.text for c in claims if c.kind == kind]
@@ -250,7 +260,7 @@ def select_policy(company_profile: CompanyProfile, exposures: list[Exposure], co
 
     response = call_structured(PROMPT, variables, SelectionResponse, run_id=run_id,
                                max_output_tokens=MAX_OUTPUT_TOKENS)
-    selection = build_selection(response, compared, evidence_store)
+    selection = build_selection(response, compared, evidence_store, cells=cells)
     errors = validate_selection(selection, compared, exposures, evidence_store)
     repaired = False
     if errors:
@@ -258,7 +268,7 @@ def select_policy(company_profile: CompanyProfile, exposures: list[Exposure], co
                        "errors": "\n".join(f"- {e}" for e in errors)}
         response = call_structured(REPAIR_PROMPT, repair_vars, SelectionResponse, run_id=run_id,
                                    max_output_tokens=MAX_OUTPUT_TOKENS)
-        selection = build_selection(response, compared, evidence_store)
+        selection = build_selection(response, compared, evidence_store, cells=cells)
         errors = validate_selection(selection, compared, exposures, evidence_store)
         repaired = True
     selection = selection.model_copy(update={"validation_errors": errors})

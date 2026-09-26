@@ -1,7 +1,7 @@
 """All pydantic data models (CLAUDE.md section 5) plus JSON (de)serialisation helpers.
 
 Models that section 5 names but doesn't spell out (NormalisedNumber, Limitation, NumberCheck,
-AuditSummary, RuleTableRow, the deck parts, advisor actions, FinalStatus) are kept minimal and are
+AuditSummary, SelectionClaim, the deck parts, advisor actions, FinalStatus) are kept minimal and are
 documented in PROGRESS.md.
 """
 
@@ -33,7 +33,7 @@ FactId = Annotated[str, _prefixed("CF-")]
 EvidenceId = Annotated[str, _prefixed("EV-")]
 ExposureId = Annotated[str, _prefixed("EXP-")]
 MatchId = Annotated[str, _prefixed("MATCH-")]
-RecId = Annotated[str, _prefixed("REC-")]
+SelectionId = Annotated[str, _prefixed("SEL-")]
 ClaimId = Annotated[str, _prefixed("CL-")]
 AuditId = Annotated[str, _prefixed("AUD-")]
 RunId = Annotated[str, _prefixed("RUN-")]
@@ -119,14 +119,14 @@ class LimitationType(StrEnum):
 
 
 class DecidedBy(StrEnum):
-    RULES = "RULES"
+    LLM = "LLM"
     ADVISOR = "ADVISOR"
 
 
-class SpecialCase(StrEnum):
-    TIE = "TIE"
-    NO_COVERAGE = "NO_COVERAGE"
-    ASSUMPTION_SENSITIVE = "ASSUMPTION_SENSITIVE"
+class SelectionClaimKind(StrEnum):
+    REASON = "REASON"
+    LIMITATION = "LIMITATION"
+    CONDITION = "CONDITION"
 
 
 class ClaimType(StrEnum):
@@ -185,7 +185,7 @@ class AdvisorActionType(StrEnum):
     CLAIM_REMOVED = "CLAIM_REMOVED"
     CLAIM_ATTESTED = "CLAIM_ATTESTED"
     REVIEW_ITEM_ACKNOWLEDGED = "REVIEW_ITEM_ACKNOWLEDGED"
-    RECOMMENDATION_DECIDED = "RECOMMENDATION_DECIDED"
+    SELECTION_OVERRIDDEN = "SELECTION_OVERRIDDEN"
     DECK_APPROVED = "DECK_APPROVED"
     DECK_REJECTED = "DECK_REJECTED"
 
@@ -570,44 +570,61 @@ class CoverageMatrixCache(_Model):
     rerun: list[str] = Field(default_factory=list)  # exposure IDs re-run by targeted cell calls (matching.rerun_cells)
 
 
-class RuleTableRow(_Model):
-    """Per-policy counts for the ordered rules in CLAUDE.md section 7."""
-
-    policy_id: PolicyId
-    rule1_excluded: int = Field(ge=0)
-    rule2_fully_covered: int = Field(ge=0)
-    rule3_covered: int = Field(ge=0)
-    rule4_material_limitations: int = Field(ge=0)
-    rule5_assumption_based: int = Field(ge=0)
-    not_stated: int = Field(ge=0)  # display only; counts in no rule
+class SelectionClaimDraft(_Model):
+    """One atomic statement of the selection LLM, about ONE policy, with its evidence. IDs are plain strings so
+    that code, not schema validation, rejects (and records) unknown ones."""
+    kind: SelectionClaimKind
+    text: str = Field(min_length=1)
+    policy_id: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    quotes: list[QuoteDraft] = Field(default_factory=list)
 
 
-class RecommendationDecision(_Model):
-    rec_id: RecId
-    selected_policy_id: PolicyId | None = None  # None only while a special case awaits the advisor
+class SelectionResponse(_Model):
+    """Gemini output for prompts/select_policy.md (and its repair prompt)."""
+    selected_policy_id: str
     selected_variant: str | None = None
     required_addons: list[str] = Field(default_factory=list)
-    decided_by: DecidedBy | None = None
-    deciding_rule: str | None = None
-    reason_text: str = ""
-    rule_table: list[RuleTableRow] = Field(default_factory=list)
-    special_case: SpecialCase | None = None
-    advisor_reason: str | None = None
+    relevant_exposure_ids: list[str] = Field(default_factory=list)
+    claims: list[SelectionClaimDraft]
+    confidence: Confidence
 
     @model_validator(mode="after")
-    def _consistent(self) -> RecommendationDecision:
-        if self.decided_by is None:
-            if self.special_case is None:
-                raise ValueError("an undecided recommendation must name its special_case")
-        elif self.selected_policy_id is None:
-            raise ValueError("a decided recommendation must select exactly one policy")
-        if self.decided_by == DecidedBy.RULES:
-            if self.special_case is not None:
-                raise ValueError("special cases are decided by the advisor, not the rules")
-            if not self.deciding_rule:
-                raise ValueError("a rules decision must name its deciding_rule")
+    def _has_reason(self) -> SelectionResponse:
+        if not any(c.kind == SelectionClaimKind.REASON for c in self.claims):
+            raise ValueError("return at least one claim with kind=REASON")
+        return self
+
+
+class SelectionClaim(SelectionClaimDraft):
+    """A selection statement after the deterministic pre-pitch checks (selection.check_claim)."""
+    check_errors: list[str] = Field(default_factory=list)
+
+
+class PolicySelection(_Model):
+    """CLAUDE.md sections 5 and 7. `selected_policy_id` is a plain string so that an LLM choice outside
+    `compared_policy_ids` can be recorded and flagged (validation, gate) rather than lost."""
+    selection_id: SelectionId
+    compared_policy_ids: list[PolicyId] = Field(min_length=1)
+    selected_policy_id: str
+    selected_variant: str | None = None
+    required_addons: list[str] = Field(default_factory=list)
+    reason: str = ""  # the REASON claims, joined; reaches the deck only as audited claims
+    reason_claims: list[SelectionClaim] = Field(default_factory=list)  # every REASON / LIMITATION / CONDITION claim
+    relevant_exposure_ids: list[str] = Field(default_factory=list)
+    supporting_evidence_ids: list[str] = Field(default_factory=list)
+    supporting_quotes: list[str] = Field(default_factory=list)
+    important_limitations: list[str] = Field(default_factory=list)
+    important_conditions: list[str] = Field(default_factory=list)
+    confidence: Confidence
+    decided_by: DecidedBy = DecidedBy.LLM
+    advisor_reason: str | None = None
+    validation_errors: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _advisor_reason(self) -> PolicySelection:
         if self.decided_by == DecidedBy.ADVISOR and not (self.advisor_reason or "").strip():
-            raise ValueError("an advisor decision needs advisor_reason")
+            raise ValueError("an advisor override needs advisor_reason")
         return self
 
 
@@ -768,15 +785,14 @@ class PitchSlide(_Model):
 
 
 class RecommendedPolicyBlock(_Model):
-    """Slide-4 fields injected by code from the RecommendationDecision; the LLM never sets them."""
+    """Slide-4 fields injected by code from the PolicySelection; the LLM never sets them. The selection reason is
+    not here: it is rendered as audited Claim objects."""
 
     policy_id: PolicyId
     policy_name: str
     variant: str | None = None
     required_addons: list[str] = Field(default_factory=list)
     decided_by: DecidedBy
-    deciding_rule: str | None = None
-    reason_text: str
 
 
 class PitchDeck(_Model):
@@ -827,7 +843,7 @@ class RunContext(_Model):
     evidence_index_paths: dict[str, str] = Field(default_factory=dict)  # document_id -> cache JSON path
     exposures: list[Exposure] = Field(default_factory=list)
     matches: list[PolicyMatch] = Field(default_factory=list)
-    recommendation: RecommendationDecision | None = None
+    selection: PolicySelection | None = None
     deck: PitchDeck | None = None
     audit_report: AuditReport | None = None
     advisor_actions: list[AdvisorActionRecord] = Field(default_factory=list)

@@ -74,11 +74,13 @@ from marsh.models import (
     PitchSlide,
     PolicyDocument,
     PolicyMatch,
-    RecommendationDecision,
+    PolicySelection,
     RecommendedPolicyBlock,
-    RuleTableRow,
     RunContext,
-    SpecialCase,
+    SelectionClaim,
+    SelectionClaimDraft,
+    SelectionClaimKind,
+    SelectionResponse,
     ValidatedFile,
     ValidationIssue,
     from_json,
@@ -136,19 +138,16 @@ def make_match() -> PolicyMatch:
     )
 
 
-def make_rule_rows() -> list[RuleTableRow]:
-    return [
-        RuleTableRow(policy_id="POL-NIVA", rule1_excluded=0, rule2_fully_covered=2, rule3_covered=3,
-                     rule4_material_limitations=1, rule5_assumption_based=1, not_stated=2),
-        RuleTableRow(policy_id="POL-HDFC", rule1_excluded=0, rule2_fully_covered=1, rule3_covered=3,
-                     rule4_material_limitations=2, rule5_assumption_based=1, not_stated=1),
-    ]
+def make_selection_claim() -> SelectionClaim:
+    return SelectionClaim(kind=SelectionClaimKind.REASON, text=NIVA_AIR, policy_id="POL-NIVA",
+                          evidence_ids=["EV-NIVA-2-015"], quotes=[QuoteDraft(evidence_id="EV-NIVA-2-015", quote=NIVA_AIR)])
 
 
-def make_recommendation() -> RecommendationDecision:
-    return RecommendationDecision(rec_id="REC-001", selected_policy_id="POL-NIVA", decided_by=DecidedBy.RULES,
-                                  deciding_rule="RULE_2_MOST_FULLY_COVERED", reason_text="Placeholder reason",
-                                  rule_table=make_rule_rows())
+def make_selection() -> PolicySelection:
+    return PolicySelection(selection_id="SEL-001", compared_policy_ids=["POL-NIVA", "POL-HDFC"],
+                           selected_policy_id="POL-NIVA", reason=NIVA_AIR, reason_claims=[make_selection_claim()],
+                           relevant_exposure_ids=["EXP-AMB-AIR"], supporting_evidence_ids=["EV-NIVA-2-015"],
+                           supporting_quotes=[NIVA_AIR], confidence=Confidence.MEDIUM, decided_by=DecidedBy.LLM)
 
 
 def claim(n: int, slide: int, claim_type: ClaimType = ClaimType.NON_FACTUAL, text: str = "Placeholder claim",
@@ -182,8 +181,7 @@ def make_deck() -> PitchDeck:
     return PitchDeck(
         run_id=RUN_ID, company_name="Example Co", slides=make_slides(),
         recommended=RecommendedPolicyBlock(policy_id="POL-NIVA", policy_name="Niva Bupa ReAssure 2.0",
-                                           decided_by=DecidedBy.RULES, deciding_rule="RULE_2_MOST_FULLY_COVERED",
-                                           reason_text="Placeholder reason"),
+                                           decided_by=DecidedBy.LLM),
         sources=["Niva Bupa Product Brochure.pdf"],
     )
 
@@ -205,7 +203,7 @@ def make_run_context() -> RunContext:
         run_id=RUN_ID, created_at=NOW, company_name="Example Co", assumed_sum_insured=1_000_000,
         company_profile=make_profile(), selected_documents=[make_document()],
         evidence_index_paths={"POL-NIVA": f"data/cache/{SHA}.json"}, exposures=[make_exposure()],
-        matches=[make_match()], recommendation=make_recommendation(), deck=make_deck(),
+        matches=[make_match()], selection=make_selection(), deck=make_deck(),
         audit_report=make_audit_report(),
         advisor_actions=[AdvisorActionRecord(timestamp=NOW, action=AdvisorActionType.CLAIM_ATTESTED,
                                              target_id="CL-004", note="Placeholder justification")],
@@ -244,7 +242,11 @@ def make_file_validation() -> FileValidation:
 
 
 ALL_MODELS = [
-    make_fact, make_profile, make_document, make_evidence, make_exposure, make_match, make_recommendation,
+    make_fact, make_profile, make_document, make_evidence, make_exposure, make_match, make_selection,
+    make_selection_claim,
+    lambda: SelectionResponse(selected_policy_id="POL-NIVA", confidence=Confidence.LOW, claims=[SelectionClaimDraft(
+        kind=SelectionClaimKind.REASON, text="Placeholder.", policy_id="POL-NIVA")]),
+    lambda: SelectionClaimDraft(kind=SelectionClaimKind.CONDITION, text="Placeholder.", policy_id="POL-NIVA"),
     make_deck, make_audit_report, make_run_context, make_extracted, make_file_validation,
     make_overrides_file, make_annotation_response,
     lambda: make_extracted().annotation,
@@ -284,7 +286,6 @@ ALL_MODELS = [
         status=NumberCheckStatus.FAIL_CONTRADICTED, details="claim ₹5,00,000; evidence has ₹2,50,000",
         claim_numbers=[NormalisedNumber(value=500000, unit=NumberUnit.INR, raw="₹5,00,000", span=(0, 9))],
         unmatched=[NormalisedNumber(value=500000, unit=NumberUnit.INR, raw="₹5,00,000", span=(0, 9))]),
-    lambda: make_rule_rows()[0],
     lambda: make_slides()[2],
     lambda: make_match().limitations[0],
     lambda: make_evidence().numbers[0],
@@ -401,31 +402,27 @@ def test_duplicate_fact_ids_rejected():
         CompanyProfile(company_name="Example Co", industry="x", size="x", facts=[make_fact(1), make_fact(1)])
 
 
-# --- RecommendationDecision ------------------------------------------------------------------------
+# --- PolicySelection -------------------------------------------------------------------------------
 
 
-def test_special_case_can_await_advisor():
-    rec = RecommendationDecision(rec_id="REC-002", special_case=SpecialCase.TIE, rule_table=make_rule_rows())
-    assert rec.decided_by is None and rec.selected_policy_id is None
+def test_selection_ids_and_advisor_reason():
+    with pytest.raises(ValidationError, match="SEL-"):
+        make_selection().model_validate({**make_selection().model_dump(), "selection_id": "REC-001"})
+    with pytest.raises(ValidationError, match="advisor_reason"):
+        make_selection().model_validate({**make_selection().model_dump(), "decided_by": "ADVISOR"})
+    overridden = make_selection().model_validate({**make_selection().model_dump(), "decided_by": "ADVISOR",
+                                                  "advisor_reason": "Placeholder advisor reason"})
+    assert overridden.decided_by == DecidedBy.ADVISOR
 
 
-@pytest.mark.parametrize("fields, message", [
-    ({}, "special_case"),
-    ({"decided_by": "RULES"}, "exactly one policy"),
-    ({"decided_by": "RULES", "selected_policy_id": "POL-NIVA"}, "deciding_rule"),
-    ({"decided_by": "RULES", "selected_policy_id": "POL-NIVA", "deciding_rule": "RULE_1",
-      "special_case": "TIE"}, "advisor"),
-    ({"decided_by": "ADVISOR", "selected_policy_id": "POL-NIVA", "special_case": "TIE"}, "advisor_reason"),
-])
-def test_recommendation_invariants(fields, message):
-    with pytest.raises(ValidationError, match=message):
-        RecommendationDecision(rec_id="REC-003", **fields)
+def test_selection_response_needs_a_reason_claim():
+    with pytest.raises(ValidationError, match="REASON"):
+        SelectionResponse(selected_policy_id="POL-NIVA", confidence=Confidence.LOW, claims=[SelectionClaimDraft(
+            kind=SelectionClaimKind.LIMITATION, text="Placeholder.", policy_id="POL-NIVA")])
 
 
-def test_advisor_decision_with_reason_is_valid():
-    rec = RecommendationDecision(rec_id="REC-004", selected_policy_id="POL-HDFC", decided_by=DecidedBy.ADVISOR,
-                                 special_case=SpecialCase.TIE, advisor_reason="Placeholder advisor reason")
-    assert rec.selected_policy_id == "POL-HDFC"
+def test_decided_by_is_llm_or_advisor():
+    assert {d.value for d in DecidedBy} == {"LLM", "ADVISOR"}
 
 
 def test_attestation_needs_justification():

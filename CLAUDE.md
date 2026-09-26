@@ -177,8 +177,9 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`
 - `available_at_assumed_si`: computed by Python (numbers.py) from the verbatim evidence of the cell's SI_TIER_CONDITION limitations and SI-conditioned benefit items (plus their linked footnotes and the other tiers of the same table row), **never by the matching LLM**. Only when an item's SI appears in no verbatim text (a column label such as "10 L") is its annotated `si_condition` label parsed instead. True when no SI condition applies or the assumed SI is inside a stated SI range. If no SI range can be parsed → False, flagged "SI condition unreadable". Always False for NOT_STATED and EXCLUDED cells.
 - **covered** = `coverage_status ∈ {FULLY_COVERED, COVERED_WITH_LIMITATIONS, COVERED_VIA_ADDON}` **and** `available_at_assumed_si = True`. A covered-by-status cell that needs a higher SI is shown as "Needs higher SI" (it is not covered). The coverage matrix is an evidence input to the policy selection (section 7); no code counts or ranks it.
 
-**PolicySelection**: `selection_id, compared_policy_ids, selected_policy_id, selected_variant, required_addons, reason, relevant_exposure_ids, supporting_evidence_ids, supporting_quotes, important_limitations, important_conditions, confidence (low|medium|high), decided_by (LLM|ADVISOR), advisor_reason, validation_errors`
+**PolicySelection**: `selection_id, compared_policy_ids, selected_policy_id, selected_variant, required_addons, reason, reason_claims, relevant_exposure_ids, supporting_evidence_ids, supporting_quotes, important_limitations, important_conditions, confidence (low|medium|high), decided_by (LLM|ADVISOR), advisor_reason, validation_errors`
 - `compared_policy_ids` = exactly the policies the user selected or uploaded for this run; `selected_policy_id` is exactly one of them.
+- `reason_claims`: the LLM's atomic statements (kind REASON | LIMITATION | CONDITION), each about ONE policy with its evidence IDs and verbatim quotes, and the errors of its pre-pitch check. `reason`, `important_limitations`, `important_conditions`, `supporting_evidence_ids` and `supporting_quotes` are derived from them.
 - `reason`, `important_limitations` and `important_conditions` are LLM text: they reach the deck only as audited `Claim` objects (section 9).
 
 **Claim**: `claim_id, slide_number, text, claim_type, policy_id (nullable), cited_evidence_ids (generator's citation — logged, never trusted), basis_fact_ids, material: bool, qualifier_text (nullable), state (DRAFT|DIRTY|AUDITED|REMOVED)`
@@ -244,6 +245,9 @@ matters); never compare premiums; never use outside knowledge about insurers or 
 4. `relevant_exposure_ids` ⊆ the run's exposures.
 5. `selected_variant` is empty or one of the selected document's variants; each required add-on is named in the
    selected policy's evidence.
+6. Every reason / limitation / condition claim passes the pre-pitch check: its evidence belongs to the policy it is
+   about, each quote is verbatim, `number_check` passes on its cited items, and it names no other product. (Once
+   `audit.py` exists, this check calls the same audit function as the deck.)
 A selection that fails gets **one** repair retry with the errors fed back. Errors still unresolved are shown to the
 advisor and block export (section 10) until the advisor overrides the selection.
 

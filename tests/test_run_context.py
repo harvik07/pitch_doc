@@ -7,7 +7,7 @@ from datetime import datetime
 import pytest
 
 from marsh import decision_log, settings
-from marsh.models import FinalStatus, RecommendationDecision, SpecialCase
+from marsh.models import Confidence, FinalStatus, PolicySelection
 from marsh.run_context import (
     RUN_ID_RE,
     check_run_id,
@@ -54,14 +54,15 @@ def test_load_missing_run_context():
 
 def test_decision_log_is_append_only():
     run_id = new_run_id()
-    rec = RecommendationDecision(rec_id="REC-001", special_case=SpecialCase.TIE)
-    decision_log.log_decision(run_id, "recommendation", rec, actor="rules")
+    selection = PolicySelection(selection_id="SEL-001", compared_policy_ids=["POL-NIVA", "POL-HDFC"],
+                                selected_policy_id="POL-NIVA", confidence=Confidence.LOW)
+    decision_log.log_decision(run_id, "policy_selection", selection, actor="llm")
     first_line = (run_dir(run_id) / decision_log.DECISION_LOG_FILE).read_text(encoding="utf-8")
     decision_log.log_decision(run_id, "advisor_decision", {"policy_id": "POL-HDFC", "reason": "x"}, actor="advisor")
 
     entries = decision_log.read_decisions(run_id)
-    assert [e["event"] for e in entries] == ["recommendation", "advisor_decision"]
-    assert entries[0]["payload"]["special_case"] == "TIE"
+    assert [e["event"] for e in entries] == ["policy_selection", "advisor_decision"]
+    assert entries[0]["payload"]["selected_policy_id"] == "POL-NIVA"
     assert entries[1]["actor"] == "advisor"
     text = (run_dir(run_id) / decision_log.DECISION_LOG_FILE).read_text(encoding="utf-8")
     assert text.startswith(first_line)

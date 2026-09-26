@@ -2,8 +2,8 @@
 
 The company profile is generated ONCE per run (or loaded from a frozen profile file) and saved in the
 RunContext; every later step reads it from there, never regenerates it. Each step saves the RunContext.
-Steps so far: start_run (validate + profile), identify_run_exposures, match_run.
-Later steps are added in Prompts 6-10.
+Steps so far: start_run (validate + profile), identify_run_exposures, match_run, select_run.
+Later steps are added in Prompts 7-10.
 """
 
 from __future__ import annotations
@@ -58,5 +58,25 @@ def match_run(ctx: RunContext, policy_ids: list[str]) -> RunContext:
     ctx.evidence_index_paths = {p: str(cache_path_for(p)) for p in policy_ids}
     matrix = build_matrix(policy_ids, ctx.assumed_sum_insured, ctx.run_id)
     ctx.matches = select_relevant(matrix, ctx.exposures)
+    save_run_context(ctx)
+    return ctx
+
+
+def select_run(ctx: RunContext) -> RunContext:
+    """LLM policy selection among the run's selected/uploaded policies. Made once per run: a saved selection is
+    reused (only an advisor override changes it)."""
+    if ctx.selection is not None:
+        return ctx
+    if ctx.company_profile is None or not ctx.selected_documents:
+        raise ValueError("the run needs a company profile, exposures and coverage cells first")
+    from marsh.evidence_store import load_evidence
+    from marsh.matching import build_matrix
+    from marsh.selection import select_policy
+
+    compared = [d.document_id for d in ctx.selected_documents]
+    store = load_evidence(compared)
+    matrix = build_matrix(compared, ctx.assumed_sum_insured, ctx.run_id)
+    ctx.selection = select_policy(ctx.company_profile, ctx.exposures, compared, store, matrix, ctx.run_id,
+                                  assumed_sum_insured=ctx.assumed_sum_insured)
     save_run_context(ctx)
     return ctx

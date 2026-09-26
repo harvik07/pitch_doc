@@ -376,8 +376,24 @@ Kept unchanged: extraction, annotation, evidence_store, numbers.py, grounding.py
 - **D3 (validation, no LLM):** VARIANT_ONLY needs a variant that lacks the benefit. If the cited evidence carries every variant of the policy, it becomes SUBLIMIT. NIVA INFLATION and SI-EXHAUST (Booster+ 5X Platinum+ / 10X Titanium+) → SUBLIMIT; ABHI VIP+-only cells stay VARIANT_ONLY; HDFC/CARE (no variant list) are untouched.
 - `matrix_diff`: 4 of 92 cells changed (NIVA DAYCARE, NIVA SI-EXHAUST, NIVA INFLATION, CARE PED); no other cell. Every cell is current.
 
+### Prompt 6: LLM policy selection (2026-09-26)
+- **Removed** per the removal list: `recommendation.py`, `RecommendationDecision`, `RuleTableRow`, `SpecialCase`, `RecId` (`REC-`), `DecidedBy.RULES`, `RecommendedPolicyBlock.deciding_rule` / `reason_text`, `RunContext.recommendation`, `RECOMMENDATION_DECIDED`, and their tests.
+- **`selection.select_policy(company_profile, exposures, compared_policy_ids, evidence_store, matrices, run_id, *, assumed_sum_insured)` → `PolicySelection`:**
+  - ONE Gemini call (`prompts/select_policy.md`, temperature 0, output capped at 12k tokens) with the profile, exposures, and each compared policy's citable evidence (tier / variant / SI / footnotes, ₹ display text) plus its validated cells for the relevant exposures (status, availability at the assumed SI, limitations, quotes).
+  - Code asserts that no other policy's cells or evidence IDs reach the prompt.
+  - One compared policy → it is selected, and the LLM still writes the reason and cites the evidence.
+- **Atomic claims:** the LLM returns REASON / LIMITATION / CONDITION claims, each about one policy with evidence IDs and verbatim quotes (`reason_claims`). `reason`, `important_limitations`, `important_conditions`, `supporting_evidence_ids` and `supporting_quotes` are derived from them. CLAUDE.md §5 and §7 (check 6) are updated for this.
+- **`validate_selection`:** CLAUDE.md §7 checks 1–5, plus every claim's pre-pitch check (`check_claim`: evidence ownership, verbatim quote with the heading-continuation rule, `number_check` on the claim's cited items, policy-name check). A failing selection gets one repair call (`prompts/select_policy_repair.md`) with the errors; unresolved errors stay in `validation_errors` (the gate will FAIL).
+  - **When audit.py exists (Prompt 8), `check_claim` must call the same audit function the deck uses.**
+- **`apply_advisor_override(selection, policy_id, reason, run_id)`:** decided_by=ADVISOR, logged (`policy_selection_overridden`). The policy must be compared and the reason non-empty; the variant and add-ons are cleared when the policy changes, unless given.
+- **`unavailable_cells_relied_on`:** the selected policy's relevant cells that are covered by status but not available at the assumed SI (for the Prompt 9 gate).
+- **`pipeline.select_run`:** selects once per run and reuses a saved selection. `run_pipeline.py` prints it.
+- **Real run (frozen Infosys profile, `pytest -m llm tests/test_selection.py`):** exposures HOSP, PREPOST, INTL, WELLNESS, OPD, PREVENTIVE, CHRONIC, MATERNITY.
+  - (a) All 4 policies → **HDFC ERGO Optima Secure+**, confidence medium, add-ons Parenthood, ABCD Chronic Care, Optima Wellbeing. **1 unresolved validation error:** a LIMITATION claim says "For a 10 L Base Sum Insured, the sub-limit is 2,000 …". "10 L" is only in the check-up table's column label, and label rupee amounts are deliberately not used by the number check → FAIL_MISSING. The gate will FAIL until the claim is fixed or the advisor overrides.
+  - (b) NIVA + HDFC → **HDFC ERGO Optima Secure+**, confidence medium, same add-ons, **no validation errors**.
+
 ## Next
-- **Prompt 6: LLM policy selection** (see the removal list above).
+- **For Prompt 7 (selection claims):** slide 4's reason comes from `reason_claims`. Several REASON claims mix a policy fact with a company framing ("…, which is important for a large, desk-based workforce"). The pitch should split them into a POLICY_* claim and a COMPANY_FACT claim, so each is audited against the right source.
 - **For Prompt 7 (Niva):** slides say "hospitalisation of 2 hours and more", never "day care". The brochure never uses the words "day care".
 - **Open (D1):** NIVA DAYCARE's OTHER_CONDITION is footnote (11)'s AYUSH 24-hour rule, not "minimum 2 hours". Options: accept, or a prompt rule plus a targeted re-run (a prompt change marks every cell as built with an older prompt).
 - **For Prompt 8 (audit) — required deterministic checks (not built yet):**
@@ -476,6 +492,9 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **NumberCheckOutcome**: `status, details, claim_numbers, unmatched`, plus `.to_number_check()` → `NumberCheck` (PASS / FAIL / NA)
 - **CompanyFactDraft / CompanyProfileResponse** (Gemini output): `field, value, status, confidence, rationale` / `company_recognised, facts` (validator: 1 industry, 1 size, 2–5 business_risk, ≥ 1 workforce_profile)
 - **TaxonomyEntry / ExposureTaxonomy**: `id (EXP-), name, description, keywords, baseline` / `exposures`, plus `.get(id)`
+- **PolicySelection** (CLAUDE.md §5): as specified, plus `reason_claims`. `selected_policy_id` is a plain string, so an LLM pick outside the compared set is recorded and flagged, not lost. ID prefix `SEL-`. Only an ADVISOR decision requires `advisor_reason`.
+- **SelectionClaimDraft / SelectionClaim / SelectionResponse** (Gemini output): `kind (REASON|LIMITATION|CONDITION), text, policy_id, evidence_ids, quotes [{evidence_id, quote}]` (+ `check_errors`) / `selected_policy_id, selected_variant, required_addons, relevant_exposure_ids, claims, confidence` (≥ 1 REASON claim).
+- **DecidedBy**: `LLM | ADVISOR`. **RecommendedPolicyBlock** (slide 4): `policy_id, policy_name, variant, required_addons, decided_by`. **AdvisorActionType.SELECTION_OVERRIDDEN** replaces RECOMMENDATION_DECIDED.
 - **ExposurePick / ExposureSelectionResponse** (Gemini output): `exposure_id, rationale, basis_fact_ids` as plain strings (code rejects unknown ones) / `exposures`
 - **LimitationDraft / QuoteDraft / MatchDraft / MatchResponse** (Gemini output for matching): `type, description, evidence_ids` / `evidence_id, quote` / `exposure_id, coverage_status, limitations, benefit/limitation/exclusion_evidence_ids, quotes, reasoning` / `matches`
 - **CoverageMatrixCache** (`data/cache/matrix_<sha>_<SI>.json`): `policy_id, sha256, assumed_sum_insured, model, taxonomy_hash, evidence_hash, prompt_hash, drafts, repaired, cell_hashes (exposure → taxonomy-entry hash), rerun (targeted re-runs)`

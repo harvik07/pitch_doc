@@ -4,9 +4,10 @@
   call per policy (prompts/match_policy.md) with the policy's full citable evidence and the whole taxonomy. Cells
   that fail validation get ONE repair call (prompts/match_policy_repair.md) with their validation errors fed back;
   only those cells are replaced. The raw cells are cached at data/cache/matrix_<sha>_<SI>.json.
-- **A cache is a reviewed file: it is never rebuilt automatically.** Freshness is tracked per cell
-  (`cell_hashes`: the hash of each exposure's taxonomy entry) plus the evidence and prompt hashes; stale cells
-  are reported (`stale_cells`), not re-run. `rerun_cells(policy_id, exposure_ids)` re-runs only the named cells
+- **A cache is a reviewed file: it is never rebuilt automatically.** Freshness is tracked per cell: the hash
+  of its exposure's taxonomy entry (`cell_hashes`) and the hashes of the evidence items it cites (`cell_evidence`;
+  a relabelled item makes only the cells citing it stale). Adding or removing citable items, or changing the
+  prompt, makes every cell stale. Stale cells are reported (`stale_cells`), not re-run. `rerun_cells(policy_id, exposure_ids)` re-runs only the named cells
   (one targeted call + one repair retry) and records them in `rerun`. `force=True` (a full rebuild) is for new
   documents only. The matrix is company-independent.
 - `validate_match` runs on every load (no LLM), so a validation change never needs a new LLM call:
@@ -36,6 +37,12 @@
     benefit item) gets ADDON_REQUIRED if any item is tier ADDON and OPTIONAL_EXTRA_PREMIUM if any is OPTIONAL, and
     is then at least COVERED_VIA_ADDON. A cell with a BASE benefit item is left alone (the base plan covers it;
     the add-on is an enhancement);
+  - an optional upgrade isn't a restriction (D2): in a covered cell with BASE benefit evidence, an
+    ADDON_REQUIRED / OPTIONAL_EXTRA_PREMIUM limitation whose evidence is only OPTIONAL/ADDON items is dropped; a
+    COVERED_VIA_ADDON cell left without an add-on limitation → COVERED_WITH_LIMITATIONS (or FULLY_COVERED);
+  - VARIANT_ONLY needs a variant that lacks the benefit (D3): if the cell's cited evidence carries every variant of
+    the policy (Niva Booster+ 5X Platinum+ / 10X Titanium+), the limitation becomes SUBLIMIT; a policy with no
+    known variant list is left alone;
   - FULLY_COVERED with any material limitation → COVERED_WITH_LIMITATIONS.
 - `si_availability`: available_at_assumed_si, computed in Python (numbers.sum_insured_ranges) from the verbatim
   evidence of the cell's SI_TIER_CONDITION limitations and SI-conditioned benefit items (plus their linked
@@ -132,12 +139,49 @@ def cell_hash(entry: TaxonomyEntry) -> str:
     return _hash(entry.model_dump(mode="json", exclude={"keywords", "baseline"}))
 
 
+def item_hash(item: EvidenceItem) -> str:
+    return _hash([item.evidence_id, item.page, item.section, item.row_label, item.column_label, item.text,
+                  item.benefit_tier.value, item.variant, item.si_condition, item.linked_footnote_ids, item.citable])
+
+
+def evidence_ids_hash(items: list[EvidenceItem]) -> str:
+    return _hash(sorted(i.evidence_id for i in items))
+
+
+def draft_evidence_ids(draft: MatchDraft) -> list[str]:
+    ids = (draft.benefit_evidence_ids + draft.limitation_evidence_ids + draft.exclusion_evidence_ids
+           + [e for lim in draft.limitations for e in lim.evidence_ids] + [q.evidence_id for q in draft.quotes])
+    return list(dict.fromkeys(ids))
+
+
+def cell_evidence_hashes(draft: MatchDraft, store: EvidenceStore) -> dict[str, str]:
+    """{cited evidence_id: item hash} for one cell (unknown IDs are left out; validation reports them)."""
+    hashes = {}
+    for eid in draft_evidence_ids(draft):
+        try:
+            hashes[eid] = item_hash(store.get(eid))
+        except KeyError:
+            continue
+    return hashes
+
+
 def stale_cells(cached: CoverageMatrixCache, taxonomy: ExposureTaxonomy, items: list[EvidenceItem]) -> list[str]:
-    """Exposure IDs whose cell was classified against different inputs than now (all of them if the evidence or
-    the prompt changed). Reported, never re-run automatically."""
-    if cached.evidence_hash != evidence_hash(items) or cached.prompt_hash != prompt_hash():
-        return [e.id for e in taxonomy.exposures]
-    return [e.id for e in taxonomy.exposures if cached.cell_hashes.get(e.id) != cell_hash(e)]
+    """Exposure IDs whose cell was classified against different inputs than now. Reported, never re-run
+    automatically. Every cell is stale if the prompt changed or citable items were added / removed; otherwise a
+    cell is stale if its taxonomy entry changed or an evidence item it cites changed."""
+    every = [e.id for e in taxonomy.exposures]
+    if cached.prompt_hash != prompt_hash():
+        return every
+    if not cached.cell_evidence:  # a cache from before per-cell evidence tracking
+        if cached.evidence_hash != evidence_hash(items):
+            return every
+        return [e.id for e in taxonomy.exposures if cached.cell_hashes.get(e.id) != cell_hash(e)]
+    if cached.evidence_ids_hash != evidence_ids_hash(items):
+        return every
+    current = {i.evidence_id: item_hash(i) for i in items}
+    return [e.id for e in taxonomy.exposures
+            if cached.cell_hashes.get(e.id) != cell_hash(e)
+            or any(current.get(eid) != h for eid, h in cached.cell_evidence.get(e.id, {}).items())]
 
 
 def evidence_hash(items: list[EvidenceItem]) -> str:
@@ -230,6 +274,14 @@ def minimum_si(ranges: list[SIRange]) -> float:
 
 
 # --- Validation -----------------------------------------------------------------------------------------------
+
+
+def _canonical_variant(variant: str | None) -> str:
+    return re.sub(r"\s+", "", (variant or "").casefold())
+
+
+def limitation_ids_all(limitations: list[Limitation]) -> set[str]:
+    return {e for lim in limitations for e in lim.evidence_ids}
 
 
 def is_benefit_quote(quote: str, item: EvidenceItem, exposure_id: str) -> bool:
@@ -347,6 +399,34 @@ def validate_match(draft: MatchDraft, policy_id: str, store: EvidenceStore,
                            coverage_status=CoverageStatus.NOT_STATED, validated=False,
                            validation_errors=[f"LLM said {draft.coverage_status.value}"] + errors)
 
+    variants = {_canonical_variant(v) for v in store.document(policy_id).variants}
+    if variants:  # D3: VARIANT_ONLY needs a variant without the benefit
+        cited_variants = {_canonical_variant(store.get(e).variant) for e in set(benefit_ids) | limitation_ids_all(
+            limitations) if store.get(e).variant}
+        for i, lim in enumerate(limitations):
+            if lim.type == LimitationType.VARIANT_ONLY and variants <= cited_variants:
+                limitations[i] = lim.model_copy(update={"type": LimitationType.SUBLIMIT})
+                notes.append(f"corrected: VARIANT_ONLY → SUBLIMIT (the cited evidence covers every variant: "
+                             f"{', '.join(sorted(store.document(policy_id).variants))})")
+    base_benefit = any(store.get(e).benefit_tier == BenefitTier.BASE for e in benefit_ids)
+    if status in COVERED and base_benefit:  # D2: an optional upgrade isn't a restriction
+        kept = []
+        for lim in limitations:
+            sources = [store.get(e) for e in lim.evidence_ids]
+            if lim.quote:
+                sources = [i for i in sources if quote_in_item(lim.quote, i)] or sources
+            if lim.type in ADDON_LIMITS and sources and all(i.benefit_tier in ADDON_TIERS for i in sources):
+                notes.append(f"dropped: {lim.type.value} {lim.description!r} is an optional upgrade of a "
+                             f"base-covered cell, not a restriction")
+                dropped += 1
+            else:
+                kept.append(lim)
+        limitations = kept
+        if status == CoverageStatus.COVERED_VIA_ADDON and not any(lim.type in ADDON_LIMITS for lim in limitations):
+            new_status = CoverageStatus.COVERED_WITH_LIMITATIONS if limitations else CoverageStatus.FULLY_COVERED
+            notes.append(f"corrected: COVERED_VIA_ADDON → {new_status.value} (base benefit evidence; no add-on "
+                         f"limitation left)")
+            status = new_status
     if status == CoverageStatus.COVERED_WITH_LIMITATIONS and not limitations and dropped:
         status = CoverageStatus.FULLY_COVERED
         notes.append("corrected: COVERED_WITH_LIMITATIONS → FULLY_COVERED (its only limitations were dropped)")
@@ -459,7 +539,9 @@ def build_coverage_matrix(policy_id: str, assumed_sum_insured: int | None = None
                     "repaired": repaired})
         cached = CoverageMatrixCache(policy_id=policy_id, sha256=doc.sha256, assumed_sum_insured=assumed_sum_insured,
                                      model=settings.GEMINI_MODEL, drafts=drafts, repaired=repaired,
-                                     cell_hashes={e.id: cell_hash(e) for e in taxonomy.exposures}, **hashes)
+                                     cell_hashes={e.id: cell_hash(e) for e in taxonomy.exposures},
+                                     cell_evidence={d.exposure_id: cell_evidence_hashes(d, store) for d in drafts},
+                                     evidence_ids_hash=evidence_ids_hash(items), **hashes)
         save_json(cached, path)
     matches = validate_matrix(policy_id, cached.drafts, taxonomy, store, assumed_sum_insured)
     failed = [m for m in matches if not m.validated]
@@ -502,10 +584,14 @@ def rerun_cells(policy_id: str, exposure_ids: list[str], assumed_sum_insured: in
     merged = [new.get(d.exposure_id, d) for d in cached.drafts] + [d for e, d in new.items()
                                                                    if e not in {x.exposure_id for x in cached.drafts}]
     cell_hashes = dict(cached.cell_hashes) | {e: cell_hash(taxonomy.get(e)) for e in new}
+    cell_evidence = dict(cached.cell_evidence) | {e: cell_evidence_hashes(d, store) for e, d in new.items()}
     updated = cached.model_copy(update={
-        "drafts": merged, "cell_hashes": cell_hashes, "taxonomy_hash": taxonomy_hash(taxonomy),
-        "rerun": sorted(set(cached.rerun) | set(new)),
+        "drafts": merged, "cell_hashes": cell_hashes, "cell_evidence": cell_evidence,
+        "taxonomy_hash": taxonomy_hash(taxonomy), "rerun": sorted(set(cached.rerun) | set(new)),
         "repaired": sorted(set(cached.repaired) - set(new) | {m.exposure_id for m in failed if m.exposure_id in new})})
+    items = store.items_for_policy(policy_id)
+    if not stale_cells(updated, taxonomy, items):  # every cell is current again: record the current evidence
+        updated = updated.model_copy(update={"evidence_hash": evidence_hash(items)})
     save_json(updated, path)
     if run_id:
         log_decision(run_id, "coverage_cells_rerun", {"policy_id": policy_id, "exposures": sorted(new)})

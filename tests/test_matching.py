@@ -430,22 +430,113 @@ def test_a_changed_taxonomy_entry_makes_only_its_cell_stale(store, taxonomy, tmp
     assert stale_cells(cached, changed, store.items_for_policy("POL-NIVA")) == ["EXP-INFLATION"]
 
 
+def test_a_relabelled_item_makes_only_the_cells_citing_it_stale(store, taxonomy, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(matching, "call_structured", lambda *a, **k: complete(taxonomy, air_niva(store)))
+    build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy)
+    cached = load_json(CoverageMatrixCache, matrix_cache_path(store.document("POL-NIVA").sha256, 1_000_000))
+    items = [i.model_copy() for i in store.items_for_policy("POL-NIVA")]
+    relabelled = [i.model_copy(update={"section": "Elsewhere"}) if i.evidence_id == "EV-NIVA-2-015" else i
+                  for i in items]
+    assert stale_cells(cached, taxonomy, relabelled) == ["EXP-AMB-AIR"]  # the only cell citing EV-NIVA-2-015
+    assert len(stale_cells(cached, taxonomy, relabelled[:-1])) == len(taxonomy.exposures)  # an item removed
+
+
+def test_d1_niva_two_hour_tile_is_a_base_feature(store):
+    tile = store.get("EV-NIVA-1-041")
+    assert tile.benefit_tier.value == "BASE" and tile.section == "Hospitalisation covered for 2 hours and more"
+
+
+# --- D2: an optional upgrade of a base-covered cell isn't a restriction -------------------------------------
+
+
+def care_ped(store, status=LIMITS, extra=()):
+    return cell("EXP-PED", status, benefit=["EV-CARE-2-024"], quotes=[("EV-CARE-2-024", "Up to SI")],
+                limitations=[("WAITING_PERIOD", ["EV-CARE-4-028"], "36 months", "36 months"),
+                             ("OPTIONAL_EXTRA_PREMIUM", ["EV-CARE-4-015"], "PED wait can be reduced for a premium",
+                              "Modification of PED Wait Period Benefit"), *extra])
+
+
+def test_d2_optional_upgrade_is_dropped_from_a_base_cell(store):
+    assert store.get("EV-CARE-2-024").benefit_tier.value == "BASE"
+    assert store.get("EV-CARE-4-015").benefit_tier.value == "OPTIONAL"
+    match = validate_match(care_ped(store), "POL-CARE", store)
+    assert match.validated and match.coverage_status == LIMITS
+    assert [lim.type for lim in match.limitations] == [LimitationType.WAITING_PERIOD]
+    assert any(n.startswith("dropped: OPTIONAL_EXTRA_PREMIUM") for n in match.validation_errors)
+
+
+def test_d2_a_base_cell_marked_addon_becomes_base(store):
+    match = validate_match(care_ped(store, status=ADDON), "POL-CARE", store)
+    assert match.validated and match.coverage_status == LIMITS
+    assert any("COVERED_VIA_ADDON → COVERED_WITH_LIMITATIONS" in n for n in match.validation_errors)
+
+
+def test_d2_leaves_add_on_only_cells_alone(store):
+    _, optional_id = care_air(store, [])
+    draft, _ = care_air(store, [("OPTIONAL_EXTRA_PREMIUM", [optional_id])])  # no BASE benefit item
+    match = validate_match(draft, "POL-CARE", store)
+    assert match.coverage_status == ADDON and LimitationType.OPTIONAL_EXTRA_PREMIUM in {
+        lim.type for lim in match.limitations}
+
+
+def test_d2_committed_cells(committed):
+    assert [lim.type for lim in committed["POL-CARE"]["EXP-PED"].limitations] == [LimitationType.WAITING_PERIOD]
+    chronic = {lim.type for lim in committed["POL-CARE"]["EXP-CHRONIC"].limitations}
+    assert {LimitationType.ADDON_REQUIRED, LimitationType.OPTIONAL_EXTRA_PREMIUM} <= chronic  # add-on-only: unchanged
+
+
+# --- D3: VARIANT_ONLY needs a variant that lacks the benefit ------------------------------------------------
+
+
+def booster(store, policy="POL-NIVA", ids=("EV-NIVA-2-026", "EV-NIVA-2-027")):
+    return cell("EXP-INFLATION", LIMITS, benefit=list(ids), quotes=[(ids[0], text(store, ids[0]))],
+                limitations=[("VARIANT_ONLY", list(ids))])
+
+
+def test_d3_every_variant_cited_means_a_sublimit(store):
+    match = validate_match(booster(store), "POL-NIVA", store)  # Platinum+ 5X and Titanium+ 10X
+    assert [lim.type for lim in match.limitations] == [LimitationType.SUBLIMIT]
+    assert any(n.startswith("corrected: VARIANT_ONLY → SUBLIMIT") for n in match.validation_errors)
+
+
+def test_d3_one_variant_stays_variant_only(store):
+    match = validate_match(booster(store, ids=("EV-NIVA-2-026",)), "POL-NIVA", store)
+    assert [lim.type for lim in match.limitations] == [LimitationType.VARIANT_ONLY]
+    abhi = validate_match(abhi_maternity(store), "POL-ABHI", store)  # VIP+ only; SAVR lacks it
+    assert LimitationType.VARIANT_ONLY in {lim.type for lim in abhi.limitations}
+
+
+def test_d3_unknown_variant_list_is_left_alone(store):
+    assert store.document("POL-HDFC").variants == []
+    draft = cell("EXP-MATERNITY", LIMITS, benefit=["EV-HDFC-8-019"],
+                 quotes=[("EV-HDFC-8-019", text(store, "EV-HDFC-8-019"))], limitations=[("VARIANT_ONLY", ["EV-HDFC-8-019"])])
+    assert [lim.type for lim in validate_match(draft, "POL-HDFC", store).limitations][:1] == [LimitationType.VARIANT_ONLY]
+
+
+def test_d3_committed_cells(committed):
+    for exposure_id in ("EXP-INFLATION", "EXP-SI-EXHAUST"):
+        types = {lim.type for lim in committed["POL-NIVA"][exposure_id].limitations}
+        assert LimitationType.VARIANT_ONLY not in types and LimitationType.SUBLIMIT in types
+    for exposure_id in ("EXP-MATERNITY", "EXP-INTL"):
+        assert LimitationType.VARIANT_ONLY in {lim.type for lim in committed["POL-ABHI"][exposure_id].limitations}
+
+
 # --- T1: limitations from evidence tiers ------------------------------------------------------------------
 
 
 def test_t1_optional_only_benefit_becomes_addon_with_its_limitation(store):
-    optional = store.get("EV-NIVA-1-041")  # "Hospitalisation covered for 2 hours and more" under Safeguard+
+    optional = store.get("EV-NIVA-1-040")  # "All non-payables covered(5)" under Safeguard+ (OPTIONAL)
     assert optional.benefit_tier.value == "OPTIONAL"
-    match = validate_match(cell("EXP-DAYCARE", FULL, benefit=[optional.evidence_id],
-                                quotes=[(optional.evidence_id, "Hospitalisation covered for 2 hours and more")]),
-                           "POL-NIVA", store)
+    match = validate_match(cell("EXP-NONMED", FULL, benefit=[optional.evidence_id],
+                                quotes=[(optional.evidence_id, "All non-payables covered")]), "POL-NIVA", store)
     assert match.validated and match.coverage_status == ADDON
     assert [lim.type for lim in match.limitations] == [LimitationType.OPTIONAL_EXTRA_PREMIUM]
-    assert match.limitations[0].evidence_ids == ["EV-NIVA-1-041"]
+    assert match.limitations[0].evidence_ids == ["EV-NIVA-1-040"]
 
 
 def test_t1_a_base_benefit_item_keeps_the_cell_base(store):
-    match = validate_match(cell("EXP-DAYCARE", FULL, benefit=["EV-NIVA-2-006", "EV-NIVA-1-041"],
+    match = validate_match(cell("EXP-DAYCARE", FULL, benefit=["EV-NIVA-2-006", "EV-NIVA-1-040"],
                                 quotes=[("EV-NIVA-2-006", "Covered up to Sum Insured.")]), "POL-NIVA", store)
     assert match.validated and match.coverage_status == FULL and match.limitations == []
 

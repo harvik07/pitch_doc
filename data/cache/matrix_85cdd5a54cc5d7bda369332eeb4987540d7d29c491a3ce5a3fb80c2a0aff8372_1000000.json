@@ -492,6 +492,93 @@
     "EXP-ORGAN": "0996a72804153b6a",
     "EXP-WELLNESS": "570d187430bc4930"
   },
+  "cell_evidence": {
+    "EXP-HOSP": {
+      "EV-ABHI-1-043": "c94fb5c398c2b075",
+      "EV-ABHI-2-059": "6195fbe60e46df3e"
+    },
+    "EXP-PREPOST": {},
+    "EXP-DAYCARE": {
+      "EV-ABHI-1-043": "c94fb5c398c2b075"
+    },
+    "EXP-MODERN": {},
+    "EXP-AMB-ROAD": {
+      "EV-ABHI-1-043": "c94fb5c398c2b075"
+    },
+    "EXP-AMB-AIR": {},
+    "EXP-DOMICILIARY": {},
+    "EXP-AYUSH": {},
+    "EXP-NONMED": {
+      "EV-ABHI-1-031": "0c4a9d90aa47af38",
+      "EV-ABHI-1-032": "bc718d3d2feffe71",
+      "EV-ABHI-1-033": "e87748207b47a5f9",
+      "EV-ABHI-2-060": "06ef8f6aee64f7c9"
+    },
+    "EXP-SI-EXHAUST": {
+      "EV-ABHI-2-035": "5d4f1ea3b9c6eaf7",
+      "EV-ABHI-2-036": "59fecd7cf8ea1093",
+      "EV-ABHI-2-063": "aa80fdedb44af854"
+    },
+    "EXP-INFLATION": {
+      "EV-ABHI-2-024": "51147032cbb6b66b",
+      "EV-ABHI-2-025": "0bf00a5c8bfebd61",
+      "EV-ABHI-2-026": "2a708dee53b6feda"
+    },
+    "EXP-MATERNITY": {
+      "EV-ABHI-2-009": "9bb6977eaa72e5b4",
+      "EV-ABHI-2-065": "52971f2668c7e842"
+    },
+    "EXP-CHRONIC": {
+      "EV-ABHI-2-012": "234504d688004ff5",
+      "EV-ABHI-2-013": "f12069558669004a",
+      "EV-ABHI-2-014": "0c22901def1f1410",
+      "EV-ABHI-2-015": "50e70bfc571d1432",
+      "EV-ABHI-2-016": "7d54bae3af62ad6f",
+      "EV-ABHI-2-017": "c4562420af224c0d",
+      "EV-ABHI-2-018": "02324bb5d067fa70",
+      "EV-ABHI-2-019": "6d08d1fd160705bf",
+      "EV-ABHI-2-020": "ea4272da22e93299"
+    },
+    "EXP-PED": {},
+    "EXP-OPD": {},
+    "EXP-PREVENTIVE": {
+      "EV-ABHI-2-046": "7b604b0117f89093",
+      "EV-ABHI-2-047": "12bb82f4363243e6"
+    },
+    "EXP-INTL": {
+      "EV-ABHI-2-007": "c1427bf9f577602b",
+      "EV-ABHI-2-008": "b0ed6ad7435b9fbb",
+      "EV-ABHI-2-034": "841d8c0e0f5e37fe"
+    },
+    "EXP-CRITICAL": {},
+    "EXP-ACCIDENT": {},
+    "EXP-DEPENDENTS": {
+      "EV-ABHI-2-054": "a3e483b346817369",
+      "EV-ABHI-2-041": "469944cbc77a46b7",
+      "EV-ABHI-2-066": "786080181854812b"
+    },
+    "EXP-HOSPCASH": {
+      "EV-ABHI-2-044": "e43ba76c7203f501",
+      "EV-ABHI-2-045": "896be578e1a68361"
+    },
+    "EXP-ORGAN": {
+      "EV-ABHI-1-043": "c94fb5c398c2b075"
+    },
+    "EXP-WELLNESS": {
+      "EV-ABHI-1-012": "6e3ef216fb1aa236",
+      "EV-ABHI-1-013": "857a3f18d5753e78",
+      "EV-ABHI-1-014": "a54f58d1d5557a08",
+      "EV-ABHI-1-015": "f90f283bda9dcf12",
+      "EV-ABHI-1-018": "4bbac56524f996e9",
+      "EV-ABHI-1-020": "1bf653ff59c7b691",
+      "EV-ABHI-1-022": "fa71fb0a20ad24b5",
+      "EV-ABHI-1-023": "2e9ebb63cdb65da1",
+      "EV-ABHI-1-024": "1017715c4e016889",
+      "EV-ABHI-2-061": "9cbf48bfabefd532",
+      "EV-ABHI-2-062": "c70cbe7b59975033"
+    }
+  },
+  "evidence_ids_hash": "3198d01ba2f6e096",
   "rerun": [
     "EXP-INFLATION"
   ]

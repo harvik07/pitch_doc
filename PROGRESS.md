@@ -367,13 +367,19 @@ Prompt 2 plus additions A–E (the additions win where they conflict).
 
 Kept unchanged: extraction, annotation, evidence_store, numbers.py, grounding.py, audit, repair, gate, render, decision_log, run_context, company, exposures, validation, llm, matching.
 
+### Decisions D1–D3 applied (2026-09-26)
+- **PROMPTS.md:** line 32, Prompt 11 (export `selection_<company>.md`) and Prompt 12 (write-up) now describe LLM selection.
+- **Per-cell evidence freshness:** `CoverageMatrixCache.cell_evidence` (each cell's cited items and their hashes) plus `evidence_ids_hash`. A relabelled item makes only the cells citing it stale; added or removed items make every cell stale. `LabelChanges.section` lets an override move an item to its own section.
+- **D1:** EV-NIVA-1-041 "Hospitalisation covered for 2 hours and more (11)" is overridden to BASE with its own section (it is a page-1 feature tile, not part of Safeguard+). NIVA DAYCARE was re-run (targeted): COVERED_VIA_ADDON → COVERED_WITH_LIMITATIONS; the non-payables quote is gone.
+  - **Not as expected:** the OTHER_CONDITION came from the tile's linked footnote (11), "Minimum 24 hours of hospitalisation required for AYUSH treatment in an AYUSH Hospital", not "minimum 2 hours of hospitalisation". The link is genuine (marker 11), but it is an AYUSH condition. Open (see Next).
+- **D2 (validation, no LLM):** in a covered cell with BASE benefit evidence, an ADDON_REQUIRED / OPTIONAL_EXTRA_PREMIUM limitation whose evidence is only OPTIONAL/ADDON items is dropped (an optional upgrade isn't a restriction); a VIA_ADDON cell left with no add-on limitation → WITH_LIMITATIONS / FULL. CARE PED → WAITING_PERIOD only; CARE CHRONIC unchanged.
+- **D3 (validation, no LLM):** VARIANT_ONLY needs a variant that lacks the benefit. If the cited evidence carries every variant of the policy, it becomes SUBLIMIT. NIVA INFLATION and SI-EXHAUST (Booster+ 5X Platinum+ / 10X Titanium+) → SUBLIMIT; ABHI VIP+-only cells stay VARIANT_ONLY; HDFC/CARE (no variant list) are untouched.
+- `matrix_diff`: 4 of 92 cells changed (NIVA DAYCARE, NIVA SI-EXHAUST, NIVA INFLATION, CARE PED); no other cell. Every cell is current.
+
 ## Next
-- **Prompt 6 (waiting for your go): LLM policy selection.** Implement the removal list, `selection.py`, `prompts/select_policy.md`, and the selection validation.
-- **Open matrix-quality questions** (no longer about rule counting; they are now evidence the selection LLM sees):
-  1. NIVA DAYCARE: accept COVERED_VIA_ADDON (Safeguard+ "Hospitalisation covered for 2 hours and more") or require NOT_STATED (no "day care" wording)? Its second quote ("Claim Safeguard+: Non-payable items …") is irrelevant to day care.
-  2. CARE PED: an optional *improvement* (PED wait reduced to 1–2 years for extra premium) is recorded as an OPTIONAL_EXTRA_PREMIUM limitation on a base-covered cell.
-  3. NIVA INFLATION / SI-EXHAUST: Booster+'s variant-dependent cap (5X Platinum+ / 10X Titanium+) is labelled VARIANT_ONLY, although Booster+ is in both variants.
-- **Stale PROMPTS.md text to update when you say so:** line 32, Prompt 11 and Prompt 12 (see the removal list).
+- **Prompt 6: LLM policy selection** (see the removal list above).
+- **For Prompt 7 (Niva):** slides say "hospitalisation of 2 hours and more", never "day care". The brochure never uses the words "day care".
+- **Open (D1):** NIVA DAYCARE's OTHER_CONDITION is footnote (11)'s AYUSH 24-hour rule, not "minimum 2 hours". Options: accept, or a prompt rule plus a targeted re-run (a prompt change marks every cell as built with an older prompt).
 - **For Prompt 8 (audit) — required deterministic checks (not built yet):**
   - **Number check on supporting items only.** Run `number_check` against the claim's **supporting** evidence only. Against the whole brochure, three planted false claims pass, because their numbers occur elsewhere: Niva "₹5,00,000" (a SI tier "INR 5 Lac"), Niva "30-day initial waiting period" (footnote (8) "30 days/policy year"), and ABHI "100% HealthReturns every year" ("up to 100%"). `tests/test_grounding.py::test_the_whole_brochure_is_the_wrong_input` pins this.
   - **Topic-anchor check.** The claim's benefit topic (e.g. "waiting period", "air ambulance", "maternity") must appear in a supporting item's text, row_label or section, or in the claim's exposure's taxonomy keywords (`config/exposure_taxonomy.yaml`). Otherwise the claim can't be VERIFIED. This catches "Niva 30-day waiting period" being supported by footnote (8)'s "30 days/policy year" hospital-cash limit.

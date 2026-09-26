@@ -715,6 +715,118 @@
     "EXP-ORGAN": "0996a72804153b6a",
     "EXP-WELLNESS": "570d187430bc4930"
   },
+  "cell_evidence": {
+    "EXP-HOSP": {
+      "EV-CARE-2-023": "d8ac447e9be0ee0b",
+      "EV-CARE-2-024": "dcabb3a9fafacb5c"
+    },
+    "EXP-PREPOST": {
+      "EV-CARE-1-016": "e447e49cae701724",
+      "EV-CARE-2-033": "38a5bec7e91e4929",
+      "EV-CARE-2-034": "0a5dfd4663eafcc4",
+      "EV-CARE-2-035": "6a8074f26e94e6f4",
+      "EV-CARE-2-036": "4e27634106e40d36"
+    },
+    "EXP-DAYCARE": {
+      "EV-CARE-2-025": "8805eba485d4bb10",
+      "EV-CARE-2-026": "c28f30b1857d0c8a"
+    },
+    "EXP-MODERN": {
+      "EV-CARE-2-027": "a96b3728799e7ae1",
+      "EV-CARE-2-028": "9ad2c1ddd3076ca7",
+      "EV-CARE-1-015": "9c81b9bd44987788"
+    },
+    "EXP-AMB-ROAD": {
+      "EV-CARE-2-043": "cff10e240259a600",
+      "EV-CARE-2-055": "7401030f285f65ab",
+      "EV-CARE-2-056": "d421c09bf2c46384",
+      "EV-CARE-1-023": "b28e498670e90d15"
+    },
+    "EXP-AMB-AIR": {
+      "EV-CARE-3-011": "750eff4f33832ee0",
+      "EV-CARE-3-012": "893d22d24fc1ec26",
+      "EV-CARE-4-016": "233db6b32aa3ed4e"
+    },
+    "EXP-DOMICILIARY": {
+      "EV-CARE-1-019": "f75abdbff08aa699",
+      "EV-CARE-2-039": "0ce051c889d54e88",
+      "EV-CARE-2-040": "1cda312cb0af1723"
+    },
+    "EXP-AYUSH": {
+      "EV-CARE-1-018": "0244058723c5ed1a",
+      "EV-CARE-2-037": "53df2ca65c02d083",
+      "EV-CARE-2-038": "8489e87c959e1086"
+    },
+    "EXP-NONMED": {
+      "EV-CARE-4-001": "ca3fc8566136ee6d",
+      "EV-CARE-4-002": "6a763cdb8627f2d5",
+      "EV-CARE-4-011": "d3c3fc6f12f98343",
+      "EV-CARE-4-012": "d62e241c2c8ab525",
+      "EV-CARE-4-019": "c00d6c4a18673abb",
+      "EV-CARE-4-020": "a9e67166f3181c34"
+    },
+    "EXP-SI-EXHAUST": {
+      "EV-CARE-1-011": "6efa863cd53164bf",
+      "EV-CARE-2-047": "1098dbd4b38a9637",
+      "EV-CARE-2-048": "b2482805c9379c8f",
+      "EV-CARE-2-045": "ec08228ceaf662a3",
+      "EV-CARE-2-046": "91b487633e2d1222"
+    },
+    "EXP-INFLATION": {
+      "EV-CARE-2-045": "ec08228ceaf662a3",
+      "EV-CARE-2-046": "91b487633e2d1222"
+    },
+    "EXP-MATERNITY": {},
+    "EXP-CHRONIC": {
+      "EV-CARE-3-034": "f57f99db45a77850",
+      "EV-CARE-3-035": "ebe033beeef19d7c",
+      "EV-CARE-4-015": "a56008c5ccf8ace1"
+    },
+    "EXP-PED": {
+      "EV-CARE-2-023": "d8ac447e9be0ee0b",
+      "EV-CARE-2-024": "dcabb3a9fafacb5c",
+      "EV-CARE-4-027": "6ec1cb174df4cedd",
+      "EV-CARE-4-028": "0cd0140fa4ab813d",
+      "EV-CARE-4-003": "334dca4c5c14decc",
+      "EV-CARE-4-004": "692c1c0f3fa95553",
+      "EV-CARE-4-015": "a56008c5ccf8ace1"
+    },
+    "EXP-OPD": {
+      "EV-CARE-1-013": "bb7fa03e53b3bf76",
+      "EV-CARE-2-049": "989330a0736caafe",
+      "EV-CARE-2-050": "ce18884ef78082ae",
+      "EV-CARE-1-022": "e554302b92a078db"
+    },
+    "EXP-PREVENTIVE": {
+      "EV-CARE-3-009": "c9c789d3f5a4208c",
+      "EV-CARE-3-010": "07f3e664564a6310",
+      "EV-CARE-4-016": "233db6b32aa3ed4e"
+    },
+    "EXP-INTL": {},
+    "EXP-CRITICAL": {},
+    "EXP-ACCIDENT": {},
+    "EXP-DEPENDENTS": {
+      "EV-CARE-2-019": "7e7cc76e337eede6"
+    },
+    "EXP-HOSPCASH": {},
+    "EXP-ORGAN": {
+      "EV-CARE-2-041": "c31c4bdae71b1874",
+      "EV-CARE-2-042": "4a5877773fa23831"
+    },
+    "EXP-WELLNESS": {
+      "EV-CARE-3-013": "2d5bac6b74725271",
+      "EV-CARE-3-021": "fc55103a3b7cb789",
+      "EV-CARE-3-030": "5509ff0bd1945d08",
+      "EV-CARE-3-031": "a6d02e569007e5b7",
+      "EV-CARE-3-032": "c3530f06e1bfd18e",
+      "EV-CARE-4-005": "09e475c154b341d4",
+      "EV-CARE-4-006": "3ec4b379be898e3b",
+      "EV-CARE-1-021": "585779df6965c66c",
+      "EV-CARE-4-016": "233db6b32aa3ed4e",
+      "EV-CARE-4-014": "f3781be888fc3b50"
+    }
+  },
+  "evidence_ids_hash": "41caf95f23ec71b5",
   "rerun": [
     "EXP-INFLATION",
     "EXP-PED"

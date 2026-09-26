@@ -4,7 +4,7 @@
   "assumed_sum_insured": 1000000,
   "model": "gemini-2.5-flash",
   "taxonomy_hash": "39140e186aa61bb7",
-  "evidence_hash": "3f6164196916100b",
+  "evidence_hash": "3c96aeffe669eea5",
   "prompt_hash": "fa2243f988353ea5",
   "drafts": [
     {
@@ -48,47 +48,31 @@
     },
     {
       "exposure_id": "EXP-DAYCARE",
-      "coverage_status": "COVERED_VIA_ADDON",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
       "limitations": [
         {
-          "type": "OPTIONAL_EXTRA_PREMIUM",
-          "description": "Safeguard+ is an optional benefit and is available on payment of an extra premium.",
-          "evidence_ids": [
-            "EV-NIVA-1-036",
-            "EV-NIVA-2-069"
-          ],
-          "quote": "Safeguard+ is an optional benefit and is available on payment of an extra premium."
-        },
-        {
           "type": "OTHER_CONDITION",
-          "description": "Hospitalisation covered for 2 hours and more.",
+          "description": "AYUSH treatments require minimum 24 hours of hospitalisation.",
           "evidence_ids": [
-            "EV-NIVA-1-041"
+            "EV-NIVA-2-076"
           ],
-          "quote": "Hospitalisation covered for 2 hours and more (11)"
+          "quote": "Minimum 24 hours of hospitalisation required for AYUSH treatment in an AYUSH Hospital."
         }
       ],
       "benefit_evidence_ids": [
-        "EV-NIVA-1-041",
-        "EV-NIVA-2-048",
-        "EV-NIVA-2-049"
+        "EV-NIVA-1-041"
       ],
       "limitation_evidence_ids": [
-        "EV-NIVA-1-036",
-        "EV-NIVA-2-069"
+        "EV-NIVA-2-076"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
         {
           "evidence_id": "EV-NIVA-1-041",
           "quote": "Hospitalisation covered for 2 hours and more (11)"
-        },
-        {
-          "evidence_id": "EV-NIVA-2-049",
-          "quote": "Claim Safeguard+: Non-payable items will be covered (as per list I, II, III, IV of Annexure I)"
         }
       ],
-      "reasoning": "Day-care procedures are covered under the optional 'Safeguard+' benefit, which explicitly covers hospitalisation for 2 hours or more."
+      "reasoning": "The policy covers hospitalisation for 2 hours or more, which includes day-care procedures, but specifies a minimum 24-hour hospitalisation for AYUSH treatments."
     },
     {
       "exposure_id": "EXP-MODERN",
@@ -616,6 +600,86 @@
     "EXP-ORGAN": "0996a72804153b6a",
     "EXP-WELLNESS": "570d187430bc4930"
   },
+  "cell_evidence": {
+    "EXP-HOSP": {
+      "EV-NIVA-2-006": "96c9a04e52576ec0"
+    },
+    "EXP-PREPOST": {
+      "EV-NIVA-2-008": "b94a6f1e1850dc2d",
+      "EV-NIVA-2-010": "47a825d3b1ea5903"
+    },
+    "EXP-DAYCARE": {
+      "EV-NIVA-1-041": "fb00e06090ed5866",
+      "EV-NIVA-2-076": "c7794c2713174604"
+    },
+    "EXP-MODERN": {
+      "EV-NIVA-2-012": "d1b989fe78769ca2"
+    },
+    "EXP-AMB-ROAD": {
+      "EV-NIVA-2-014": "198abb4a56cdd7c9"
+    },
+    "EXP-AMB-AIR": {
+      "EV-NIVA-2-015": "7bf6e37d7476a948"
+    },
+    "EXP-DOMICILIARY": {
+      "EV-NIVA-2-017": "9686fe4892ab6e7c"
+    },
+    "EXP-AYUSH": {
+      "EV-NIVA-2-006": "96c9a04e52576ec0",
+      "EV-NIVA-2-076": "c7794c2713174604"
+    },
+    "EXP-NONMED": {
+      "EV-NIVA-1-040": "c05ec0b3ee13cb1d",
+      "EV-NIVA-2-049": "354a7ee6aa89885f",
+      "EV-NIVA-1-036": "5295788af390c83f",
+      "EV-NIVA-2-069": "df5f2b87b2494fa5"
+    },
+    "EXP-SI-EXHAUST": {
+      "EV-NIVA-2-023": "a50df95d696e6e13",
+      "EV-NIVA-2-026": "337c7fad3d9d1155",
+      "EV-NIVA-2-027": "a4fe3f0933952735",
+      "EV-NIVA-1-034": "31d7bdb8a693614d"
+    },
+    "EXP-INFLATION": {
+      "EV-NIVA-1-035": "1f81ad1e41c2161f",
+      "EV-NIVA-1-037": "c2dc3a9786a72e6b",
+      "EV-NIVA-2-026": "337c7fad3d9d1155",
+      "EV-NIVA-2-027": "a4fe3f0933952735"
+    },
+    "EXP-MATERNITY": {},
+    "EXP-CHRONIC": {},
+    "EXP-PED": {},
+    "EXP-OPD": {
+      "EV-NIVA-2-036": "6d6b8913957657bb"
+    },
+    "EXP-PREVENTIVE": {
+      "EV-NIVA-2-021": "7b851d049d56528e",
+      "EV-NIVA-2-072": "d6288ea4bed0821e"
+    },
+    "EXP-INTL": {},
+    "EXP-CRITICAL": {},
+    "EXP-ACCIDENT": {
+      "EV-NIVA-2-043": "80015d409e3b41ce",
+      "EV-NIVA-2-042": "a5c488335f380eef"
+    },
+    "EXP-DEPENDENTS": {},
+    "EXP-HOSPCASH": {
+      "EV-NIVA-2-040": "0b25df741acde411",
+      "EV-NIVA-2-038": "bae887067eb66d73",
+      "EV-NIVA-2-073": "cef73538f7ac37ef"
+    },
+    "EXP-ORGAN": {
+      "EV-NIVA-2-019": "550a44477e15a62d"
+    },
+    "EXP-WELLNESS": {
+      "EV-NIVA-1-038": "72ecf0b66c0ecca6",
+      "EV-NIVA-1-039": "b7514d948c1fa0b4",
+      "EV-NIVA-2-028": "ed27f49764751de0",
+      "EV-NIVA-2-029": "1977d11c753aa023",
+      "EV-NIVA-2-071": "cd8355c41a029ae0"
+    }
+  },
+  "evidence_ids_hash": "61623167d983567c",
   "rerun": [
     "EXP-DAYCARE",
     "EXP-INFLATION",

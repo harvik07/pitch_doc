@@ -29,7 +29,7 @@
 | 11 | Sample run + hallucination eval | 0:45 | 12:45 |
 | 12 | Write-up + README | 0:45 | 13:30 |
 
-**If you fall behind, cut in this order:** the LLM annotation pass in Prompt 2 (use the manual overrides file instead), the PPT preview images in Prompt 10, the Cloud Run deploy in Prompt 12. **Never cut** the audit, the gate or the recommendation rules. They're what the brief grades.
+**If you fall behind, cut in this order:** the LLM annotation pass in Prompt 2 (use the manual overrides file instead), the PPT preview images in Prompt 10, the Cloud Run deploy in Prompt 12. **Never cut** the audit, the gate, or selection validation. They're what the brief grades.
 
 ---
 
@@ -361,7 +361,7 @@ Produce the brief's sample deliverables.
 
 1. Run the full pipeline via scripts/run_pipeline.py for company "<YOUR CHOSEN COMPANY>" (pick one whose workforce profile triggers maternity, chronic conditions or international-travel exposures so the policies actually differ).
 2. Walk through advisor review via the script (auto-approve VERIFIED; list anything else for me to decide and stop).
-3. After my decisions, export to deliverables/: sample_pitch_<company>.pptx, audit_report_<company>.json, audit_report_<company>.md, decision_log_<company>.jsonl, and the rule_table as recommendation_<company>.md.
+3. After my decisions, export to deliverables/: sample_pitch_<company>.pptx, audit_report_<company>.json, audit_report_<company>.md, decision_log_<company>.jsonl, and the PolicySelection as selection_<company>.md (selected policy, variant and add-ons, reason, evidence IDs + verbatim quotes, important limitations, important conditions, confidence, decided_by, and any validation errors / advisor reason).
 4. Re-run scripts/eval_audit.py and confirm deliverables/audit_eval.md is current.
 5. Open the PPTX with python-pptx, print every slide's text, and check it against the audit report: every rendered claim has an audit status that allows rendering, and every number on the slides appears in its cited evidence. Report any mismatch and fix the cause, not the output.
 Update PROGRESS.md, commit.
@@ -374,7 +374,7 @@ Done when: the deliverables/ folder has the sample deck + audit results + eval, 
 ## PROMPT 12 — Write-up + README (+ optional deploy)
 
 ```
-1. deliverables/WRITEUP.docx (python-docx, max 3 pages) with sections: Problem & approach · Architecture (a simple flow: inputs → evidence → exposures → matching → deterministic recommendation → pitch → independent audit → advisor review → gate → fixed template) · Tools & libraries (Gemini on Vertex AI, Docling + OCR, pydantic, python-pptx, Streamlit) · Key design decisions (LLM has no final authority; closed exposure taxonomy; NOT_STATED vs EXCLUDED; ordered recommendation rules instead of scores; independent audit ignoring generator citations; deterministic number/quote checks; one bullet = one claim; advisor attestation; fixed template) · How the advisor approves / edits / rejects · Audit eval results (from audit_eval.md) · Limitations & next steps (brochures, not policy wordings, so "clause" = page/section/row/footnote; retail plans, not group policies; company profile is unverified model knowledge in V1 → next: web-grounded lookup; OCR quality; next: full policy wordings, group products, vector retrieval for large docs).
+1. deliverables/WRITEUP.docx (python-docx, max 3 pages) with sections: Problem & approach · Architecture (a simple flow: inputs → company profile → exposures → evidence → coverage matrix → LLM policy selection → selection validation → pitch → independent audit → repair → advisor review → gate → fixed template) · Tools & libraries (Gemini on Vertex AI, Docling + OCR, pydantic, python-pptx, Streamlit) · Key design decisions (the LLM selects the policy from the user's documents, and deterministic validation, the independent audit and advisor review verify it against the source evidence; closed exposure taxonomy; NOT_STATED vs EXCLUDED; the coverage matrix as validated, quote-checked evidence input; independent audit ignoring generator citations; deterministic number/quote checks; one bullet = one claim; advisor attestation; fixed template) · How the advisor approves / edits / rejects · Audit eval results (from audit_eval.md) · Limitations & next steps (brochures, not policy wordings, so "clause" = page/section/row/footnote; retail plans, not group policies; company profile is unverified model knowledge in V1 → next: web-grounded lookup; OCR quality; next: full policy wordings, group products, vector retrieval for large docs).
    Use only facts from this repo and the brief. Don't invent metrics; take every number from deliverables/.
 2. README.md: setup (venv, .env, gcloud auth), extract policies, run the app, run tests, run the eval, project structure, and where each brief deliverable is.
 3. OPTIONAL (only if time is left): a Dockerfile + Cloud Run deploy command. Bake data/cache/ into the image so Docling isn't needed for the 4 bundled brochures at startup. Don't deploy without asking me.

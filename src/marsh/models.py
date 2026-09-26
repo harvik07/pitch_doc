@@ -408,6 +408,7 @@ class LabelChanges(_Model):
     si_condition: str | None = None
     linked_footnote_ids: list[EvidenceId] | None = None
     citable: bool | None = None
+    section: str | None = None  # a label too: e.g. a feature tile the extraction filed under the wrong heading
 
 
 class OverrideEntry(ItemSelector):
@@ -564,6 +565,8 @@ class CoverageMatrixCache(_Model):
     drafts: list[MatchDraft]
     repaired: list[str] = Field(default_factory=list)  # exposure IDs whose cells came from the repair retry
     cell_hashes: dict[str, str] = Field(default_factory=dict)  # exposure_id -> hash of its taxonomy entry
+    cell_evidence: dict[str, dict[str, str]] = Field(default_factory=dict)  # exposure_id -> {cited evidence_id: item hash}
+    evidence_ids_hash: str = ""  # hash of the policy's citable evidence IDs (items added / removed → every cell stale)
     rerun: list[str] = Field(default_factory=list)  # exposure IDs re-run by targeted cell calls (matching.rerun_cells)
 
 

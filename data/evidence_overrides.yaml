@@ -250,3 +250,9 @@ overrides:
   - {document_id: POL-ABHI, page: 2, text_prefix: "International & Domestic Maternity Cover %", evidence_id: EV-ABHI-2-009,
      labels: {variant: "VIP+", si_condition: "BSI INR 50 Lacs and 75 Lacs: domestic maternity up to INR 1 Lac; BSI INR 1 Cr and above: worldwide maternity up to INR 2 Lacs"},
      reason: "Listed in the Activ One VIP+ panel; SI tiers from footnote %."}
+
+  # --- Niva p1: "Hospitalisation covered for 2 hours and more" is its own feature tile (D1)
+  - {document_id: POL-NIVA, page: 1, text_prefix: "Hospitalisation covered for 2 hours and more (11)", exact: true,
+     evidence_id: EV-NIVA-1-041,
+     labels: {benefit_tier: BASE, section: "Hospitalisation covered for 2 hours and more"},
+     reason: "Page 1 is a 2x3 grid of feature tiles (Lock the Clock, ReAssure Forever, Booster+, Safeguard+, Live Healthy, Hospitalisation 2 hours). Extraction filed this tile under the Safeguard+ heading; it is a base-plan feature, not part of Safeguard+."}

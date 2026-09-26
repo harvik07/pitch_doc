@@ -48,7 +48,8 @@ from __future__ import annotations
 import logging
 import re
 
-from marsh import settings
+from marsh import settings, timing
+from marsh.parallel import map_ordered
 from marsh.decision_log import log_decision
 from marsh.evidence_store import EvidenceStore, load_evidence, to_display
 from marsh.exposures import load_taxonomy
@@ -701,12 +702,26 @@ def generate_pitch(ctx: RunContext) -> PitchDeck:
     cells = [m for m in matrices[sel.selected_policy_id] if m.exposure_id in relevant]
     rows = _plan_rows(ctx, cells)
 
-    slide2, why_notes = generate_why_marsh(ctx)
+    def why_marsh(_: object) -> tuple[list[Claim], list[str]]:
+        with timing.step("why_marsh_slide"):
+            return generate_why_marsh(ctx)
+
+    def first_draft(_: object) -> PitchDraft:
+        with timing.step("pitch_draft"):
+            return call_structured(PROMPT, _variables(ctx, store, rows, []), PitchDraft, run_id=ctx.run_id,
+                                   max_output_tokens=MAX_OUTPUT_TOKENS)
+
+    # Slide 2 and the first draft don't depend on each other: they are written concurrently.
+    (slide2, why_notes), first = map_ordered(lambda task: task(None), [why_marsh, first_draft])
     build_errors: list[str] = []
     deck = notes = None
-    for _ in (1, 2):  # a draft that breaks a model limit / schema rule gets one retry
-        draft = call_structured(PROMPT, _variables(ctx, store, rows, build_errors), PitchDraft, run_id=ctx.run_id,
-                                max_output_tokens=MAX_OUTPUT_TOKENS)
+    for attempt in (1, 2):  # a draft that breaks a model limit / schema rule gets one retry
+        if attempt == 1:
+            draft = first
+        else:
+            with timing.step("pitch_draft", retry=True):
+                draft = call_structured(PROMPT, _variables(ctx, store, rows, build_errors), PitchDraft,
+                                        run_id=ctx.run_id, max_output_tokens=MAX_OUTPUT_TOKENS)
         try:
             deck, notes = build_deck(ctx, draft, store, cells, [c.model_copy() for c in slide2])
             notes += why_notes

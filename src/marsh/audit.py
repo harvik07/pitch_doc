@@ -81,7 +81,7 @@ from typing import Any
 
 import yaml
 
-from marsh import settings
+from marsh import settings, timing
 from marsh.decision_log import log_decision
 from marsh.company import web_source_problems
 from marsh.evidence_store import EvidenceStore, load_evidence, to_display
@@ -140,6 +140,8 @@ from marsh.models import (
 from marsh.numbers import label_number_segments, numbers_for_item, parse_numbers, sum_insured_ranges
 from marsh.marsh_profile import MARSH_DOCUMENT, load_profile, marsh_evidence, required_words
 from marsh.pitch import ASSUMPTION_MARKER, NOT_STATED_TEXT
+from marsh.parallel import map_ordered
+from marsh.report_docx import write_report_docx
 from marsh.run_context import RUN_CONTEXT_FILE, load_run_context, new_run_id, run_dir
 
 log = logging.getLogger(__name__)
@@ -150,6 +152,7 @@ CACHE_FILE = "audit_cache.json"
 AUDIT_MAX_OUTPUT_TOKENS = 32_768  # thinking + one verdict per claim; stops a runaway reply
 REPORT_JSON = "audit_report.json"
 REPORT_MD = "audit_report.md"
+REPORT_DOCX = "audit_report.docx"
 TOPICS_PATH = settings.CONFIG_DIR / "audit_topics.yaml"
 MAX_QUALIFIER_CHARS = 200  # a qualifier longer than this can't be rendered as a slide footnote
 MAX_BIND_DISTANCE = 60  # characters between a claim number and the topic term it is bound to
@@ -1144,13 +1147,18 @@ def audit_claims(claims: list[Claim], sources: AuditSources) -> dict[str, AuditR
             sources.cache_hits += 1
         else:
             batches.setdefault(audit_document(routed), []).append(routed)
-    for policy_id, batch in batches.items():
-        try:
-            verdicts = _llm_verdicts(policy_id, batch, sources)
-            error = "the auditor returned no verdict for this claim"
-        except LLMError as exc:
-            log.warning("audit call for %s failed: %s", policy_id, exc)
-            verdicts, error = {}, f"the audit LLM call failed ({exc})"
+    def ask(item: tuple[str, list[Claim]]) -> tuple[dict[str, AuditVerdict], str]:
+        policy_id, batch = item
+        with timing.step("audit_batch", document=policy_id, claims=len(batch)):
+            try:
+                return _llm_verdicts(policy_id, batch, sources), "the auditor returned no verdict for this claim"
+            except LLMError as exc:
+                log.warning("audit call for %s failed: %s", policy_id, exc)
+                return {}, f"the audit LLM call failed ({exc})"
+
+    # The documents' audit calls are independent: they run concurrently; everything after them stays in order.
+    answers = map_ordered(ask, list(batches.items()))
+    for (policy_id, batch), (verdicts, error) in zip(batches.items(), answers):
         for claim in batch:
             verdict = verdicts.get(claim.claim_id)
             if verdict is not None:
@@ -1295,7 +1303,8 @@ def evidence_view(evidence_id: str, sources: AuditSources) -> dict[str, Any]:
 
 
 def export_report(report: AuditReport, claims: list[Claim], sources: AuditSources) -> tuple[Path, Path]:
-    """outputs/<run_id>/audit_report.json (claims and evidence with text + display_text) and audit_report.md."""
+    """outputs/<run_id>/audit_report.json (claims and evidence with text + display_text), audit_report.md and
+    audit_report.docx (report_docx, rendered from the same data as the JSON)."""
     by_id = {c.claim_id: c for c in claims}
     facts = {f.fact_id: f for f in sources.profile.facts} if sources.profile else {}
     rows = []
@@ -1311,11 +1320,12 @@ def export_report(report: AuditReport, claims: list[Claim], sources: AuditSource
             "facts": [fact_view(facts[f], sources.profile) for f in r.supporting_fact_ids if f in facts],
         })
     directory = run_dir(report.run_id)
+    data = {"run_id": report.run_id, "summary": report.summary.model_dump(mode="json"), "results": rows}
     json_path = directory / REPORT_JSON
-    json_path.write_text(json.dumps({"run_id": report.run_id, "summary": report.summary.model_dump(mode="json"),
-                                     "results": rows}, indent=2, ensure_ascii=False), encoding="utf-8")
+    json_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     md_path = directory / REPORT_MD
     md_path.write_text(report_markdown(report, claims, sources), encoding="utf-8")
+    write_report_docx(data, directory / REPORT_DOCX)  # the same data as the JSON, as a Word document
     return json_path, md_path
 
 

@@ -694,6 +694,44 @@ policy evidence. CLAUDE.md §§1, 3, 4, 5, 6.2, 8, 9 and 11 amended ("V1 has no 
     - The gate blocked CL-027 (a slide-3 check-up limit, UNSUPPORTED + number check). Removing it in the UI → REVIEW_REQUIRED, and the deck preview rendered.
     - The run is left awaiting your review.
 
+### TRACE fixes: inputs, company-profile root cause, timing, performance, simpler review, DOCX audit (2026-09-27)
+- **Inputs:** exactly one bundled brochure (radio buttons; `validation.validate_bundled_selection` enforced by the API) plus any number of uploaded PDFs (existing validation / duplicate handling). The company field has placeholder "Example: Infosys" (never submitted unless typed).
+- **Company-profile root cause** (Wipro run: every fact "Assumption"): Gemini marked facts WEB_SOURCED and cited sources, but left out the optional `quotes`; the deterministic check (correctly) rejected them all. Not a Tavily or Gemini outage.
+  - Fix:
+    - the schema sent to Gemini requires `source_ids` and `quotes`;
+    - WEB_SOURCED facts still returned without them get one targeted retry;
+    - when web sources exist but nothing verifies, the advisor is told (`UNVERIFIED_WEB_NOTE`).
+  - The quote check itself is unchanged.
+  - `scripts/diagnose_company.py` runs a real check: config, a Gemini call, a fresh Tavily search, and the production prompt with a fact-by-fact verdict.
+- **Timing:** `timing.py` (steps nest by context; Gemini and Tavily calls are counted per step, including in threads; cache HIT / MISS; OCR noted) writes `outputs/<run_id>/generation_timing.json` and `.log` with a summary and the slowest step. It also goes to the server log.
+- **Performance:** independent calls now run concurrently (`parallel.map_ordered`):
+  - audit batches per document;
+  - repair calls within an attempt;
+  - Tavily queries;
+  - the Why-Marsh slide alongside the first pitch draft.
+
+  Checks, cache and logs stay sequential. A 60 s per-request timeout on repair calls was tried and reverted: slow repair calls are genuine (thinking), not hung, so it caused four 60 s timeouts in one run. Thinking tokens are now logged per call.
+  - Before: RUN-20260927-030440-3190, 479.7 s (repair 250 s including a 150 s repair call; audit 71.5 s sequential).
+  - After: RUN-20260927-033602-3bf6, 294.8 s. Same inputs: Infosys, HDFC + Care + ABHI uploads, fresh Tavily.
+    - Part of the drop is that no repair was needed this time.
+    - The audit took 51.8 s, bounded by the slower batch.
+    - Two Gemini 500 errors cost about 34 s in retries.
+    - The slowest step was the policy selection at 122 s: the selection, its evidence check, one repair retry, then the check again (CLAUDE.md §7).
+  - The remaining cost is Gemini latency (1,000–4,200 thinking tokens per call, 13–52 s each).
+- **Review UI:** Summary (status, confidence, one concise attention / blocking message, the audit report downloads), The deck, and Final decision.
+  - Removed: statements by slide, per-claim actions, the review-items checklist.
+  - Approve & Export records one acknowledgement per open review item (logged); a FAIL still blocks.
+  - "Remove the blocking statement(s)" is one deck-level action (`pipeline.remove_blocking_claims`); the gate isn't weakened.
+  - The minimal "Change recommended policy" control is shown only when the recommendation has an issue.
+- **Audit report DOCX:** `report_docx.py`, rendered from the exact `audit_report.json` data. Download options: JSON, Markdown, DOCX.
+- **E2E (real Gemini + Tavily, from the UI):** Infosys, HDFC + 2 uploaded PDFs → RUN-20260927-031958-a445.
+  - Slide 1: 3 web-sourced facts with their pages; 2 workforce inferences "*".
+  - The gate FAILed on 2 statements; "Remove the blocking statements" was clicked in the pane, and it then passed as REVIEW_REQUIRED.
+  - Approved: PPTX and the 3 audit files downloaded; the DOCX has all 36 claims with the JSON's statuses.
+  - Reject tested on RUN-20260927-030440-3190.
+  - No horizontal overflow at 360 / 375 / 1280 px; no console errors.
+- Tests: 886 passed. New: `tests/test_timing.py`, the DOCX report test, the bundled-selection tests, the server / advisor-action tests (approval acknowledges, remove-blocked, the 3 downloads, timing file). `npm run build` and `npm run lint` are clean.
+
 ## Next
 - **Next:** Prompt 11 (sample deliverables) and Prompt 12 (write-up + README). The web UI replaced the Streamlit Prompt 10.
 - **For Prompt 7 (selection claims):** slide 4's reason comes from `reason_claims`. Several REASON claims mix a policy fact with a company framing ("…, which is important for a large, desk-based workforce"). The pitch should split them into a POLICY_* claim and a COMPANY_FACT claim, so each is audited against the right source.

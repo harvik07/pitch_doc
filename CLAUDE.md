@@ -33,14 +33,14 @@ The LLM must never:
 
 | ID | Requirement from the brief | Where it's implemented |
 |---|---|---|
-| 1.1 | UI: company name input, select/upload policy document(s) as baseline, Generate button | `frontend/` (TRACE web app) + `server.py` |
+| 1.1 | UI: company name input, select/upload policy document(s) as baseline, Generate button (web app: exactly one bundled brochure + any number of uploaded PDFs) | `frontend/` (TRACE web app) + `server.py` |
 | 1.2 | `generateCompanyProfile(company_name)`: industry, size, key risks; clearly labelled assumptions if data unavailable | `src/marsh/web_search.py` (Tavily) + `src/marsh/company.py`, exported in `src/marsh/api.py` |
 | 1.3 | `generateMarketingPitch()`: 3–5 slide deck covering company overview, why choose Marsh, policy benefits mapped to exposures, **one** final recommended policy | `src/marsh/pitch.py` + `render_ppt.py`, exported in `api.py` |
 | 1.4 | Input validation + error handling: missing company name, missing documents, generation failures | `src/marsh/validation.py`, `server.py`, `frontend/`, `llm.py` |
 | 2.1 | Audit layer: trace each claim to a specific policy clause; flag untraceable statements for human review | `src/marsh/audit.py` |
 | 2.1 | Audit summary (confidence score **and** pass/fail flag) alongside the deck | `audit.py` → `AuditReport.summary` |
-| 2.2 | `auditPitchContent(pitch_slides, policy_docs)` returns a structured audit report; advisor can approve / edit / reject | `audit.py`, exported in `api.py`; review UI in `frontend/` (actions in `pipeline.py`, served by `server.py`) |
-| Deliverables | Working app; ≥1 sample 3–5 slide PPTX; audit results showing traceability; short Word/PDF write-up (approach, tools, design decisions) | `outputs/`, `deliverables/` |
+| 2.2 | `auditPitchContent(pitch_slides, policy_docs)` returns a structured audit report; advisor can approve / edit / reject | `audit.py`, exported in `api.py`; review UI in `frontend/` (actions in `pipeline.py`, served by `server.py`); report as `audit_report.json` / `.md` / `.docx` |
+| Deliverables | Working app; ≥1 sample 3–5 slide PPTX; audit results showing traceability (JSON, Markdown, DOCX); short Word/PDF write-up (approach, tools, design decisions) | `outputs/`, `deliverables/` |
 
 The three public function names must be **exactly** `generateCompanyProfile`, `generateMarketingPitch`, `auditPitchContent`
 (camelCase, as in the brief). They are thin wrappers in `src/marsh/api.py` around snake_case internals.
@@ -103,7 +103,7 @@ Planted **false** claims the audit must NOT verify:
 - Python 3.11, `pydantic` v2 for every data object
 - **Docling** for PDF parsing (OCR on, table structure on). Fallback: PyMuPDF text layer, marked `extraction_method="pymupdf_fallback"`
 - **Gemini** via the `google-genai` SDK (Vertex AI on GCP). Config via env: `GOOGLE_GENAI_USE_VERTEXAI`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GEMINI_MODEL`, `GEMINI_AUDIT_MODEL` (may be a stronger model). Check the installed SDK's docs for the structured-output API — don't guess signatures. `temperature=0` for extraction, matching and audit calls.
-- **Web UI "TRACE — Marsh Pitch Intelligence"** (no Streamlit): `server.py` (FastAPI + uvicorn, a thin JSON layer that only calls `src/marsh`) + `frontend/` (React + TypeScript + Vite). The palette is shared with the deck (section 9): cream `#F7F3EE` background, deep navy `#000F47` text, light blue `#9FD8E8` as a decorative accent only (never text).
+- **Web UI "TRACE — Marsh Pitch Intelligence"** (no Streamlit): `server.py` (FastAPI + uvicorn, a thin JSON layer that only calls `src/marsh`) + `frontend/` (React + TypeScript + Vite). The palette is shared with the deck (section 9): cream `#F7F3EE` background, deep navy `#000F47` text, light blue `#9FD8E8` as a decorative accent only (never text). Inputs: the company name, exactly one bundled brochure (`validation.validate_bundled_selection`, enforced by the API) and any number of uploaded PDFs.
 - **python-pptx** for rendering; `python-docx` for the write-up
 - **Tavily** (`tavily-python`) web search for the company profile only. Config via env: `TAVILY_API_KEY`, `WEB_SEARCH_ENABLED`. No key, disabled, an error or no results → the profile falls back to model knowledge (never the SDK's keyless mode).
 - Storage: JSON files on disk (no DB, **no vector DB**). Evidence cache keyed by file SHA-256; web search results cached by company name in `data/cache/web/`.
@@ -133,6 +133,8 @@ src/marsh/
   matching.py                  exposure × policy coverage matrix + validation
   selection.py                 LLM policy selection + deterministic selection validation
   pitch.py                     structured pitch generation (slide 2: generate_why_marsh)
+  report_docx.py               audit_report.docx, rendered from the same data as audit_report.json
+  timing.py                    per-step generation timing (dev/perf): generation_timing.json / .log
   marsh_profile.py             parse marsh_profile.md: MARSH_STATEMENT records, sources + conditions, evidence items
   audit.py                     independent claim audit + summary
   repair.py                    targeted repair (max 2 attempts/claim)
@@ -148,9 +150,9 @@ data/marsh/marsh_profile.md    Marsh description supplied by the user (ONLY sour
 assets/brand/marsh_logo.png    the official Marsh logo (supplied by the user; never a text or drawn logo)
 data/cache/                    evidence JSON by sha256; web/<company>.json web search results
 data/evidence_overrides.yaml   manual corrections to annotations
-scripts/                       extract_policies.py, dump_evidence.py, run_pipeline.py, eval_audit.py, refresh_deck.py
+scripts/                       extract_policies.py, dump_evidence.py, run_pipeline.py, eval_audit.py, refresh_deck.py, diagnose_company.py
 tests/
-outputs/<run_id>/              pitch.pptx, audit_report.json, audit_report.md, decision_log.jsonl, run_context.json, llm_calls.jsonl
+outputs/<run_id>/              pitch.pptx, audit_report.json, audit_report.md, audit_report.docx, decision_log.jsonl, run_context.json, llm_calls.jsonl, generation_timing.json / .log
 deliverables/                  final sample deck, audit report, write-up
 PROGRESS.md                    update after every prompt: done / next / known issues
 ```
@@ -162,7 +164,7 @@ PROGRESS.md                    update after every prompt: done / next / known is
 All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`, `AUD-`, `RUN-`.
 
 **CompanyFact**: `fact_id, field (industry|size|headcount_band|geography|workforce_profile|business_risk|other), value, status (WEB_SOURCED | MODEL_KNOWLEDGE | ASSUMPTION), confidence (low|medium|high), rationale, source_ids (WEB-), quotes`
-- `WEB_SOURCED` is set by code, never trusted from the LLM: the fact cites fetched web sources, every quote (≥ 4 words) is a normalised substring of a cited source's text (`grounding.quote_in_evidence`), and every number in the value is in its quotes (a lower-bound band such as "over 300,000" / "300,000+" may round a larger quoted figure down). A fact that fails → `MODEL_KNOWLEDGE` for a recognised company, `ASSUMPTION` otherwise. Without web search: `MODEL_KNOWLEDGE` for a recognised company; `ASSUMPTION` when reliable information is unavailable.
+- `WEB_SOURCED` is set by code, never trusted from the LLM: the fact cites fetched web sources, every quote (≥ 4 words) is a normalised substring of a cited source's text (`grounding.quote_in_evidence`), and every number in the value is in its quotes (a lower-bound band such as "over 300,000" / "300,000+" may round a larger quoted figure down). A fact that fails → `MODEL_KNOWLEDGE` for a recognised company, `ASSUMPTION` otherwise. Without web search: `MODEL_KNOWLEDGE` for a recognised company; `ASSUMPTION` when reliable information is unavailable. The response schema sent to Gemini requires `source_ids` and `quotes` on every fact; WEB_SOURCED facts returned without a cited source or a quote get one targeted retry (the facts named), then the check above decides. When web sources exist but no fact passes the check, `web_search_note` says so and the advisor is told.
 - **Users see two kinds only.** On a slide: a verified `WEB_SOURCED` fact is shown plain, with its web page as a source footnote on that slide; a `MODEL_KNOWLEDGE` or `ASSUMPTION` fact gets an asterisk right after the value ("*", `pitch.ASSUMPTION_MARKER`) and the slide gets the legend "* Assumption" (one) or "* Assumptions are marked with an asterisk" (several). In the UI and the audit report (`models.fact_display_label`): **"Web-sourced"** or **"Assumption"**. The words `MODEL_KNOWLEDGE` and "Unverified" never appear in the UI, the deck or the audit report; raw statuses stay in internal files (`run_context.json`, `decision_log.jsonl`, `llm_calls.jsonl`) and in the claim data (`qualifier_text`, `basis_fact_ids`). Internally, `Exposure.assumption_based` and the gate still count only `ASSUMPTION` facts as assumptions.
 
 **WebSource**: `source_id (WEB-###), url, title, retrieved_at, content (page text as Tavily returned it, truncated to settings.WEB_SOURCE_MAX_CHARS)`. Page text is untrusted data: prompts say so, and only code decides what it supports.
@@ -219,7 +221,7 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`
 9. **Pitch generation** — `generateMarketingPitch` → structured `PitchDeck`. Slide 2 is its own LLM call (`prompts/generate_why_marsh.md`, section 9) over the documented capabilities of `marsh_profile.md`, checked by code, one retry, then invalid points are dropped. Code injects slide 4's policy name, variant and required add-ons from `PolicySelection`; the selection reason becomes Claim objects (section 9). The LLM can't change the injected fields.
 10. **Independent audit** — `auditPitchContent` (section 8).
 11. **Targeted repair** — only failing claims, max 2 attempts each, can't touch other claims, slide structure or the selected policy. When the repair fails: remove the claim if `material=False`; a material claim keeps its audit status and gets a "repair failed" review item — CONTRADICTED must still be edited or removed (acknowledgement is never enough), UNSUPPORTED edited or attested with a written justification.
-12. **Advisor review** — approve / edit / remove / attest per claim; override the selected policy (with a logged reason); approve / reject the deck. An edited claim becomes `DIRTY` and is re-audited automatically.
+12. **Advisor review** — `pipeline.py` keeps approve / edit / remove / attest per claim (an edited claim becomes `DIRTY` and is re-audited automatically), override the selected policy (with a logged reason) and approve / reject the deck. The web app shows the summary (status, confidence, a concise blocking / attention message), the rendered deck and the final decision; the claim-by-claim audit is in the audit report files (JSON, Markdown, DOCX), not on screen. Its actions: remove every export-blocking statement in one step (`remove_blocking_claims`, each removal logged and kept in the audit as REMOVED), change the recommended policy (only when the recommendation has an issue), approve & export, reject.
 13. **Final gate** — section 10.
 14. **Render PPT** — fixed template, structural QA.
 15. Write `outputs/<run_id>/…` and the decision log.
@@ -329,7 +331,7 @@ Colours, fonts, positions and slide count are constants in `render_ppt.py`. The 
 
 **FAIL (no export)** if any: a claim is CONTRADICTED (acknowledgement is never enough: edit or remove it); a material claim is UNSUPPORTED (not attested); a number check fails; a policy reference is wrong; a material policy statement is unmapped; the deck fails schema validation; a required section is missing; there is no policy selection; `selected_policy_id` is not in `compared_policy_ids`; the selection has unresolved validation errors (not overridden by the advisor); Why Marsh contains a non-Marsh claim; a rendered Marsh statement isn't tied to a documented `MARSH_STATEMENT` record of `marsh_profile.md`, or drops a word its source's condition says to keep; slide 2 has no rendered Marsh statement; a claim is still DIRTY.
 
-**REVIEW_REQUIRED (export only after the advisor acknowledges each item)** if any: assumption-based exposures; ADVISOR_ATTESTED claims; selection `confidence=low`; the advisor overrode the selection; the selection relies on cells not available at the assumed SI (a relevant exposure of the selected policy that is covered by status but `available_at_assumed_si=False`); NEEDS_REVIEW claims; VERIFIED_WITH_QUALIFIER claims without a renderable qualifier (a VWQ claim whose required qualifier is stored on it and rendered on its slide as a footnote counts as passing); a claim whose targeted repair failed (it keeps its audit status; see section 6 step 11).
+**REVIEW_REQUIRED (export only after the advisor acknowledges each item; in the web app, Approve & Export is that acknowledgement: `approve_deck` records one REVIEW_ITEM_ACKNOWLEDGED per open item, logged, before the render)** if any: assumption-based exposures; ADVISOR_ATTESTED claims; selection `confidence=low`; the advisor overrode the selection; the selection relies on cells not available at the assumed SI (a relevant exposure of the selected policy that is covered by status but `available_at_assumed_si=False`); NEEDS_REVIEW claims; VERIFIED_WITH_QUALIFIER claims without a renderable qualifier (a VWQ claim whose required qualifier is stored on it and rendered on its slide as a footnote counts as passing); a claim whose targeted repair failed (it keeps its audit status; see section 6 step 11).
 
 **PASS** if there is no FAIL condition and no review item (a clean deck, VWQ claims with rendered qualifiers included).
 

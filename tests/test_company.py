@@ -96,7 +96,8 @@ def test_generate_company_profile_calls_the_llm_and_logs(monkeypatch):
     monkeypatch.setattr(company, "call_structured", fake_llm)
     profile = api.generateCompanyProfile("  Example Co  ", run_id="RUN-20260926-120000-abcd")
     assert profile.company_name == "Example Co"
-    assert calls == [("company_profile", {"company_name": "Example Co", "web_sources": company.NO_SOURCES_TEXT},
+    assert calls == [("company_profile", {"company_name": "Example Co", "web_sources": company.NO_SOURCES_TEXT,
+                                          "feedback": company.NO_FEEDBACK},
                       "RUN-20260926-120000-abcd")]
     assert profile.sources == [] and profile.web_search_note == "no Tavily API key is configured"
     unavailable, entry = read_decisions("RUN-20260926-120000-abcd")
@@ -212,3 +213,39 @@ def test_invalid_company_names_never_reach_the_llm(monkeypatch, name):
     monkeypatch.setattr(company, "call_structured", lambda *a, **k: pytest.fail("LLM called"))
     with pytest.raises(CompanyNameError):
         api.generateCompanyProfile(name)
+
+
+# --- WEB_SOURCED facts without a source or quote (the model's contract) ---------------------------------------
+
+
+def test_the_schema_sent_to_gemini_requires_sources_and_quotes():
+    from marsh.llm import _sanitise
+
+    schema = _sanitise(CompanyProfileResponse.model_json_schema())
+    assert {"source_ids", "quotes"} <= set(schema["$defs"]["CompanyFactDraft"]["required"])
+
+
+def test_unquoted_web_facts_are_asked_for_again_then_checked(monkeypatch):
+    unquoted = web_response(quotes=[])  # WEB_SOURCED, cites WEB-001, no quote
+    replies = [unquoted, web_response()]
+    calls = []
+
+    def fake_llm(prompt_name, variables, response_model, model=None, run_id=None, **_):
+        calls.append(variables)
+        return replies.pop(0)
+
+    monkeypatch.setattr(company, "call_structured", fake_llm)
+    monkeypatch.setattr(company, "search_company", lambda name, run_id=None: WebSearchResult(sources=[PAGE]))
+    profile = company.generate_company_profile("Example Co", "RUN-20260926-120000-abcd")
+    assert len(calls) == 2 and calls[0]["feedback"] == company.NO_FEEDBACK
+    assert "fact 1 (industry" in calls[1]["feedback"] and "copied character for character" in calls[1]["feedback"]
+    assert profile.facts[0].status == FactStatus.WEB_SOURCED and profile.web_search_note == ""
+    assert "company_profile_quotes_missing" in [e["event"] for e in read_decisions("RUN-20260926-120000-abcd")]
+
+
+def test_no_verified_web_fact_is_said_so(monkeypatch):
+    monkeypatch.setattr(company, "call_structured", lambda *a, **k: web_response(quotes=[]))
+    monkeypatch.setattr(company, "search_company", lambda name, run_id=None: WebSearchResult(sources=[PAGE]))
+    profile = company.generate_company_profile("Example Co")
+    assert profile.facts[0].status == FactStatus.MODEL_KNOWLEDGE and "no quote given" in profile.facts[0].rationale
+    assert profile.web_search_note == company.UNVERIFIED_WEB_NOTE  # not silent: the advisor is told

@@ -61,7 +61,7 @@ import logging
 import re
 from pathlib import Path
 
-from marsh import settings
+from marsh import settings, timing
 from marsh.decision_log import log_decision
 from marsh.evidence_store import EvidenceStore, display_label, load_evidence, to_display
 from marsh.exposures import _keyword_pattern, load_taxonomy
@@ -604,8 +604,14 @@ def build_matrix(policy_ids: list[str], assumed_sum_insured: int | None = None, 
                  force: bool = False) -> Matrix:
     store = load_evidence(policy_ids)
     taxonomy = load_taxonomy()
-    return {p: build_coverage_matrix(p, assumed_sum_insured, run_id, store=store, taxonomy=taxonomy, force=force)
-            for p in policy_ids}
+    si = assumed_sum_insured or settings.DEFAULT_SUM_INSURED
+    matrix: Matrix = {}
+    for p in policy_ids:
+        cached = not force and matrix_cache_path(store.document(p).sha256, si).exists()
+        with timing.step("coverage_matrix", policy=p, cache="HIT" if cached else "MISS"):
+            matrix[p] = build_coverage_matrix(p, assumed_sum_insured, run_id, store=store, taxonomy=taxonomy,
+                                              force=force)
+    return matrix
 
 
 # --- Absence claims (P1) --------------------------------------------------------------------------------------

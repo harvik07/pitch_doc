@@ -51,6 +51,24 @@ def _issue(code: IssueCode, message: str, file_name: str | None = None,
     return issue
 
 
+# --- Bundled policy (web app) -------------------------------------------------------------------------
+
+
+def validate_bundled_selection(policy_ids: Any) -> list[ValidationIssue]:
+    """The web app's rule: exactly one bundled brochure per run (uploaded PDFs are validated separately and may be
+    several). Returns the errors ([] = valid). Never raises."""
+    ids = [p for p in dict.fromkeys(policy_ids or []) if isinstance(p, str) and p.strip()]
+    unknown = [p for p in ids if p not in settings.BUNDLED_POLICY_FILES]
+    if unknown:
+        return [_issue(IssueCode.UNKNOWN_POLICY, "One of the selected policies isn't in the policy library.")]
+    if not ids:
+        return [_issue(IssueCode.NO_BUNDLED_POLICY, "Please select one policy from the policy library.")]
+    if len(ids) > 1:
+        return [_issue(IssueCode.TOO_MANY_BUNDLED_POLICIES,
+                       "Please select only one policy from the policy library. You can upload further policy PDFs.")]
+    return []
+
+
 # --- Company name ----------------------------------------------------------------------------------
 
 

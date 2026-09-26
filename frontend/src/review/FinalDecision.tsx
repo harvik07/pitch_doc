@@ -8,7 +8,7 @@ interface Props {
   onUpdate: (view: ReviewView) => void;
 }
 
-/** Approve & export (only when the gate allows it) or reject with a written reason. */
+/** Approve & export (blocked only while the gate FAILs) or reject with a written reason. */
 export default function FinalDecision({ view, onUpdate }: Props) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState<"approve" | "reject" | null>(null);
@@ -16,17 +16,8 @@ export default function FinalDecision({ view, onUpdate }: Props) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const reasonId = useId();
-  const blocking = view.blocking.length;
-  const open = view.review_items.filter((i) => !i.acknowledged).length;
   const allowed = view.summary.export_allowed;
-
-  let why = "";
-  if (!allowed) {
-    const parts = [];
-    if (blocking) parts.push(`fix ${blocking} blocking issue${blocking === 1 ? "" : "s"}`);
-    if (open) parts.push(`acknowledge ${open} review item${open === 1 ? "" : "s"}`);
-    why = parts.length ? `To export, ${parts.join(" and ")}.` : "The pitch can't be exported yet.";
-  }
+  const note = view.attention.review_note;
 
   async function approve() {
     setBusy("approve");
@@ -61,16 +52,15 @@ export default function FinalDecision({ view, onUpdate }: Props) {
     <div className="decision">
       <div className="decision__col">
         <h3>Approve and export</h3>
-        <p className="muted">
-          Approving records your sign-off and produces the client deck (PowerPoint) with its audit report.
-        </p>
+        <p className="muted">Approving records your sign-off and produces the client deck (PowerPoint) with its audit report.</p>
+        {note && allowed && <p className="small">{note}</p>}
         <div>
           <button
             type="button"
             className="btn btn--lg"
             onClick={approve}
             disabled={!allowed || busy !== null}
-            aria-describedby={why ? "export-why" : undefined}
+            aria-describedby={!allowed ? "export-why" : undefined}
           >
             {busy === "approve" ? (
               <>
@@ -84,9 +74,9 @@ export default function FinalDecision({ view, onUpdate }: Props) {
             )}
           </button>
         </div>
-        {why && (
+        {!allowed && (
           <p id="export-why" className="small muted">
-            {why}
+            Export is blocked. See the summary above.
           </p>
         )}
       </div>
@@ -112,10 +102,11 @@ export default function FinalDecision({ view, onUpdate }: Props) {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 aria-invalid={Boolean(error) && !reason.trim()}
+                autoFocus
                 rows={3}
               />
             </div>
-            <div className="claim__panel-actions">
+            <div className="decision__actions">
               <button type="submit" className="btn btn--danger-solid btn--small" disabled={busy !== null}>
                 {busy === "reject" && <span className="spinner" aria-hidden="true" />}
                 Confirm rejection

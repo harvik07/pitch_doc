@@ -222,6 +222,9 @@ class IssueCode(StrEnum):
     CORRUPT_PDF = "CORRUPT_PDF"
     ENCRYPTED_PDF = "ENCRYPTED_PDF"
     DUPLICATE_FILE = "DUPLICATE_FILE"  # info, not an error: the first copy is used
+    NO_BUNDLED_POLICY = "NO_BUNDLED_POLICY"  # the web app: exactly one bundled brochure
+    TOO_MANY_BUNDLED_POLICIES = "TOO_MANY_BUNDLED_POLICIES"
+    UNKNOWN_POLICY = "UNKNOWN_POLICY"
 
 
 class IssueSeverity(StrEnum):
@@ -320,8 +323,16 @@ class CompanyProfile(_Model):
         return self
 
 
+def _require_every_property(schema: dict) -> None:
+    """JSON schema sent to Gemini: every property is required (lists may be empty). Structured output then always
+    returns source_ids and quotes instead of sometimes leaving them out."""
+    schema["required"] = list(schema.get("properties", {}))
+
+
 class CompanyFactDraft(_Model):
     """One fact as the company-profile LLM returns it; code assigns the CF- id."""
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, json_schema_extra=_require_every_property)
+
     field: FactField
     value: str = Field(min_length=1, max_length=200)
     status: FactStatus

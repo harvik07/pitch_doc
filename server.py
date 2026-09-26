@@ -1,9 +1,11 @@
 """TRACE — Marsh Pitch Intelligence: the web API behind the advisor app (frontend/). CLAUDE.md sections 1, 6, 10, 11.
 
-A thin layer over src/marsh: it validates inputs (validation.py), runs the pipeline steps in their fixed order
-(pipeline.py) in a background job with advisor-friendly progress, builds the review view from the stored run, and
-calls the advisor actions (pipeline.approve_claim … reject_run). It decides nothing itself: the audit, the gate and
-the pipeline do.
+A thin layer over src/marsh: it validates inputs (validation.py: company name, exactly one bundled brochure, any
+number of uploaded PDFs), runs the pipeline steps in their fixed order (pipeline.py) in a background job with
+advisor-friendly progress and per-step timing (timing.py → outputs/<run_id>/generation_timing.json / .log), builds
+the review view from the stored run and calls the advisor actions (remove the export-blocking statements, change
+the recommended policy, approve & export, reject). It decides nothing itself: the audit, the gate and the pipeline
+do. The claim-by-claim audit is not shown in the app; it is in the audit report files (JSON, Markdown, DOCX).
 
 Run: `uvicorn server:app --port 8000` (serves frontend/dist when built; in development Vite proxies /api).
 Errors: friendly messages to the client; tracebacks only in outputs/<run_id>/errors.log (outputs/_app/errors.log
@@ -30,31 +32,20 @@ from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
-from marsh import audit, pipeline, settings  # noqa: E402
-from marsh.company import CompanyNameError  # noqa: E402
-from marsh.gate import acknowledged, is_rendered, run_gate  # noqa: E402
+from marsh import audit, pipeline, settings, timing  # noqa: E402
+from marsh.company import UNVERIFIED_WEB_NOTE, CompanyNameError  # noqa: E402
+from marsh.gate import run_gate  # noqa: E402
 from marsh.llm import LLMCallError, LLMOutputError  # noqa: E402
-from marsh.marsh_profile import MarshProfileError, load_profile  # noqa: E402
-from marsh.marsh_profile import source_label as marsh_source_label  # noqa: E402
-from marsh.models import (  # noqa: E402
-    AdvisorActionType,
-    AuditStatus,
-    Claim,
-    ClaimState,
-    ClaimType,
-    FinalStatus,
-    OverallFlag,
-    RunContext,
-)
-from marsh.evidence_store import to_display  # noqa: E402
+from marsh.marsh_profile import MarshProfileError  # noqa: E402
+from marsh.models import AdvisorActionType, FinalStatus, OverallFlag, RunContext  # noqa: E402
 from marsh.pipeline import AdvisorActionError, PolicyDocsError  # noqa: E402
 from marsh.pitch import PitchError, PitchValidationError  # noqa: E402
 from marsh.render_ppt import PPTX_FILE, RenderQAError, RenderRefusedError, render  # noqa: E402
 from marsh.run_context import RUN_ID_RE, load_run_context, run_dir  # noqa: E402
 from marsh.selection import SelectionInputError  # noqa: E402
-from marsh.validation import validate_company_name, validate_files  # noqa: E402
-from marsh.web_search import source_label as web_source_label  # noqa: E402
+from marsh.validation import validate_bundled_selection, validate_company_name, validate_files  # noqa: E402
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("trace")
 ROOT = Path(__file__).resolve().parent
 DIST = ROOT / "frontend" / "dist"
@@ -184,18 +175,22 @@ def _export_images(run_id: str) -> int:
 
 
 def refresh_preview(ctx: RunContext) -> None:
-    """Render the current deck and export its slides as images. A deck the gate FAILs isn't rendered."""
+    """Render the current deck and export its slides as images (timed when a generation timer is active). A deck
+    the gate FAILs isn't rendered."""
     run_id = ctx.run_id
     _previews[run_id] = {**_previews.get(run_id, {}), "status": "updating"}
     try:
         with _preview_guard:
-            render(ctx)
-            count = _export_images(run_id)
+            with timing.step("ppt_render"):
+                render(ctx)
+            with timing.step("slide_images") as info:
+                count = _export_images(run_id)
+                info["slides"] = count
         _previews[run_id] = {"status": "ready" if count else "unavailable", "count": count,
                              "version": datetime.now().strftime("%H%M%S%f")}
     except RenderRefusedError:
         _previews[run_id] = {"status": "blocked", "count": 0}
-    except Exception as exc:  # noqa: BLE001 - the claims view is the fallback
+    except Exception as exc:  # noqa: BLE001 - a message replaces the preview
         log_error(run_id, exc)
         _previews[run_id] = {"status": "unavailable", "count": 0}
 
@@ -216,8 +211,8 @@ def preview_state(run_id: str) -> dict:
         count = len(list((run_dir(run_id) / SLIDES_DIR).glob("slide*.png")))
         state = {"status": "ready" if count else "unavailable", "count": count, "version": "disk"}
         _previews[run_id] = state
-    messages = {"blocked": "The deck preview appears once the blocking issues in the summary are resolved.",
-                "unavailable": "The slide preview isn't available here; review the statements slide by slide below.",
+    messages = {"blocked": "The deck preview appears once export is no longer blocked.",
+                "unavailable": "The slide preview isn't available on this computer. The deck can still be exported.",
                 "updating": "Updating the deck preview…"}
     return {**state, "message": messages.get(state["status"], "")}
 
@@ -233,7 +228,7 @@ def policies() -> dict:
 
         store = load_evidence(list(settings.BUNDLED_POLICY_FILES))
         names = {pid: store.document(pid).display_name for pid in settings.BUNDLED_POLICY_FILES}
-    except Exception as exc:  # noqa: BLE001 - the product names above are the fallback
+    except Exception as exc:  # noqa: BLE001 - the file names above are the fallback
         log_error(None, exc)
     return {"policies": [{"id": pid, "name": names[pid]} for pid in settings.BUNDLED_POLICY_FILES],
             "max_file_mb": settings.MAX_FILE_MB}
@@ -242,45 +237,61 @@ def policies() -> dict:
 @app.post("/api/runs", status_code=202)
 async def create_run(company_name: str = Form(""), policy_ids: list[str] = Form(default=[]),
                      files: list[UploadFile] = File(default=[])) -> dict:
-    """Validate the inputs (brief 1.4), then start the generation job."""
+    """Validate the inputs (brief 1.4): company name, exactly one bundled brochure, any number of uploaded PDFs.
+    Then start the generation job."""
     errors: dict[str, list[str]] = {}
     name = validate_company_name(company_name)
     if not name.ok:
         errors["company_name"] = [e.message for e in name.errors]
-    bundled = [p for p in dict.fromkeys(policy_ids) if p in settings.BUNDLED_POLICY_FILES]
+    bundled_errors = validate_bundled_selection(policy_ids)
+    if bundled_errors:
+        errors["policy"] = [e.message for e in bundled_errors]
+    bundled = list(dict.fromkeys(policy_ids))
     uploads = [(f.filename or "upload.pdf", await f.read()) for f in files if f.filename]
     infos: list[str] = []
-    if not bundled and not uploads:
-        errors["documents"] = ["Please select or upload at least one policy document (PDF)."]
-    elif uploads:
+    if uploads:
         check = validate_files(uploads)
         if check.errors:
-            errors["documents"] = [e.message for e in check.errors]
+            errors["uploads"] = [e.message for e in check.errors]
         infos = [i.message for i in check.infos]
     if errors:
         return JSONResponse(status_code=422, content={"message": "Please check the highlighted fields.",
                                                       "errors": errors})
 
     def work(job: Job) -> None:
-        ctx = pipeline.start_run(name.name)
-        job.run_id = ctx.run_id
-        job.stage = 1
-        if not ctx.exposures:
-            ctx = pipeline.identify_run_exposures(ctx)
-        job.stage = 2
-        documents = pipeline.prepare_policies(bundled + uploads, ctx.run_id)
-        job.stage = 3
-        ctx = pipeline.match_run(ctx, [d.document_id for d in documents])
-        job.stage = 4
-        ctx = pipeline.select_run(ctx)
-        job.stage = 5
-        ctx = pipeline.pitch_run(ctx)
-        job.stage = 6
-        ctx = pipeline.audit_run(ctx)
-        ctx.final_status = FinalStatus.AWAITING_REVIEW
-        pipeline.save_run_context(ctx)
-        job.stage = 7
-        refresh_preview(ctx)
+        timer = timing.GenerationTimer(label=f"{name.name}: {', '.join(bundled)}"
+                                             + (f" + {len(uploads)} uploaded PDF(s)" if uploads else ""))
+        try:
+            with timer.active():
+                with timer.step("start_run"):
+                    ctx = pipeline.start_run(name.name)
+                job.run_id, job.stage = ctx.run_id, 1
+                with timer.step("exposure_identification") as info:
+                    if ctx.exposures:
+                        info["skipped"] = "exposures came with a frozen profile"
+                    else:
+                        ctx = pipeline.identify_run_exposures(ctx)
+                job.stage = 2
+                with timer.step("policy_evidence", documents=len(bundled) + len(uploads)):
+                    documents = pipeline.prepare_policies(bundled + uploads, ctx.run_id)
+                job.stage = 3
+                with timer.step("coverage_matching"):
+                    ctx = pipeline.match_run(ctx, [d.document_id for d in documents])
+                job.stage = 4
+                with timer.step("policy_selection"):
+                    ctx = pipeline.select_run(ctx)
+                job.stage = 5
+                with timer.step("pitch_generation"):
+                    ctx = pipeline.pitch_run(ctx)
+                job.stage = 6
+                with timer.step("audit_and_repair"):
+                    ctx = pipeline.audit_run(ctx)
+                ctx.final_status = FinalStatus.AWAITING_REVIEW
+                pipeline.save_run_context(ctx)
+                job.stage = 7
+                refresh_preview(ctx)
+        finally:
+            timer.save(run_dir(job.run_id) if job.run_id else settings.OUTPUTS_DIR / "_app" / f"timing-{job.job_id}")
 
     job = _start(Job(job_id=uuid.uuid4().hex[:12], kind="generate", stages=GENERATE_STAGES,
                      company_name=name.name or ""), work)
@@ -297,205 +308,89 @@ def job_status(job_id: str) -> dict:
 
 # --- API: review --------------------------------------------------------------------------------------------------
 
-STATUS = {  # key → (label, tone)
-    AuditStatus.VERIFIED: ("Verified", "good"),
-    AuditStatus.VERIFIED_WITH_QUALIFIER: ("Verified with a condition", "good"),
-    AuditStatus.LABELLED_ASSUMPTION: ("Marked as assumption", "neutral"),
-    AuditStatus.NON_FACTUAL: ("No facts to check", "neutral"),
-    AuditStatus.ADVISOR_ATTESTED: ("Advisor-attested", "neutral"),
-    AuditStatus.NEEDS_REVIEW: ("Needs review", "caution"),
-    AuditStatus.UNSUPPORTED: ("Not supported", "bad"),
-    AuditStatus.CONTRADICTED: ("Contradicted", "bad"),
+FLAG = {OverallFlag.PASS: "Ready", OverallFlag.REVIEW_REQUIRED: "Ready for your approval",
+        OverallFlag.FAIL: "Export blocked"}
+_SECTION_MESSAGES = {
+    "SLIDE1:EMPTY": "Company Overview has nothing to show.",
+    "SLIDE2:EMPTY": "Why Choose Marsh has no documented capability to show.",
+    "SLIDE3:EMPTY": "the benefits table is empty.",
+    "SLIDE4:EMPTY": "Recommended Policy has no reason left to show.",
+    "DECK:DISCLAIMER": "the disclaimer is missing.",
+    "MARSH:PROFILE": "the Marsh profile is missing.",
 }
-FLAG = {OverallFlag.PASS: "Ready", OverallFlag.REVIEW_REQUIRED: "Review required", OverallFlag.FAIL: "Blocked"}
 
 
-def _item_message(item_id: str, raw: str, ctx: RunContext, results: dict) -> str:
-    """The gate's items in advisor language (the gate decides them; this only words them)."""
-    head, _, code = item_id.partition(":")
-    if head.startswith("CL-"):
-        result = results.get(head)
-        texts = {
-            "CONTRADICTED": "Contradicts the policy evidence. Edit or remove it.",
-            "UNSUPPORTED": "Isn't supported by the evidence. Edit it, remove it, or attest it with a justification.",
-            "NUMBER_CHECK": "A number doesn't match the evidence.",
-            "POLICY_REFERENCE": "Names the wrong policy.",
-            "SLIDE2": "Only documented Marsh capabilities belong on Why Choose Marsh.",
-            "DIRTY": "Edited but not yet checked again.",
-            "NEEDS_REVIEW": "Needs your review" + (f": {result.explanation}" if result and result.explanation else "."),
-            "QUALIFIER_NOT_RENDERED": "Holds only under a condition that is too long to print as a footnote. "
-                                      "Check the wording, or shorten the statement.",
-            "ATTESTED": "You attested this statement" + (f": {result.advisor_note}" if result and result.advisor_note
-                                                         else "."),
-            "REPAIR_FAILED": "Automatic correction didn't resolve it.",
-            "NOT_AUDITED": "Hasn't been checked against the evidence.",
-            "RECOMMENDS_OTHER": "Recommends a policy other than the selected one.",
-            "MARSH_RECORD": "Isn't one of Marsh's documented capabilities.",
-            "MARSH_CONDITION": "Drops a word its Marsh source requires.",
-        }
-        return texts.get(code, "Needs attention.")
-    if item_id == "EXPOSURES:ASSUMPTION_BASED":
-        names = [e.name for e in ctx.exposures if e.assumption_based]
-        return ("Some employee-health needs rest only on assumptions about the company: " + ", ".join(names) + ".")
-    if head == "SELECTION":
-        if code.startswith("UNAVAILABLE"):
-            return "The recommendation relies on cover that needs a higher sum insured than assumed."
-        return {"VALIDATION_ERRORS": "The recommendation didn't pass all of its evidence checks. Change the "
-                                     "recommended policy with a reason to continue.",
-                "LOW_CONFIDENCE": "The recommendation was made with low confidence.",
-                "ADVISOR_OVERRIDE": "You changed the recommended policy" + (
-                    f": {ctx.selection.advisor_reason}" if ctx.selection and ctx.selection.advisor_reason else "."),
-                "MISSING": "There is no recommended policy.",
-                "NOT_COMPARED": "The recommended policy isn't one of the selected documents.",
-                "COMPARED_SET": "The compared policies differ from the selected documents."}.get(code, raw)
-    return {"DECK:SCHEMA": "The deck's structure is invalid.", "DECK:RECOMMENDATION": "Slide 4 doesn't match the "
-            "recommendation.", "DECK:POLICY_NAME": "Slide 4 names the wrong policy.", "DECK:MISSING": "There is no "
-            "deck.", "DECK:DISCLAIMER": "The disclaimer is missing.", "AUDIT:MISSING": "The deck hasn't been checked.",
-            "MARSH:PROFILE": "The Marsh profile is missing.", "SLIDE1:EMPTY": "Company Overview has nothing to show.",
-            "SLIDE2:EMPTY": "Why Choose Marsh has no documented capability to show.", "SLIDE3:EMPTY": "The benefits "
-            "table is empty.", "SLIDE4:EMPTY": "Recommended Policy has no reason to show."}.get(item_id, raw)
+def _web_notice(ctx: RunContext) -> str | None:
+    """Why the company details aren't web-sourced, in advisor language (the reason is in the run's decision log)."""
+    note = ctx.company_profile.web_search_note if ctx.company_profile else ""
+    if not note:
+        return None
+    if note == UNVERIFIED_WEB_NOTE:
+        return ("Web sources were found for this company, but none of its details could be confirmed against them, "
+                "so they are marked as assumptions.")
+    return ("Live web search wasn't available for this company, so its details come from general knowledge and are "
+            "marked as assumptions.")
 
 
-def _item(item, ctx: RunContext, results: dict, done: set[str], blocking: bool) -> dict:
-    head = item.item_id.split(":", 1)[0]
-    claim_id = head if head.startswith("CL-") else None
-    slide = None
-    if claim_id:
-        try:
-            slide = ctx.deck.get_claim(claim_id).slide_number
-        except KeyError:
-            claim_id = None
-    return {"id": item.item_id, "message": _item_message(item.item_id, item.message, ctx, results),
-            "claim_id": claim_id, "slide": slide, "blocking": blocking, "acknowledged": item.item_id in done,
-            "selection": head == "SELECTION"}
-
-
-def _role(claim: Claim, slide_number: int, where: str, row_name: str | None) -> str:
-    if slide_number == 1:
-        return "Company fact" if claim.qualifier_text == "Web-sourced" else "Company assumption"
-    if slide_number == 2:
-        if claim.metadata.get("role") == "headline":
-            return "Headline"
-        return "Marsh capability" if claim.claim_type == ClaimType.MARSH_STATEMENT else "Why it matters"
-    if slide_number == 3:
-        return f"{row_name} · {'Benefit' if where == 'benefit' else 'Condition / limitation'}"
-    if where == "supporting":
-        return "Supporting benefit"
-    if where == "limitation":
-        return "Key limitation"
-    if "framing_of" in claim.metadata:
-        return "Why it matters to the client"
-    return {"CONDITION": "Condition", "LIMITATION": "Limitation"}.get(claim.metadata.get("selection_kind", ""),
-                                                                     "Reason")
-
-
-def _evidence(claim: Claim, result, sources, ctx: RunContext) -> list[dict]:
-    """What supports the statement, as the advisor reads it: document, page, section, quote and full text."""
-    out: list[dict] = []
-    if result is None:
-        return out
-    facts = {f.fact_id: f for f in ctx.company_profile.facts} if ctx.company_profile else {}
-    for fact_id in result.supporting_fact_ids or (claim.basis_fact_ids if claim.policy_id is None else []):
-        fact = facts.get(fact_id)
-        if fact is None:
-            continue
-        view = audit.fact_view(fact, ctx.company_profile)
-        pages = [s for s in ctx.company_profile.sources if s.source_id in fact.source_ids]
-        out.append({"kind": "company", "label": view["label"], "text": fact.value, "quotes": view["quotes"],
-                    "sources": [{"title": web_source_label(s), "url": s.url} for s in pages]})
-    profile = None
-    for evidence_id in result.supporting_evidence_ids:
-        try:
-            item = sources.item(evidence_id)
-        except (KeyError, StopIteration):
-            continue
-        if item.document_id == "MARSH":
-            profile = profile or load_profile()
-            record = profile.record(item.row_label or "")
-            source = profile.source_of(record) if record else None
-            out.append({"kind": "marsh", "document": "Marsh capability", "text": item.text,
-                        "quotes": [q for q in result.quotes if q and q in item.text],
-                        "sources": [{"title": marsh_source_label(record, profile), "url": source.url if source else ""}]
-                        if record else []})
-            continue
-        view = audit.evidence_view(evidence_id, sources)
-        footnotes = [to_display(f.text, f.evidence_id) for f in sources.store.footnotes_for(item)]
-        out.append({"kind": "policy", "document": view["document"], "page": view["page"], "section": view["section"],
-                    "row": view["row_label"], "column": view["column_label"], "text": view["display_text"],
-                    "quotes": [to_display(q) for q in result.quotes if q and q in item.text], "footnotes": footnotes})
-    return out
-
-
-def _claim_view(claim: Claim, slide_number: int, where: str, row_name: str | None, results: dict, sources,
-                ctx: RunContext, closed: bool) -> dict:
-    result = results.get(claim.claim_id)
-    status = result.status if result else None
-    label, tone = STATUS.get(status, ("Not checked", "caution"))
-    removed = claim.state == ClaimState.REMOVED
-    open_ = not closed and not removed
+def _attention(ctx: RunContext) -> dict:
+    """What the advisor needs to know, as concise messages (the gate decides; the item-by-item detail is in the
+    audit report)."""
+    gate = run_gate(ctx)
+    blocked_claims = pipeline.blocking_claim_ids(ctx)
+    messages: list[str] = []
+    if blocked_claims:
+        n = len(blocked_claims)
+        messages.append(f"{n} statement{' contradicts or isn' if n == 1 else 's contradict or aren'}'t supported by "
+                        f"the policy evidence.")
+    selection_blocked = any(f.item_id.startswith("SELECTION:") for f in gate.failures)
+    if selection_blocked:
+        messages.append("The recommendation didn't pass its evidence checks. Change the recommended policy with a "
+                        "reason, or reject the pitch.")
+    other = [f for f in gate.failures if not f.item_id.startswith(("CL-", "SELECTION:"))]
+    other_claims = [f for f in gate.failures if f.item_id.startswith("CL-")
+                    and f.item_id.split(":", 1)[0] not in blocked_claims]
+    for f in other:
+        messages.append(f"The generated pitch has an unresolved validation issue: "
+                        f"{_SECTION_MESSAGES.get(f.item_id, 'its structure is invalid.')}")
+    if other_claims:
+        messages.append("The generated pitch has an unresolved validation issue.")
+    selection_review = any(r.item_id.startswith("SELECTION:") for r in gate.review_items)
+    reviewed = len(gate.review_items)
     return {
-        "id": claim.claim_id, "text": to_display(claim.text), "role": _role(claim, slide_number, where, row_name),
-        "status": status.value if status else None, "status_label": label, "tone": tone,
-        "explanation": result.explanation if result else "", "qualifier": (result.required_qualifier or None)
-        if result and status == AuditStatus.VERIFIED_WITH_QUALIFIER else None,
-        "removed": removed, "shown": is_rendered(claim, result), "material": claim.material,
-        "advisor_action": result.advisor_action.value if result and result.advisor_action else None,
-        "advisor_note": result.advisor_note if result else None,
-        "evidence": _evidence(claim, result, sources, ctx),
-        "actions": {"approve": open_ and status not in (AuditStatus.CONTRADICTED, AuditStatus.UNSUPPORTED, None),
-                    "edit": open_, "remove": open_, "attest": open_ and status == AuditStatus.UNSUPPORTED},
+        "blocked": gate.status == OverallFlag.FAIL,
+        "messages": messages,
+        "can_remove_blocked": bool(blocked_claims),
+        "blocked_statements": len(blocked_claims),
+        "selection_issue": selection_blocked or selection_review,
+        "review_note": (f"Approving confirms you have reviewed {reviewed} point{'' if reviewed == 1 else 's'} the "
+                        f"checks raised. They are listed in the audit report.") if reviewed and
+        gate.status != OverallFlag.FAIL else None,
     }
 
 
 def review_view(ctx: RunContext) -> dict:
-    results = {r.claim_id: r for r in ctx.audit_report.results} if ctx.audit_report else {}
-    sources = audit.load_sources([d.document_id for d in ctx.selected_documents],
-                                 assumed_sum_insured=ctx.assumed_sum_insured, profile=ctx.company_profile,
-                                 run_id=ctx.run_id)
-    closed = ctx.final_status in (FinalStatus.EXPORTED, FinalStatus.REJECTED)
     gate = run_gate(ctx)
-    done = acknowledged(ctx)
-    slides = []
-    for slide in ctx.deck.slides if ctx.deck else []:
-        n = slide.slide_number
-        claims = [_claim_view(c, n, "bullet", None, results, sources, ctx, closed) for c in slide.bullets]
-        for row in slide.table_rows:
-            claims.append(_claim_view(row.benefit, n, "benefit", row.exposure_name, results, sources, ctx, closed))
-            if row.condition is not None:
-                claims.append(_claim_view(row.condition, n, "condition", row.exposure_name, results, sources, ctx,
-                                          closed))
-        claims += [_claim_view(c, n, "supporting", None, results, sources, ctx, closed)
-                   for c in slide.supporting_benefits]
-        claims += [_claim_view(c, n, "limitation", None, results, sources, ctx, closed) for c in slide.key_limitations]
-        slides.append({"number": n, "title": slide.title, "claims": claims})
     summary = ctx.audit_report.summary if ctx.audit_report else None
-    counts = []
-    if summary:
-        for status, (label, tone) in STATUS.items():
-            if summary.counts.get(status):
-                counts.append({"status": status.value, "label": label, "tone": tone, "count": summary.counts[status]})
     names = {d.document_id: d.display_name for d in ctx.selected_documents}
     sel = ctx.selection
+    folder = run_dir(ctx.run_id)
     return {
         "run_id": ctx.run_id, "company_name": ctx.company_name, "created_at": ctx.created_at.isoformat(),
         "final_status": ctx.final_status.value,
         "closing_note": next((a.note for a in reversed(ctx.advisor_actions)
                               if a.action == AdvisorActionType.DECK_REJECTED), None),
-        "notice": ("Live web search wasn't available for this company, so its details come from general knowledge "
-                   "and are marked as assumptions.") if ctx.company_profile and
-        ctx.company_profile.web_search_note else None,
+        "notice": _web_notice(ctx),
         "summary": {"flag": gate.status.value, "flag_label": FLAG[gate.status],
-                    "confidence": summary.confidence_score if summary else None, "counts": counts,
-                    "export_allowed": gate.export_allowed},
-        "blocking": [_item(f, ctx, results, done, True) for f in gate.failures],
-        "review_items": [_item(r, ctx, results, done, False) for r in gate.review_items],
-        "slides": slides,
+                    "confidence": summary.confidence_score if summary else None,
+                    "export_allowed": gate.status != OverallFlag.FAIL},
+        "attention": _attention(ctx),
+        "slides": [{"number": s.slide_number, "title": s.title} for s in (ctx.deck.slides if ctx.deck else [])],
         "selection": {"compared": [{"id": p, "name": names.get(p, p)} for p in sel.compared_policy_ids],
                       "selected_id": sel.selected_policy_id, "by_advisor": sel.decided_by.value == "ADVISOR"}
         if sel else None,
         "preview": preview_state(ctx.run_id),
         "downloads": {"pptx": ctx.final_status == FinalStatus.EXPORTED,
-                      "audit": (run_dir(ctx.run_id) / audit.REPORT_JSON).exists()},
+                      "audit": all((folder / name).exists() for name, _ in (DOWNLOADS[k] for k in AUDIT_FILES))},
     }
 
 
@@ -520,11 +415,6 @@ def get_preview(run_id: str) -> dict:
 
 
 class NoteBody(BaseModel):
-    note: str = ""
-
-
-class EditBody(BaseModel):
-    text: str
     note: str = ""
 
 
@@ -554,29 +444,9 @@ def act(run_id: str, action, *, deck_changed: bool = False) -> dict:
     return review_view(ctx)
 
 
-@app.post("/api/runs/{run_id}/claims/{claim_id}/approve")
-def approve(run_id: str, claim_id: str, body: NoteBody) -> dict:
-    return act(run_id, lambda ctx: pipeline.approve_claim(ctx, claim_id, body.note))
-
-
-@app.post("/api/runs/{run_id}/claims/{claim_id}/edit")
-def edit(run_id: str, claim_id: str, body: EditBody) -> dict:
-    return act(run_id, lambda ctx: pipeline.edit_and_reaudit(ctx, claim_id, body.text, body.note), deck_changed=True)
-
-
-@app.post("/api/runs/{run_id}/claims/{claim_id}/remove")
-def remove(run_id: str, claim_id: str, body: NoteBody) -> dict:
-    return act(run_id, lambda ctx: pipeline.remove_claim(ctx, claim_id, body.note), deck_changed=True)
-
-
-@app.post("/api/runs/{run_id}/claims/{claim_id}/attest")
-def attest(run_id: str, claim_id: str, body: NoteBody) -> dict:
-    return act(run_id, lambda ctx: pipeline.attest_claim(ctx, claim_id, body.note), deck_changed=True)
-
-
-@app.post("/api/runs/{run_id}/items/{item_id}/acknowledge")
-def acknowledge(run_id: str, item_id: str, body: NoteBody) -> dict:
-    return act(run_id, lambda ctx: pipeline.acknowledge_item(ctx, item_id, body.note))
+@app.post("/api/runs/{run_id}/remove-blocked")
+def remove_blocked(run_id: str) -> dict:
+    return act(run_id, lambda ctx: pipeline.remove_blocking_claims(ctx), deck_changed=True)
 
 
 @app.post("/api/runs/{run_id}/reject")
@@ -637,7 +507,12 @@ def slide_image(run_id: str, number: int) -> FileResponse:
 
 DOWNLOADS = {"pptx": (PPTX_FILE, "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
              "audit-json": (audit.REPORT_JSON, "application/json"),
-             "audit-md": (audit.REPORT_MD, "text/markdown")}
+             "audit-md": (audit.REPORT_MD, "text/markdown"),
+             "audit-docx": (audit.REPORT_DOCX,
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+AUDIT_FILES = ("audit-json", "audit-md", "audit-docx")
+_SUFFIX = {"pptx": "Marsh_pitch.pptx", "audit-json": "audit_report.json", "audit-md": "audit_report.md",
+           "audit-docx": "audit_report.docx"}
 
 
 @app.get("/api/runs/{run_id}/download/{kind}")
@@ -652,8 +527,7 @@ def download(run_id: str, kind: str) -> FileResponse:
     if not path.exists():
         fail(404, "This file isn't available yet.")
     slug = "".join(ch if ch.isalnum() else "_" for ch in ctx.company_name).strip("_") or "pitch"
-    suffix = {"pptx": "Marsh_pitch.pptx", "audit-json": "audit_report.json", "audit-md": "audit_report.md"}[kind]
-    return FileResponse(path, media_type=media, filename=f"{slug}_{suffix}")
+    return FileResponse(path, media_type=media, filename=f"{slug}_{_SUFFIX[kind]}")
 
 
 @app.get("/api/brand/logo.png")

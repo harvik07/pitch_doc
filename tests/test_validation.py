@@ -134,3 +134,24 @@ def test_bundled_brochures_pass_validation():
     paths = [settings.POLICIES_DIR / name for name in settings.BUNDLED_POLICY_FILES.values()]
     result = validate_files(paths)
     assert result.ok and len(result.files) == 4
+
+
+# --- Bundled policy (web app: exactly one) ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("ids, code", [
+    ([], IssueCode.NO_BUNDLED_POLICY),
+    (None, IssueCode.NO_BUNDLED_POLICY),
+    (["POL-NIVA", "POL-HDFC"], IssueCode.TOO_MANY_BUNDLED_POLICIES),
+    (["POL-NIVA", "POL-XYZ"], IssueCode.UNKNOWN_POLICY),
+])
+def test_exactly_one_bundled_policy(ids, code):
+    from marsh.validation import validate_bundled_selection
+
+    assert [e.code for e in validate_bundled_selection(ids)] == [code]
+
+
+def test_one_bundled_policy_is_valid_even_if_repeated():
+    from marsh.validation import validate_bundled_selection
+
+    assert validate_bundled_selection(["POL-HDFC"]) == [] and validate_bundled_selection(["POL-HDFC", "POL-HDFC"]) == []

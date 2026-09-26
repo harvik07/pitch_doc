@@ -75,7 +75,7 @@ export default function OverrideControl({ view }: { view: ReviewView }) {
           {error}
         </p>
       )}
-      <div className="claim__panel-actions">
+      <div className="decision__actions">
         <button type="submit" className="btn btn--small" disabled={busy}>
           {busy && <span className="spinner" aria-hidden="true" />}
           Update the pitch

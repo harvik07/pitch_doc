@@ -25,7 +25,8 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from marsh import settings
+from marsh import settings, timing
+from marsh.parallel import map_ordered
 from marsh.decision_log import log_decision
 from marsh.models import WebSource
 
@@ -104,14 +105,17 @@ def _fetch(company_name: str) -> tuple[list[WebSource], list[dict]]:
     sources: list[WebSource] = []
     calls: list[dict] = []
     seen: set[str] = set()
-    for template in QUERIES:
-        query = template.format(name=company_name)
+
+    def search(query: str) -> tuple[list[dict], float]:
         started = time.monotonic()
+        timing.count_call("tavily")
         response = client.search(query, search_depth="advanced", max_results=settings.WEB_MAX_RESULTS,
                                  include_raw_content="text", timeout=settings.WEB_SEARCH_TIMEOUT_S)
-        results = response.get("results") or []
-        calls.append({"query": query, "latency_s": round(time.monotonic() - started, 2),
-                      "urls": [r.get("url") for r in results]})
+        return response.get("results") or [], round(time.monotonic() - started, 2)
+
+    queries = [template.format(name=company_name) for template in QUERIES]
+    for query, (results, latency) in zip(queries, map_ordered(search, queries)):  # the queries are independent
+        calls.append({"query": query, "latency_s": latency, "urls": [r.get("url") for r in results]})
         for r in results:
             url, text = str(r.get("url") or "").strip(), _page_text(r)
             if not url or not text or url in seen:
@@ -152,7 +156,9 @@ def _cached_or_fetched(company_name: str, run_id: str | None) -> WebSearchResult
                                                     "urls": [s.url for s in sources]})
             return WebSearchResult(sources=sources, note="" if sources else "web search returned no results")
     try:
-        sources, calls = _fetch(company_name)
+        with timing.step("tavily_request") as info:
+            sources, calls = _fetch(company_name)
+            info["results"] = len(sources)
     except Exception as exc:  # any SDK / network / quota error: fall back, never fail the run
         log.warning("web search failed for %r: %s", company_name, exc)
         return WebSearchResult(note=f"web search failed ({type(exc).__name__})")

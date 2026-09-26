@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowRight, Info, WarningCircle } from "@phosphor-icons/react";
+import { ArrowRight, WarningCircle } from "@phosphor-icons/react";
 import { api, ApiError, type ReviewView } from "../api";
 import { usePageTitle } from "../components/usePageTitle";
-import ClaimRow from "../review/ClaimRow";
 import DeckPreview from "../review/DeckPreview";
 import FinalDecision from "../review/FinalDecision";
-import OverrideControl from "../review/OverrideControl";
-import ReviewItems from "../review/ReviewItems";
 import Summary from "../review/Summary";
 
 function Section({ id, index, title, sub, children }: { id: string; index: string; title: string; sub?: string; children: ReactNode }) {
@@ -29,6 +26,8 @@ function Section({ id, index, title, sub, children }: { id: string; index: strin
 
 const PREVIEW_POLL_MS = 3000;
 
+/** Review: the summary, the deck itself, and the final decision. The statement-by-statement audit lives in the
+ * audit report files (downloadable from the summary), not on this screen. */
 export default function Review() {
   const { runId = "" } = useParams();
   const [view, setView] = useState<ReviewView | null>(null);
@@ -44,7 +43,7 @@ export default function Review() {
 
   useEffect(load, [load]);
 
-  // While the deck preview is being refreshed after an edit, poll for the new slide images.
+  // While the deck preview is refreshed (after blocking statements are removed), poll for the new slide images.
   const updating = view?.preview.status === "updating";
   useEffect(() => {
     if (!updating) return;
@@ -113,56 +112,16 @@ export default function Review() {
         </div>
       )}
 
-      {view.notice && (
-        <div className="notice" style={{ marginBottom: 32 }}>
-          <Info size={18} aria-hidden="true" />
-          <span>{view.notice}</span>
-        </div>
-      )}
-
       <Section id="summary" index="01" title="Summary">
-        <Summary view={view} />
+        <Summary view={view} onUpdate={setView} />
       </Section>
 
       <Section id="deck" index="02" title="The deck" sub="The client-facing presentation exactly as it will be exported.">
         <DeckPreview runId={view.run_id} preview={view.preview} slides={view.slides} />
       </Section>
 
-      <Section
-        id="statements"
-        index="03"
-        title="Statements by slide"
-        sub="Every statement on the slides, with its audit status. Open the evidence to see the exact source it was checked against."
-      >
-        {view.slides.map((slide) => (
-          <div className="slide-group" key={slide.number}>
-            <div className="slide-group__head">
-              <h3 className="slide-group__title">
-                <span>Slide {slide.number}</span>
-                {slide.title}
-              </h3>
-              {slide.number === 4 && <OverrideControl view={view} />}
-            </div>
-            <ul className="claims">
-              {slide.claims.map((claim) => (
-                <ClaimRow key={claim.id} runId={view.run_id} claim={claim} onUpdate={setView} />
-              ))}
-            </ul>
-          </div>
-        ))}
-      </Section>
-
-      <Section
-        id="review-items"
-        index="04"
-        title="Review items"
-        sub="Items the checks raised for your judgement. Each one needs your acknowledgement before the pitch can be exported."
-      >
-        <ReviewItems view={view} onUpdate={setView} />
-      </Section>
-
       {!closed && (
-        <Section id="decision" index="05" title="Final decision">
+        <Section id="decision" index="03" title="Final decision">
           <FinalDecision view={view} onUpdate={setView} />
         </Section>
       )}

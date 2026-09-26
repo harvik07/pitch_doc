@@ -90,34 +90,27 @@ export default function Complete() {
               </a>
             </li>
           )}
-          {view.downloads.audit && (
-            <>
-              <li className="download">
+          {view.downloads.audit &&
+            (
+              [
+                ["audit-docx", "Audit report", "Every statement traced to its source · Word document"],
+                ["audit-md", "Audit report", "The same audit · Markdown"],
+                ["audit-json", "Audit data", "The same audit as structured data · JSON"],
+              ] as const
+            ).map(([kind, name, detail]) => (
+              <li className="download" key={kind}>
                 <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                   <FileText size={28} aria-hidden="true" />
                   <div>
-                    <p className="download__name">Audit report</p>
-                    <p className="small muted">Every statement traced to its source · readable document</p>
+                    <p className="download__name">{name}</p>
+                    <p className="small muted">{detail}</p>
                   </div>
                 </div>
-                <a className="btn btn--secondary" href={api.downloadUrl(view.run_id, "audit-md")} download>
-                  <DownloadSimple size={18} weight="bold" aria-hidden="true" /> Download report
+                <a className="btn btn--secondary" href={api.downloadUrl(view.run_id, kind)} download>
+                  <DownloadSimple size={18} weight="bold" aria-hidden="true" /> Download .{kind.split("-")[1]}
                 </a>
               </li>
-              <li className="download">
-                <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                  <FileText size={28} aria-hidden="true" />
-                  <div>
-                    <p className="download__name">Audit data</p>
-                    <p className="small muted">The same audit as structured data (JSON)</p>
-                  </div>
-                </div>
-                <a className="btn btn--secondary" href={api.downloadUrl(view.run_id, "audit-json")} download>
-                  <DownloadSimple size={18} weight="bold" aria-hidden="true" /> Download data
-                </a>
-              </li>
-            </>
-          )}
+            ))}
         </ul>
 
         <div className="landing__cta">

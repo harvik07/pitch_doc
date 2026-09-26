@@ -29,7 +29,7 @@ from google.genai import types
 from pydantic import BaseModel, ValidationError
 from tenacity import Retrying, retry_if_exception, stop_after_attempt, wait_exponential
 
-from marsh import settings
+from marsh import settings, timing
 from marsh.run_context import run_dir
 
 T = TypeVar("T", bound=BaseModel)
@@ -195,6 +195,7 @@ def _usage(response: Any) -> dict | None:
     return {
         "prompt_tokens": getattr(usage, "prompt_token_count", None),
         "output_tokens": getattr(usage, "candidates_token_count", None),
+        "thinking_tokens": getattr(usage, "thoughts_token_count", None),  # latency diagnosis
     }
 
 
@@ -211,6 +212,7 @@ def _generate(client: Any, log: _CallLog, *, model: str, contents: str, config: 
         nonlocal attempt_no
         attempt_no += 1
         start = time.perf_counter()
+        timing.count_call("gemini")
         try:
             response = client.models.generate_content(model=model, contents=contents, config=config)
         except Exception as exc:

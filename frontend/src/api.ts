@@ -1,7 +1,5 @@
 // Client for the TRACE web API (server.py). Every error message from the server is advisor-facing.
 
-export type Tone = "good" | "caution" | "bad" | "neutral";
-
 export interface Policy {
   id: string;
   name: string;
@@ -23,64 +21,9 @@ export interface Job {
   error: string | null;
 }
 
-export interface EvidenceSource {
-  title: string;
-  url: string;
-}
-
-export interface Evidence {
-  kind: "policy" | "marsh" | "company";
-  document?: string;
-  page?: number;
-  section?: string;
-  row?: string | null;
-  column?: string | null;
-  label?: string;
-  text: string;
-  quotes: string[];
-  footnotes?: string[];
-  sources?: EvidenceSource[];
-}
-
-export interface ClaimActions {
-  approve: boolean;
-  edit: boolean;
-  remove: boolean;
-  attest: boolean;
-}
-
-export interface ClaimView {
-  id: string;
-  text: string;
-  role: string;
-  status: string | null;
-  status_label: string;
-  tone: Tone;
-  explanation: string;
-  qualifier: string | null;
-  removed: boolean;
-  shown: boolean;
-  material: boolean;
-  advisor_action: "APPROVED" | "EDITED" | "REMOVED" | "ATTESTED" | null;
-  advisor_note: string | null;
-  evidence: Evidence[];
-  actions: ClaimActions;
-}
-
-export interface SlideView {
+export interface SlideRef {
   number: number;
   title: string;
-  claims: ClaimView[];
-}
-
-export interface GateItem {
-  id: string;
-  message: string;
-  claim_id: string | null;
-  slide: number | null;
-  blocking: boolean;
-  acknowledged: boolean;
-  selection: boolean;
 }
 
 export interface Preview {
@@ -88,6 +31,16 @@ export interface Preview {
   count: number;
   version?: string;
   message: string;
+}
+
+/** What the advisor needs to know. The gate decides; the item-by-item detail is in the audit report files. */
+export interface Attention {
+  blocked: boolean;
+  messages: string[];
+  can_remove_blocked: boolean;
+  blocked_statements: number;
+  selection_issue: boolean;
+  review_note: string | null;
 }
 
 export interface ReviewView {
@@ -101,16 +54,16 @@ export interface ReviewView {
     flag: "PASS" | "REVIEW_REQUIRED" | "FAIL";
     flag_label: string;
     confidence: number | null;
-    counts: { status: string; label: string; tone: Tone; count: number }[];
     export_allowed: boolean;
   };
-  blocking: GateItem[];
-  review_items: GateItem[];
-  slides: SlideView[];
+  attention: Attention;
+  slides: SlideRef[];
   selection: { compared: Policy[]; selected_id: string; by_advisor: boolean } | null;
   preview: Preview;
   downloads: { pptx: boolean; audit: boolean };
 }
+
+export type DownloadKind = "pptx" | "audit-json" | "audit-md" | "audit-docx";
 
 export class ApiError extends Error {
   status: number;
@@ -154,21 +107,12 @@ export const api = {
   job: (jobId: string) => request<Job>(`/api/jobs/${encodeURIComponent(jobId)}`),
   review: (runId: string) => request<ReviewView>(run(runId)),
   preview: (runId: string) => request<Preview>(`${run(runId)}/preview`),
-  approveClaim: (runId: string, claimId: string, note = "") =>
-    post<ReviewView>(`${run(runId)}/claims/${claimId}/approve`, { note }),
-  editClaim: (runId: string, claimId: string, text: string, note = "") =>
-    post<ReviewView>(`${run(runId)}/claims/${claimId}/edit`, { text, note }),
-  removeClaim: (runId: string, claimId: string, note = "") =>
-    post<ReviewView>(`${run(runId)}/claims/${claimId}/remove`, { note }),
-  attestClaim: (runId: string, claimId: string, note: string) =>
-    post<ReviewView>(`${run(runId)}/claims/${claimId}/attest`, { note }),
-  acknowledge: (runId: string, itemId: string) =>
-    post<ReviewView>(`${run(runId)}/items/${encodeURIComponent(itemId)}/acknowledge`, { note: "" }),
+  removeBlocked: (runId: string) => post<ReviewView>(`${run(runId)}/remove-blocked`),
   override: (runId: string, policyId: string, reason: string) =>
     post<{ job_id: string }>(`${run(runId)}/override`, { policy_id: policyId, reason }),
   approveDeck: (runId: string) => post<ReviewView>(`${run(runId)}/approve`),
   reject: (runId: string, reason: string) => post<ReviewView>(`${run(runId)}/reject`, { note: reason }),
   slideUrl: (runId: string, n: number, version = "") => `${run(runId)}/slides/${n}.png?v=${version}`,
-  downloadUrl: (runId: string, kind: "pptx" | "audit-json" | "audit-md") => `${run(runId)}/download/${kind}`,
+  downloadUrl: (runId: string, kind: DownloadKind) => `${run(runId)}/download/${kind}`,
   logoUrl: "/api/brand/logo.png",
 };

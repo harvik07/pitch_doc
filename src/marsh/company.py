@@ -25,7 +25,7 @@ import logging
 import re
 from pathlib import Path
 
-from marsh import settings
+from marsh import settings, timing
 from marsh.decision_log import log_decision
 from marsh.grounding import number_check, quote_in_evidence
 from marsh.llm import call_structured
@@ -55,6 +55,8 @@ DOWNGRADE_NOTE = " [Downgraded to assumption: specific figures are never present
 WEB_DOWNGRADE_NOTE = " [Not web-sourced: {reason}.]"
 MIN_QUOTE_WORDS = 4
 NO_SOURCES_TEXT = "(none: use MODEL_KNOWLEDGE or ASSUMPTION only)"
+NO_FEEDBACK = "(none)"
+UNVERIFIED_WEB_NOTE = "web sources were found, but none of the company facts could be verified against them"
 _MONEY = re.compile(r"[$₹€£]|\b(?:usd|inr|rs\.?|eur|gbp|revenue|turnover|profit|valuation|market cap|"
                     r"billion|million|bn|mn|crores?|lakhs?)\b", re.IGNORECASE)
 _NUMBER = re.compile(r"\d[\d,.]*")
@@ -161,15 +163,53 @@ def sources_text(sources: list[WebSource]) -> str:
     return "\n\n".join(f"[{s.source_id}] {s.title or s.url}\nURL: {s.url}\n{s.content}" for s in sources)
 
 
+def unquoted_web_facts(response: CompanyProfileResponse) -> list[str]:
+    """WEB_SOURCED facts the model returned without a cited source or without a quote (they can't be verified)."""
+    return [f"fact {n} ({draft.field.value}: {draft.value!r})" for n, draft in enumerate(response.facts, start=1)
+            if draft.status == FactStatus.WEB_SOURCED and (not draft.source_ids or not draft.quotes)]
+
+
+def _ask_profile(company_name: str, sources: list[WebSource], run_id: str | None, info: dict) -> CompanyProfileResponse:
+    """The profile prompt, and one targeted retry for WEB_SOURCED facts returned without a source or a quote."""
+    variables = {"company_name": company_name, "web_sources": sources_text(sources), "feedback": NO_FEEDBACK}
+    info["web_sources_chars"] = len(variables["web_sources"])
+    response = call_structured(PROMPT, variables, CompanyProfileResponse, run_id=run_id)
+    missing = unquoted_web_facts(response) if sources else []
+    if missing:
+        info["quote_retry"] = len(missing)
+        log.info("WEB_SOURCED facts without a source or quote, asking again: %s", missing)
+        if run_id:
+            log_decision(run_id, "company_profile_quotes_missing", {"facts": missing}, actor="code")
+        feedback = ("Your previous answer marked these facts WEB_SOURCED without source_ids or quotes, so they "
+                    "can't be verified: " + "; ".join(missing) + ". For each, give the source_ids and 1–3 passages "
+                    "copied character for character from those sources, or use MODEL_KNOWLEDGE / ASSUMPTION.")
+        response = call_structured(PROMPT, {**variables, "feedback": feedback}, CompanyProfileResponse, run_id=run_id)
+    return response
+
+
 def generate_company_profile(company_name: str, run_id: str | None = None) -> CompanyProfile:
-    """Validate the name, search the web, ask Gemini, return a labelled CompanyProfile (logged when run_id is given)."""
+    """Validate the name, search the web, ask Gemini, return a labelled CompanyProfile (logged when run_id is given).
+
+    A WEB_SOURCED fact needs a cited source and a verbatim quote for the deterministic check. If the model returns
+    such facts without them, it is asked once more (the missing facts named); whatever still fails the check is
+    downgraded with the reason in its rationale. When web sources exist but no fact could be verified against them,
+    the profile's web_search_note says so (the advisor sees it)."""
     check = validate_company_name(company_name)
     if not check.ok:
         raise CompanyNameError(check.errors[0].message)
-    web = search_company(check.name, run_id)
-    response = call_structured(PROMPT, {"company_name": check.name, "web_sources": sources_text(web.sources)},
-                               CompanyProfileResponse, run_id=run_id)
+    from marsh.web_search import cache_path
+
+    with timing.step("company_web_research") as info:
+        info["cache"] = "HIT" if settings.WEB_SEARCH_ENABLED and cache_path(check.name).exists() else "MISS"
+        web = search_company(check.name, run_id)
+        info["sources"] = len(web.sources)
+        if web.note:
+            info["note"] = web.note
+    with timing.step("gemini_company_profile") as info:
+        response = _ask_profile(check.name, web.sources, run_id, info)
     profile = build_profile(check.name, response, web.sources, web.note)
+    if web.sources and not any(f.status == FactStatus.WEB_SOURCED for f in profile.facts):
+        profile = profile.model_copy(update={"web_search_note": UNVERIFIED_WEB_NOTE})
     drafts = {f"CF-{n:03d}": d for n, d in enumerate(response.facts, start=1)}
     downgraded = [f.fact_id for f in profile.facts if f.rationale.endswith(DOWNGRADE_NOTE)]
     web_rejected = [f.fact_id for f in profile.facts

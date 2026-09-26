@@ -13,8 +13,8 @@ Steps: start_run (validate + profile), identify_run_exposures, prepare_policies,
 chains them); pitch_run; audit_run (audit + targeted repair); refresh_run for a frozen run.
 
 Advisor review (section 6 step 12, section 10), used by the web app (server.py): approve_claim, edit_and_reaudit
-(edit_claim + reaudit_dirty), remove_claim, attest_claim, acknowledge_item, override_selection, approve_deck and
-reject_run. Each is logged, recorded in RunContext.advisor_actions and saved; AdvisorActionError carries a
+(edit_claim + reaudit_dirty), remove_claim, remove_blocking_claims, attest_claim, acknowledge_item,
+override_selection, approve_deck (acknowledges the open review items) and reject_run. Each is logged, recorded in RunContext.advisor_actions and saved; AdvisorActionError carries a
 user-facing message.
 """
 
@@ -107,13 +107,23 @@ def resolve_policy_docs(policy_docs: Any) -> tuple[list[str], list[ValidatedFile
     return list(dict.fromkeys(keys)), validated
 
 
-def _prepare_pdf(path: Path, run_id: str | None) -> PolicyDocument:
+def _prepare_pdf(path: Path, run_id: str | None, name: str | None = None) -> PolicyDocument:
     """Extract and annotate one PDF (both cached by sha256: a bundled brochure costs no LLM call)."""
+    from marsh import timing
     from marsh.annotate import annotate_document
-    from marsh.extraction import extract_document
+    from marsh.extraction import extract_document, load_cached
+    from marsh.validation import sha256_bytes
 
-    extract_document(path)
-    return annotate_document(path, run_id=run_id).document
+    cached = load_cached(sha256_bytes(path.read_bytes()))
+    with timing.step("docling_extraction", document=name or path.name,
+                     cache="HIT" if cached is not None else "MISS") as info:
+        extract_document(path)
+        if cached is not None:
+            info["ocr"] = "not run: evidence cached by SHA-256"
+    annotated = cached is not None and cached.annotation is not None
+    with timing.step("evidence_annotation", document=name or path.name,
+                     cache="HIT" if annotated else "MISS"):
+        return annotate_document(path, run_id=run_id).document
 
 
 def prepare_policies(policy_docs: Any, run_id: str | None = None) -> list[PolicyDocument]:
@@ -134,7 +144,7 @@ def prepare_policies(policy_docs: Any, run_id: str | None = None) -> list[Policy
         documents += list(store.documents.values())
     for file in files:
         path = Path(file.path) if file.path else _save_upload(file)
-        documents.append(_prepare_pdf(path, run_id))
+        documents.append(_prepare_pdf(path, run_id, file.file_name))
     unique = list({d.document_id: d for d in documents}.values())
     return unique
 
@@ -216,16 +226,24 @@ def audit_run(ctx: RunContext, *, repair: bool = True) -> RunContext:
 
     if ctx.deck is None:
         raise ValueError("the run has no pitch deck to audit")
+    from marsh import timing
+
     sources = audit.load_sources([d.document_id for d in ctx.selected_documents],
                                  assumed_sum_insured=ctx.assumed_sum_insured, profile=ctx.company_profile,
                                  run_id=ctx.run_id)
-    report = audit.audit_deck(ctx.deck.slides, sources, ctx.run_id, previous=ctx.audit_report)
+    with timing.step("audit") as info:
+        report = audit.audit_deck(ctx.deck.slides, sources, ctx.run_id, previous=ctx.audit_report)
+        info["claims"] = len(report.results)
+        info["audit_cache_hits"] = sources.cache_hits
     if repair:
-        report = repair_step.repair_deck(ctx.deck.slides, report, sources, ctx.run_id)
+        with timing.step("repair_reaudit") as info:
+            report = repair_step.repair_deck(ctx.deck.slides, report, sources, ctx.run_id)
+            info["repaired_claims"] = sum(1 for r in report.results if r.repair_history)
     ctx.audit_report = report
-    save_json(ctx.deck, run_dir(ctx.run_id) / PITCH_FILE)
-    save_run_context(ctx)
-    audit.export_report(report, audit.deck_claims(ctx.deck.slides), sources)
+    with timing.step("reports"):
+        save_json(ctx.deck, run_dir(ctx.run_id) / PITCH_FILE)
+        save_run_context(ctx)
+        audit.export_report(report, audit.deck_claims(ctx.deck.slides), sources)
     return ctx
 
 
@@ -488,18 +506,54 @@ def override_selection(ctx: RunContext, policy_id: str, reason: str) -> RunConte
 
 
 def approve_deck(ctx: RunContext):
-    """Approve & export: render (the gate refuses on FAIL) and allow the export only when the gate allows it.
-    Returns (pptx path, gate)."""
-    from marsh.models import AdvisorActionType, FinalStatus
+    """Approve & export (CLAUDE.md section 10). A FAIL blocks it. Approving is the advisor's acknowledgement of every
+    current review item: each is recorded (REVIEW_ITEM_ACKNOWLEDGED, logged) before the render; the gate itself is
+    unchanged. Returns (pptx path, gate)."""
+    from marsh.gate import acknowledged, run_gate
+    from marsh.models import AdvisorActionType, FinalStatus, OverallFlag
     from marsh.render_ppt import render
 
+    gate = run_gate(ctx)
+    if gate.status == OverallFlag.FAIL:
+        raise AdvisorActionError("Export is blocked until the blocking issues are resolved.")
+    done = acknowledged(ctx)
+    for item in gate.review_items:
+        if item.item_id not in done:
+            _record(ctx, AdvisorActionType.REVIEW_ITEM_ACKNOWLEDGED, item.item_id, "acknowledged by approving the deck",
+                    {"message": item.message})
     path, gate = render(ctx)
     if not gate.export_allowed:
-        raise AdvisorActionError("Acknowledge every review item before exporting.")
+        raise AdvisorActionError("The pitch can't be exported yet.")
     _record(ctx, AdvisorActionType.DECK_APPROVED, None, "", {"path": str(path)})
     ctx.final_status = FinalStatus.EXPORTED
     save_run_context(ctx)
     return path, gate
+
+
+BLOCKING_CLAIM_CODES = {"CONTRADICTED", "UNSUPPORTED", "NUMBER_CHECK", "POLICY_REFERENCE", "SLIDE2",
+                        "RECOMMENDS_OTHER", "MARSH_RECORD", "MARSH_CONDITION"}
+
+
+def blocking_claim_ids(ctx: RunContext) -> list[str]:
+    """Statements the gate FAILs on (CLAUDE.md section 10), in deck order."""
+    from marsh.gate import run_gate
+
+    failing = {f.item_id.split(":", 1)[0] for f in run_gate(ctx).failures
+               if f.item_id.startswith("CL-") and f.item_id.split(":", 1)[1] in BLOCKING_CLAIM_CODES}
+    return [c.claim_id for c in ctx.deck.all_claims() if c.claim_id in failing] if ctx.deck else []
+
+
+def remove_blocking_claims(ctx: RunContext, note: str = "") -> list[str]:
+    """The advisor removes every statement that blocks export, in one action (each removal logged and kept in the
+    audit trail as REMOVED). Other blocking conditions (e.g. the selection's) are untouched. Returns the removed ids."""
+    ids = blocking_claim_ids(ctx)
+    if not ids:
+        raise AdvisorActionError("No statement blocks the export.")
+    removed: list[str] = []
+    for claim_id in ids:
+        if claim_id not in removed:
+            removed += remove_claim(ctx, claim_id, note or "removed with the other export-blocking statements")
+    return removed
 
 
 def reject_run(ctx: RunContext, reason: str) -> None:

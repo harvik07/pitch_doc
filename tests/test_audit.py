@@ -115,7 +115,7 @@ def test_the_auditor_never_sees_the_generators_citations(monkeypatch, sources):
 def test_one_call_per_policy(monkeypatch, sources):
     claims = [claim("A.", n=1), claim("B.", "POL-HDFC", n=2), claim("C.", n=3)]
     results, auditor = run(monkeypatch, sources, claims)
-    assert [c["variables"]["policy_id"] for c in auditor.calls] == ["POL-NIVA", "POL-HDFC"]
+    assert sorted(c["variables"]["policy_id"] for c in auditor.calls) == ["POL-HDFC", "POL-NIVA"]  # concurrent calls
     assert "CL-003" in auditor.calls[0]["variables"]["claims"] and list(results) == ["CL-001", "CL-002", "CL-003"]
 
 
@@ -532,3 +532,31 @@ def test_re_auditing_an_unchanged_deck_uses_the_cache(monkeypatch, sources):
     dirty[0].bullets[0].state = ClaimState.DIRTY
     audit.audit_deck(dirty, fresh, run_id)
     assert "CL-001" in auditor.calls[2]["variables"]["claims"]  # a DIRTY claim is always re-audited
+
+
+def test_the_docx_report_is_the_same_audit_as_the_json(monkeypatch, sources):
+    """audit_report.docx is rendered from the audit_report.json data: same claims, statuses and evidence."""
+    from docx import Document
+
+    claims = [company("The company employs over 200,000 people.", ["CF-003"], 1, slide=4),
+              company("It is a very large enterprise.*", ["CF-002"], 2, slide=4, claim_type=ClaimType.ASSUMPTION,
+                      label=None),
+              claim(f"{NIVA_AIR}.", n=3)]
+    slide = PitchSlide(slide_number=4, title="Recommended Policy", bullets=claims)
+    run_sources = audit.AuditSources(store=sources.store, cells=sources.cells, profile=PROFILE,
+                                     run_id="RUN-20260926-000000-0003", taxonomy=sources.taxonomy,
+                                     topics=sources.topics)
+    monkeypatch.setattr(audit, "call_structured", FakeAuditor({f"{NIVA_AIR}.": verified("EV-NIVA-2-015", quote=NIVA_AIR)}))
+    report = audit.audit_deck([slide], run_sources, "RUN-20260926-000000-0003")
+    json_path, _ = audit.export_report(report, claims, run_sources)
+    docx_path = json_path.parent / audit.REPORT_DOCX
+    assert docx_path.exists()
+    text = "\n".join(p.text for p in Document(docx_path).paragraphs)
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    assert f"Overall flag: {data['summary']['overall_flag']}" in text
+    for row in data["results"]:
+        assert f"{row['claim_id']} · {row['status']}" in text
+        assert row["claim"]["display_text"] in text
+        for e in row["evidence"]:
+            assert e["evidence_id"] in text and e["display_text"] in text
+    assert "CF-003 (Web-sourced)" in text and "MODEL_KNOWLEDGE" not in text

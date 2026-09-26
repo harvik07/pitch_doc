@@ -125,16 +125,39 @@ def test_override_regenerates_the_pitch(ctx, monkeypatch):
     assert actions(ctx)[-1] == (AdvisorActionType.SELECTION_OVERRIDDEN, "POL-NIVA")
 
 
-def test_approve_deck_exports_only_when_the_gate_allows(ctx):
+def test_approving_acknowledges_the_review_items_and_exports(ctx):
     ctx.exposures[0].assumption_based = True  # one review item, not yet acknowledged
-    with pytest.raises(AdvisorActionError, match="Acknowledge"):
-        pipeline.approve_deck(ctx)
-    assert ctx.final_status != FinalStatus.EXPORTED
-    pipeline.acknowledge_item(ctx, "EXPOSURES:ASSUMPTION_BASED")
+    assert run_gate(ctx).unacknowledged == ["EXPOSURES:ASSUMPTION_BASED"]
     path, gate = pipeline.approve_deck(ctx)
     assert path.exists() and gate.status == OverallFlag.REVIEW_REQUIRED and gate.export_allowed
-    assert ctx.final_status == FinalStatus.EXPORTED
-    assert actions(ctx)[-1] == (AdvisorActionType.DECK_APPROVED, None)
+    assert gate.unacknowledged == [] and ctx.final_status == FinalStatus.EXPORTED
+    assert actions(ctx)[-2:] == [(AdvisorActionType.REVIEW_ITEM_ACKNOWLEDGED, "EXPOSURES:ASSUMPTION_BASED"),
+                                 (AdvisorActionType.DECK_APPROVED, None)]
+    events = [e for e in read_decisions(ctx.run_id) if e["event"] == "review_item_acknowledged"]
+    assert events[0]["payload"]["note"] == "acknowledged by approving the deck"
+
+
+def test_a_fail_still_blocks_approval(ctx):
+    set_result(ctx, "CL-011", status=AuditStatus.CONTRADICTED)
+    with pytest.raises(AdvisorActionError, match="blocked"):
+        pipeline.approve_deck(ctx)
+    assert ctx.final_status != FinalStatus.EXPORTED
+    assert not (settings.OUTPUTS_DIR / ctx.run_id / "pitch.pptx").exists()
+
+
+def test_remove_blocking_claims(ctx):
+    with pytest.raises(AdvisorActionError, match="No statement"):
+        pipeline.remove_blocking_claims(ctx)
+    set_result(ctx, "CL-011", status=AuditStatus.CONTRADICTED)
+    set_result(ctx, "CL-009", status=AuditStatus.UNSUPPORTED)  # material: blocks; takes its framing CL-010 along
+    assert pipeline.blocking_claim_ids(ctx) == ["CL-009", "CL-011"]
+    removed = pipeline.remove_blocking_claims(ctx)
+    assert removed == ["CL-009", "CL-010", "CL-011"]
+    assert pipeline.blocking_claim_ids(ctx) == []
+    # the gate isn't weakened: slide 4 lost its only reason, so the deck still can't be exported
+    assert [f.item_id for f in run_gate(ctx).failures] == ["SLIDE4:EMPTY"]
+    assert result_of(ctx, "CL-011").status == AuditStatus.CONTRADICTED  # kept in the audit trail
+    assert ctx.deck.get_claim("CL-011").state == ClaimState.REMOVED
 
 
 def test_reject(ctx):

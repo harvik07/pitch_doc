@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pymupdf
 
-from marsh import settings
+from marsh import settings, timing
 from marsh.models import (
     EvidenceItem,
     ExtractedDocument,
@@ -582,7 +582,8 @@ def _extract_with_docling(path: Path, low_text_pages: list[int]) -> tuple[list[_
     blocks, heights = _docling_blocks(_convert(path, full_page_ocr=False), ExtractionMethod.DOCLING, table_counter)
     for page in low_text_pages:
         try:
-            ocr_doc = _convert(path, full_page_ocr=True, page=page)
+            with timing.step("ocr_full_page", document=path.name, page=page):
+                ocr_doc = _convert(path, full_page_ocr=True, page=page)
         except Exception as exc:  # noqa: BLE001 - keep pass-1 items for this page
             log.warning("full-page OCR failed for %s p%s (%s); keeping pass-1 items", path.name, page, exc)
             continue

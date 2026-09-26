@@ -6,11 +6,14 @@ import { usePageTitle } from "../components/usePageTitle";
 
 interface Errors {
   company_name?: string[];
-  documents?: string[];
+  policy?: string[];
+  uploads?: string[];
 }
 
 const MAX_NAME = 120;
 
+/** Create: the client company, exactly ONE policy from the library (radio buttons; the API enforces it too) and
+ * any number of additional policy PDFs. */
 export default function CreatePitch() {
   usePageTitle("Create a pitch");
   const navigate = useNavigate();
@@ -21,7 +24,7 @@ export default function CreatePitch() {
   const [maxMb, setMaxMb] = useState(25);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [company, setCompany] = useState(initialName);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [policy, setPolicy] = useState<string>("");
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -32,7 +35,8 @@ export default function CreatePitch() {
   const nameId = useId();
   const nameHint = useId();
   const nameErr = useId();
-  const docsErr = useId();
+  const policyErr = useId();
+  const uploadErr = useId();
 
   useEffect(() => {
     api
@@ -40,26 +44,15 @@ export default function CreatePitch() {
       .then((data) => {
         setPolicies(data.policies);
         setMaxMb(data.max_file_mb);
-        setSelected(new Set(data.policies.map((p) => p.id)));
       })
       .catch((e: ApiError) => setLoadError(e.message));
   }, []);
 
-  const hasErrors = Boolean(errors.company_name?.length || errors.documents?.length || formError);
+  const hasErrors = Boolean(errors.company_name?.length || errors.policy?.length || errors.uploads?.length || formError);
 
   useEffect(() => {
     if (hasErrors) summaryRef.current?.focus();
   }, [hasErrors, errors, formError]);
-
-  function toggle(id: string) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-    setErrors((e) => ({ ...e, documents: undefined }));
-  }
 
   function addFiles(list: FileList | null) {
     if (!list) return;
@@ -68,7 +61,7 @@ export default function CreatePitch() {
       const names = new Set(current.map((f) => `${f.name}:${f.size}`));
       return [...current, ...incoming.filter((f) => !names.has(`${f.name}:${f.size}`))];
     });
-    setErrors((e) => ({ ...e, documents: undefined }));
+    setErrors((e) => ({ ...e, uploads: undefined }));
   }
 
   function onDrop(event: DragEvent) {
@@ -83,18 +76,16 @@ export default function CreatePitch() {
     if (!name) found.company_name = ["Please enter a company name."];
     else if (name.length < 2) found.company_name = ["The company name must be at least 2 characters."];
     else if (name.length > MAX_NAME) found.company_name = [`The company name must be at most ${MAX_NAME} characters.`];
-    const docs: string[] = [];
-    if (selected.size === 0 && files.length === 0) {
-      docs.push("Please select or upload at least one policy document (PDF).");
-    }
+    if (!policy) found.policy = ["Please select one policy from the policy library."];
+    const uploads: string[] = [];
     for (const f of files) {
-      if (!f.name.toLowerCase().endsWith(".pdf")) docs.push(`'${f.name}' isn't a PDF. Please add policy documents as PDF files.`);
-      else if (f.size === 0) docs.push(`'${f.name}' is empty (0 bytes).`);
+      if (!f.name.toLowerCase().endsWith(".pdf")) uploads.push(`'${f.name}' isn't a PDF. Please add policy documents as PDF files.`);
+      else if (f.size === 0) uploads.push(`'${f.name}' is empty (0 bytes).`);
       else if (f.size > maxMb * 1024 * 1024) {
-        docs.push(`'${f.name}' is ${(f.size / 1024 / 1024).toFixed(1)} MB; the limit is ${maxMb} MB.`);
+        uploads.push(`'${f.name}' is ${(f.size / 1024 / 1024).toFixed(1)} MB; the limit is ${maxMb} MB.`);
       }
     }
-    if (docs.length) found.documents = docs;
+    if (uploads.length) found.uploads = uploads;
     return found;
   }
 
@@ -103,10 +94,10 @@ export default function CreatePitch() {
     setFormError(null);
     const found = validate();
     setErrors(found);
-    if (found.company_name || found.documents) return;
+    if (found.company_name || found.policy || found.uploads) return;
     const form = new FormData();
     form.append("company_name", company.trim());
-    selected.forEach((id) => form.append("policy_ids", id));
+    form.append("policy_ids", policy);
     files.forEach((f) => form.append("files", f, f.name));
     setSubmitting(true);
     try {
@@ -122,7 +113,8 @@ export default function CreatePitch() {
 
   const summaryItems = [
     ...(errors.company_name ?? []).map((m) => ({ href: `#${nameId}`, m })),
-    ...(errors.documents ?? []).map((m) => ({ href: "#documents", m })),
+    ...(errors.policy ?? []).map((m) => ({ href: "#policy-library", m })),
+    ...(errors.uploads ?? []).map((m) => ({ href: "#uploads", m })),
     ...(formError ? [{ href: "#submit", m: formError }] : []),
   ];
 
@@ -132,8 +124,8 @@ export default function CreatePitch() {
         <p className="eyebrow">Step 1 of 3 · New pitch</p>
         <h1 className="display">Create a client pitch</h1>
         <p className="lead">
-          Name the client and choose the policy documents to compare. TRACE researches the company, recommends one
-          policy, writes the deck and checks every statement against its source.
+          Name the client, choose a policy from the library and, if you have them, add further policy PDFs. TRACE
+          researches the company, recommends one policy, writes the deck and checks every statement against its source.
         </p>
       </header>
 
@@ -156,13 +148,14 @@ export default function CreatePitch() {
             Client company
           </label>
           <p className="hint" id={nameHint}>
-            The company you are pitching to, for example its registered or trading name.
+            The company you are pitching to, for example Infosys.
           </p>
           <input
             id={nameId}
             className="input input--lg"
             name="company_name"
             autoComplete="organization"
+            placeholder="Example: Infosys"
             value={company}
             maxLength={MAX_NAME + 20}
             onChange={(e) => {
@@ -181,11 +174,16 @@ export default function CreatePitch() {
           )}
         </div>
 
-        <fieldset className="fieldset" id="documents" aria-describedby={errors.documents ? docsErr : undefined}>
+        <fieldset
+          className="fieldset"
+          id="policy-library"
+          aria-describedby={errors.policy ? policyErr : undefined}
+          aria-invalid={Boolean(errors.policy)}
+        >
           <legend>
-            <span className="label">Policy documents</span>
+            <span className="label">Policy from the library</span>
           </legend>
-          <p className="hint">The recommendation is chosen from these documents only. All four brochures are selected.</p>
+          <p className="hint">Select exactly one policy brochure.</p>
 
           {loadError && (
             <div className="notice notice--error" role="alert">
@@ -198,17 +196,21 @@ export default function CreatePitch() {
               <span className="spinner" aria-hidden="true" /> Loading the policy library…
             </p>
           )}
-
-          {(policies?.length || files.length > 0) && (
+          {policies && policies.length > 0 && (
             <ul className="doc-list">
-              {policies?.map((p) => (
+              {policies.map((p) => (
                 <li className="doc-row" key={p.id}>
                   <label>
                     <input
-                      type="checkbox"
-                      className="checkbox"
-                      checked={selected.has(p.id)}
-                      onChange={() => toggle(p.id)}
+                      type="radio"
+                      name="bundled-policy"
+                      className="radio-input"
+                      value={p.id}
+                      checked={policy === p.id}
+                      onChange={() => {
+                        setPolicy(p.id);
+                        setErrors((e) => ({ ...e, policy: undefined }));
+                      }}
                     />
                     <span className="doc-row__body">
                       <span className="doc-row__name">{p.name}</span>
@@ -217,6 +219,26 @@ export default function CreatePitch() {
                   </label>
                 </li>
               ))}
+            </ul>
+          )}
+          {errors.policy && (
+            <p id={policyErr} className="field-error" role="alert">
+              <WarningCircle size={16} weight="bold" aria-hidden="true" />
+              <span>{errors.policy[0]}</span>
+            </p>
+          )}
+        </fieldset>
+
+        <fieldset className="fieldset" id="uploads" aria-describedby={errors.uploads ? uploadErr : undefined}>
+          <legend>
+            <span className="label">
+              Additional policy PDFs <span className="muted">(optional)</span>
+            </span>
+          </legend>
+          <p className="hint">Upload as many policy documents as you need; each is compared with the library policy.</p>
+
+          {files.length > 0 && (
+            <ul className="doc-list" aria-label="Uploaded policy PDFs">
               {files.map((f) => (
                 <li className="doc-row" key={`${f.name}:${f.size}`}>
                   <div className="doc-row__static">
@@ -251,9 +273,9 @@ export default function CreatePitch() {
             <div className="dropzone__row">
               <button type="button" className="btn btn--secondary btn--small" onClick={() => fileInput.current?.click()}>
                 <UploadSimple size={16} weight="bold" aria-hidden="true" />
-                Upload a policy PDF
+                Upload policy PDFs
               </button>
-              <span className="hint">or drop files here · PDF, up to {maxMb} MB each</span>
+              <span className="hint">or drop files here · several PDFs allowed, up to {maxMb} MB each</span>
             </div>
             <input
               ref={fileInput}
@@ -261,6 +283,7 @@ export default function CreatePitch() {
               accept="application/pdf,.pdf"
               multiple
               hidden
+              data-testid="upload-input"
               onChange={(e) => {
                 addFiles(e.target.files);
                 e.target.value = "";
@@ -268,10 +291,10 @@ export default function CreatePitch() {
             />
           </div>
 
-          {errors.documents && (
-            <div id={docsErr} className="field-error" role="alert">
+          {errors.uploads && (
+            <div id={uploadErr} className="field-error" role="alert">
               <WarningCircle size={16} weight="bold" aria-hidden="true" />
-              <span>{errors.documents.join(" ")}</span>
+              <span>{errors.uploads.join(" ")}</span>
             </div>
           )}
         </fieldset>

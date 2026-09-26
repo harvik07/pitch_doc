@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { CaretLeft, CaretRight, Info } from "@phosphor-icons/react";
-import { api, type Preview, type SlideView } from "../api";
+import { api, type Preview, type SlideRef } from "../api";
 
-/** The rendered deck itself (the client-facing output), slide by slide. Falls back to a message pointing to the
- * statements below when no slide images are available. */
-export default function DeckPreview({ runId, preview, slides }: { runId: string; preview: Preview; slides: SlideView[] }) {
+/** The rendered deck itself (the client-facing output), slide by slide, or a short message when no slide images
+ * are available. */
+export default function DeckPreview({ runId, preview, slides }: { runId: string; preview: Preview; slides: SlideRef[] }) {
   const [current, setCurrent] = useState(1);
   const count = preview.count || 0;
   const updating = preview.status === "updating";
@@ -14,7 +14,7 @@ export default function DeckPreview({ runId, preview, slides }: { runId: string;
     return (
       <div className="deck-fallback" role="status">
         <Info size={20} aria-hidden="true" style={{ flex: "none", marginTop: 2 }} />
-        <p>{preview.message || "The slide preview isn't available; review the statements slide by slide below."}</p>
+        <p>{preview.message || "The slide preview isn't available."}</p>
       </div>
     );
   }

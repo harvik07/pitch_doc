@@ -19,7 +19,8 @@ from __future__ import annotations
 
 import logging
 
-from marsh import settings
+from marsh import settings, timing
+from marsh.parallel import map_ordered
 from marsh.audit import (
     FAILING,
     AuditSources,
@@ -146,15 +147,21 @@ def repair_deck(slides: list[PitchSlide], report: AuditReport, sources: AuditSou
         records: dict[str, RepairAttempt] = {}
         rewritten: list[Claim] = []
         gave_up: set[str] = set()
-        for claim in pending:
+
+        def rewrite(claim: Claim) -> tuple[str | None, str, bool]:
+            with timing.step("repair_call", claim=claim.claim_id, attempt=attempt):
+                try:
+                    text = repair_claim(claim, results[claim.claim_id], sources)
+                    return text, "" if text else "the repair found no true sentence in the evidence", text is None
+                except LLMError as exc:
+                    return None, f"repair call failed: {exc}", False
+
+        # Each failing claim's rewrite is independent: the calls run concurrently; the checks below stay in order.
+        answers = map_ordered(rewrite, pending)
+        for claim, (text, note, null_rewrite) in zip(pending, answers):
             before = results[claim.claim_id]
-            try:
-                text = repair_claim(claim, before, sources)
-                note = "" if text else "the repair found no true sentence in the evidence"
-                if text is None:
-                    gave_up.add(claim.claim_id)
-            except LLMError as exc:
-                text, note = None, f"repair call failed: {exc}"
+            if null_rewrite:
+                gave_up.add(claim.claim_id)
             if text and len(text) > max_chars(claim):
                 text, note = None, f"rewrite longer than {max_chars(claim)} characters"
             if text and normalise_text(text) == normalise_text(claim.text):

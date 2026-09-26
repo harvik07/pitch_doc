@@ -504,6 +504,7 @@ class Limitation(_Model):
     type: LimitationType  # every limitation type is material
     description: str
     evidence_ids: list[EvidenceId] = Field(default_factory=list)
+    quote: str | None = None  # verified verbatim quote for the limitation (required for OTHER_CONDITION)
 
 
 class PolicyMatch(_Model):
@@ -516,6 +517,7 @@ class PolicyMatch(_Model):
     limitation_evidence_ids: list[EvidenceId] = Field(default_factory=list)
     exclusion_evidence_ids: list[EvidenceId] = Field(default_factory=list)
     quotes: list[str] = Field(default_factory=list)
+    available_at_assumed_si: bool = False  # computed by matching.si_availability (Python), never by the LLM
     validated: bool = False
     validation_errors: list[str] = Field(default_factory=list)
 
@@ -524,6 +526,7 @@ class LimitationDraft(_Model):
     type: LimitationType
     description: str = Field(min_length=1)
     evidence_ids: list[str] = Field(default_factory=list)
+    quote: str | None = None
 
 
 class QuoteDraft(_Model):
@@ -559,6 +562,7 @@ class CoverageMatrixCache(_Model):
     evidence_hash: str
     prompt_hash: str
     drafts: list[MatchDraft]
+    repaired: list[str] = Field(default_factory=list)  # exposure IDs whose cells came from the repair retry
 
 
 class RuleTableRow(_Model):

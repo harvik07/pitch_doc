@@ -5,7 +5,7 @@
   "model": "gemini-2.5-flash",
   "taxonomy_hash": "930f42cc3fe05573",
   "evidence_hash": "3f6164196916100b",
-  "prompt_hash": "62564040e7a0d803",
+  "prompt_hash": "fa2243f988353ea5",
   "drafts": [
     {
       "exposure_id": "EXP-HOSP",
@@ -22,35 +22,17 @@
           "quote": "Covered up to Sum Insured."
         }
       ],
-      "reasoning": "In-patient care including AYUSH is covered up to the sum insured."
+      "reasoning": "In-patient care is covered up to the sum insured."
     },
     {
       "exposure_id": "EXP-PREPOST",
-      "coverage_status": "COVERED_WITH_LIMITATIONS",
-      "limitations": [
-        {
-          "type": "OTHER_CONDITION",
-          "description": "60 Days.",
-          "evidence_ids": [
-            "EV-NIVA-2-008"
-          ]
-        },
-        {
-          "type": "OTHER_CONDITION",
-          "description": "180 Days.",
-          "evidence_ids": [
-            "EV-NIVA-2-010"
-          ]
-        }
-      ],
+      "coverage_status": "FULLY_COVERED",
+      "limitations": [],
       "benefit_evidence_ids": [
         "EV-NIVA-2-008",
         "EV-NIVA-2-010"
       ],
-      "limitation_evidence_ids": [
-        "EV-NIVA-2-008",
-        "EV-NIVA-2-010"
-      ],
+      "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [
         {
@@ -62,34 +44,29 @@
           "quote": "180 Days. Covered up to Sum Insured."
         }
       ],
-      "reasoning": "Pre-hospitalisation is covered for 60 days and post-hospitalisation for 180 days, both up to the sum insured."
+      "reasoning": "Pre and post-hospitalisation expenses are covered for defined periods up to the sum insured."
     },
     {
       "exposure_id": "EXP-DAYCARE",
-      "coverage_status": "COVERED_WITH_LIMITATIONS",
+      "coverage_status": "COVERED_VIA_ADDON",
       "limitations": [
         {
-          "type": "OTHER_CONDITION",
-          "description": "Hospitalisation covered for 2 hours and more",
+          "type": "OPTIONAL_EXTRA_PREMIUM",
+          "description": "Safeguard+ is an optional benefit and is available on payment of an extra premium.",
           "evidence_ids": [
-            "EV-NIVA-1-041"
-          ]
-        },
-        {
-          "type": "OTHER_CONDITION",
-          "description": "Minimum 24 hours of hospitalisation required for AYUSH treatment in an AYUSH Hospital.",
-          "evidence_ids": [
-            "EV-NIVA-2-076"
-          ]
+            "EV-NIVA-1-036",
+            "EV-NIVA-2-069"
+          ],
+          "quote": "Safeguard+ is an optional benefit and is available on payment of an extra premium."
         }
       ],
       "benefit_evidence_ids": [
         "EV-NIVA-1-041",
-        "EV-NIVA-2-076"
+        "EV-NIVA-2-049"
       ],
       "limitation_evidence_ids": [
-        "EV-NIVA-1-041",
-        "EV-NIVA-2-076"
+        "EV-NIVA-1-036",
+        "EV-NIVA-2-069"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
@@ -98,11 +75,11 @@
           "quote": "Hospitalisation covered for 2 hours and more (11)"
         },
         {
-          "evidence_id": "EV-NIVA-2-076",
-          "quote": "Minimum 24 hours of hospitalisation required for AYUSH treatment in an AYUSH Hospital."
+          "evidence_id": "EV-NIVA-2-049",
+          "quote": "Claim Safeguard+: Non-payable items will be covered (as per list I, II, III, IV of Annexure I)"
         }
       ],
-      "reasoning": "Hospitalisation for 2 hours or more is covered, with a specific 24-hour minimum for AYUSH treatment."
+      "reasoning": "Day-care procedures (hospitalisation for less than 24 hours) are covered only if the optional Safeguard+ benefit is chosen."
     },
     {
       "exposure_id": "EXP-MODERN",
@@ -147,7 +124,8 @@
           "description": "up to INR 2,50,000 per Hospitalisation",
           "evidence_ids": [
             "EV-NIVA-2-015"
-          ]
+          ],
+          "quote": "up to INR 2,50,000 per Hospitalisation"
         }
       ],
       "benefit_evidence_ids": [
@@ -163,7 +141,7 @@
           "quote": "Air Ambulance: up to INR 2,50,000 per Hospitalisation"
         }
       ],
-      "reasoning": "Air ambulance is covered with a sublimit of INR 2,50,000 per hospitalisation."
+      "reasoning": "Air ambulance is covered with a sublimit per hospitalisation."
     },
     {
       "exposure_id": "EXP-DOMICILIARY",
@@ -191,12 +169,12 @@
           "description": "Minimum 24 hours of hospitalisation required for AYUSH treatment in an AYUSH Hospital.",
           "evidence_ids": [
             "EV-NIVA-2-076"
-          ]
+          ],
+          "quote": "Minimum 24 hours of hospitalisation required for AYUSH treatment in an AYUSH Hospital."
         }
       ],
       "benefit_evidence_ids": [
-        "EV-NIVA-2-006",
-        "EV-NIVA-2-076"
+        "EV-NIVA-2-006"
       ],
       "limitation_evidence_ids": [
         "EV-NIVA-2-076"
@@ -205,14 +183,10 @@
       "quotes": [
         {
           "evidence_id": "EV-NIVA-2-006",
-          "quote": "In-patient Care (including AYUSH) ... Covered up to Sum Insured."
-        },
-        {
-          "evidence_id": "EV-NIVA-2-076",
-          "quote": "Minimum 24 hours of hospitalisation required for AYUSH treatment in an AYUSH Hospital."
+          "quote": "Covered up to Sum Insured."
         }
       ],
-      "reasoning": "AYUSH treatment is covered as part of in-patient care, but requires a minimum of 24 hours of hospitalisation in an AYUSH hospital."
+      "reasoning": "AYUSH treatment is covered as part of in-patient care but requires a minimum 24-hour hospitalisation in an AYUSH hospital."
     },
     {
       "exposure_id": "EXP-NONMED",
@@ -222,16 +196,18 @@
           "type": "OPTIONAL_EXTRA_PREMIUM",
           "description": "Safeguard+ is an optional benefit and is available on payment of an extra premium.",
           "evidence_ids": [
+            "EV-NIVA-1-036",
             "EV-NIVA-2-069"
-          ]
+          ],
+          "quote": "Safeguard+ is an optional benefit and is available on payment of an extra premium."
         }
       ],
       "benefit_evidence_ids": [
         "EV-NIVA-1-040",
-        "EV-NIVA-2-049",
-        "EV-NIVA-2-070"
+        "EV-NIVA-2-049"
       ],
       "limitation_evidence_ids": [
+        "EV-NIVA-1-036",
         "EV-NIVA-2-069"
       ],
       "exclusion_evidence_ids": [],
@@ -243,62 +219,44 @@
         {
           "evidence_id": "EV-NIVA-2-049",
           "quote": "Claim Safeguard+: Non-payable items will be covered (as per list I, II, III, IV of Annexure I)"
-        },
-        {
-          "evidence_id": "EV-NIVA-2-070",
-          "quote": "As per the list I, II, III, IV under Annexure I of policy terms and conditions."
         }
       ],
-      "reasoning": "Non-payable items are covered only if the optional Safeguard+ benefit is chosen, which requires an extra premium."
+      "reasoning": "Non-medical/non-payable items are covered only if the optional Safeguard or Safeguard+ benefit is chosen."
     },
     {
       "exposure_id": "EXP-SI-EXHAUST",
-      "coverage_status": "FULLY_COVERED",
+      "coverage_status": "COVERED_WITH_LIMITATIONS",
       "limitations": [
         {
-          "type": "OTHER_CONDITION",
-          "description": "ReAssure+ turns on after 1st claim. Unlimited times and forever. Each claim will be up to the Base Sum Insured.",
-          "evidence_ids": [
-            "EV-NIVA-1-034",
-            "EV-NIVA-2-023"
-          ]
-        },
-        {
           "type": "VARIANT_ONLY",
-          "description": "Booster+ for Platinum+ variant: Unutilised Base Sum Insured carries forward to the next policy year, maximum up to 5 times of Base Sum Insured.",
+          "description": "Booster+ benefit limit depends on the chosen variant (Platinum+ or Titanium+).",
           "evidence_ids": [
-            "EV-NIVA-2-026"
-          ]
-        },
-        {
-          "type": "VARIANT_ONLY",
-          "description": "Booster+ for Titanium+ variant: Unutilised Base Sum Insured carries forward to the next policy year, maximum up to 10 times of Base Sum Insured.",
-          "evidence_ids": [
+            "EV-NIVA-2-026",
             "EV-NIVA-2-027"
-          ]
+          ],
+          "quote": "5X: Unutilised Base Sum Insured carries forward to the next policy year, maximum up to 5 times of Base Sum Insured."
+        },
+        {
+          "type": "OTHER_CONDITION",
+          "description": "ReAssure+ benefit turns on after 1st claim.",
+          "evidence_ids": [
+            "EV-NIVA-1-034"
+          ],
+          "quote": "Turns on after 1st claim. Unlimited times and forever."
         }
       ],
       "benefit_evidence_ids": [
-        "EV-NIVA-1-025",
-        "EV-NIVA-1-034",
-        "EV-NIVA-1-037",
         "EV-NIVA-2-023",
         "EV-NIVA-2-026",
-        "EV-NIVA-2-027",
-        "EV-NIVA-2-068"
+        "EV-NIVA-2-027"
       ],
       "limitation_evidence_ids": [
         "EV-NIVA-1-034",
-        "EV-NIVA-2-023",
         "EV-NIVA-2-026",
         "EV-NIVA-2-027"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
-        {
-          "evidence_id": "EV-NIVA-1-025",
-          "quote": "Never run out of Sum Insured"
-        },
         {
           "evidence_id": "EV-NIVA-2-023",
           "quote": "1 claim triggers ReAssure+, forever. It is Unlimited. Each claim will be up to the Base Sum Insured"
@@ -306,13 +264,9 @@
         {
           "evidence_id": "EV-NIVA-2-026",
           "quote": "5X: Unutilised Base Sum Insured carries forward to the next policy year, maximum up to 5 times of Base Sum Insured."
-        },
-        {
-          "evidence_id": "EV-NIVA-2-027",
-          "quote": "10X: Unutilised Base Sum Insured carries forward to the next policy year, maximum up to 10 times of Base Sum Insured."
         }
       ],
-      "reasoning": "The policy includes ReAssure+ for unlimited claims up to the base SI after the first claim, and Booster+ which carries forward unutilised SI up to 5X for Platinum+ and 10X for Titanium+."
+      "reasoning": "Sum insured exhaustion is addressed by ReAssure+ (unlimited restoration after first claim) and Booster+ (carry-forward of unutilised SI, with limit depending on variant)."
     },
     {
       "exposure_id": "EXP-INFLATION",
@@ -323,11 +277,11 @@
           "description": "Safeguard+ is an optional benefit and is available on payment of an extra premium.",
           "evidence_ids": [
             "EV-NIVA-2-069"
-          ]
+          ],
+          "quote": "Safeguard+ is an optional benefit and is available on payment of an extra premium."
         }
       ],
       "benefit_evidence_ids": [
-        "EV-NIVA-2-047",
         "EV-NIVA-2-051"
       ],
       "limitation_evidence_ids": [
@@ -336,15 +290,11 @@
       "exclusion_evidence_ids": [],
       "quotes": [
         {
-          "evidence_id": "EV-NIVA-2-047",
-          "quote": "Sum Insured Safeguard: CPI linked increase in Base Sum Insured"
-        },
-        {
           "evidence_id": "EV-NIVA-2-051",
           "quote": "Sum Insured Safeguard+: CPI linked increase in Base Sum Insured"
         }
       ],
-      "reasoning": "CPI-linked increase in Base Sum Insured is available as part of the optional Safeguard or Safeguard+ benefits."
+      "reasoning": "Sum insured growth linked to CPI is available only as part of the optional Safeguard or Safeguard+ benefits."
     },
     {
       "exposure_id": "EXP-MATERNITY",
@@ -354,7 +304,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure does not mention maternity coverage."
+      "reasoning": "The brochure does not state whether maternity expenses are covered."
     },
     {
       "exposure_id": "EXP-CHRONIC",
@@ -364,7 +314,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure does not mention coverage for chronic conditions."
+      "reasoning": "The brochure does not state whether chronic conditions are covered."
     },
     {
       "exposure_id": "EXP-PED",
@@ -374,7 +324,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure does not mention pre-existing disease waiting periods."
+      "reasoning": "The brochure does not state information regarding pre-existing disease waiting periods."
     },
     {
       "exposure_id": "EXP-OPD",
@@ -385,7 +335,8 @@
           "description": "Unlimited e-consultation within our network.",
           "evidence_ids": [
             "EV-NIVA-2-036"
-          ]
+          ],
+          "quote": "Unlimited e-consultation within our network."
         }
       ],
       "benefit_evidence_ids": [
@@ -401,7 +352,7 @@
           "quote": "Unlimited e-consultation within our network."
         }
       ],
-      "reasoning": "Unlimited e-consultations are covered but only within the insurer's network."
+      "reasoning": "Outpatient e-consultations are covered, but only within the insurer's network."
     },
     {
       "exposure_id": "EXP-PREVENTIVE",
@@ -412,26 +363,28 @@
           "description": "up to INR 500 for every INR 1 Lac Base Sum Insured. (Individual: Maximum INR 5,000 per Insured; Family Floater: Maximum INR 10,000 per policy).",
           "evidence_ids": [
             "EV-NIVA-2-021"
-          ]
+          ],
+          "quote": "up to INR 500 for every INR 1 Lac Base Sum Insured. (Individual: Maximum INR 5,000 per Insured; Family Floater: Maximum INR 10,000 per policy)."
         },
         {
           "type": "NETWORK_ONLY",
           "description": "Available only on cashless with our network provider.",
           "evidence_ids": [
             "EV-NIVA-2-072"
-          ]
+          ],
+          "quote": "Available only on cashless with our network provider."
         },
         {
           "type": "OTHER_CONDITION",
           "description": "For defined list of tests",
           "evidence_ids": [
             "EV-NIVA-2-021"
-          ]
+          ],
+          "quote": "For defined list of tests"
         }
       ],
       "benefit_evidence_ids": [
-        "EV-NIVA-2-021",
-        "EV-NIVA-2-072"
+        "EV-NIVA-2-021"
       ],
       "limitation_evidence_ids": [
         "EV-NIVA-2-021",
@@ -442,13 +395,9 @@
         {
           "evidence_id": "EV-NIVA-2-021",
           "quote": "For defined list of tests; up to INR 500 for every INR 1 Lac Base Sum Insured. (Individual: Maximum INR 5,000 per Insured; Family Floater: Maximum INR 10,000 per policy)."
-        },
-        {
-          "evidence_id": "EV-NIVA-2-072",
-          "quote": "Available only on cashless with our network provider."
         }
       ],
-      "reasoning": "Annual health check-ups are covered up to a sublimit based on SI and policy type, for a defined list of tests, and only cashless with network providers."
+      "reasoning": "Annual health check-ups are covered with a sublimit based on SI, for a defined list of tests, and only cashless within the network."
     },
     {
       "exposure_id": "EXP-INTL",
@@ -458,7 +407,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure does not mention coverage for treatment abroad."
+      "reasoning": "The brochure does not state whether treatment abroad is covered."
     },
     {
       "exposure_id": "EXP-CRITICAL",
@@ -468,7 +417,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure does not mention coverage for critical illness."
+      "reasoning": "The brochure does not state whether critical illness is covered."
     },
     {
       "exposure_id": "EXP-ACCIDENT",
@@ -479,21 +428,15 @@
           "description": "Personal Accident is an optional benefit.",
           "evidence_ids": [
             "EV-NIVA-2-042"
-          ]
-        },
-        {
-          "type": "SUBLIMIT",
-          "description": "Choose from 1X / 2X / 3X / 4X / 5X of base sum insured. Maximum up to INR 1 Crore.",
-          "evidence_ids": [
-            "EV-NIVA-2-043"
-          ]
+          ],
+          "quote": "Personal Accident"
         }
       ],
       "benefit_evidence_ids": [
         "EV-NIVA-2-043"
       ],
       "limitation_evidence_ids": [
-        "EV-NIVA-2-043"
+        "EV-NIVA-2-042"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
@@ -502,7 +445,7 @@
           "quote": "Choose from 1X / 2X / 3X / 4X / 5X of base sum insured. Maximum up to INR 1 Crore."
         }
       ],
-      "reasoning": "Personal Accident cover is an optional benefit with a choice of sum insured multiples up to INR 1 Crore."
+      "reasoning": "Personal accident cover is available as an optional benefit for an extra premium."
     },
     {
       "exposure_id": "EXP-DEPENDENTS",
@@ -512,7 +455,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure mentions 'Family Floater' and eligibility for 'Live Healthy' but does not explicitly state coverage for parents/dependents as insured members."
+      "reasoning": "The brochure does not explicitly state coverage for parents or other dependents, only mentions \"Family Floater policy\" in a footnote about a wellness benefit."
     },
     {
       "exposure_id": "EXP-HOSPCASH",
@@ -523,28 +466,47 @@
           "description": "Hospital Cash is an optional benefit.",
           "evidence_ids": [
             "EV-NIVA-2-038"
-          ]
+          ],
+          "quote": "(8) Hospital Cash"
         },
         {
           "type": "SI_TIER_CONDITION",
-          "description": "At assumed SI of ₹10,00,000 (10 Lacs), Hospital Cash is INR 2,000/day (Between INR 7.5 Lacs to INR 15 Lac Base Sum Insured).",
+          "description": "Daily benefit amount depends on Base Sum Insured: INR 2,000/day for SI between INR 7.5 Lacs to INR 15 Lac.",
           "evidence_ids": [
             "EV-NIVA-2-040"
-          ]
+          ],
+          "quote": "Between INR 7.5 Lacs to INR 15 Lac Base Sum Insured: INR 2,000/day"
+        },
+        {
+          "type": "WAITING_PERIOD",
+          "description": "Minimum 48 hrs. of continuous hospitalisation required.",
+          "evidence_ids": [
+            "EV-NIVA-2-073"
+          ],
+          "quote": "Minimum 48 hrs. of continuous hospitalisation required."
+        },
+        {
+          "type": "SUBLIMIT",
+          "description": "Maximum coverage offered for 30 days/policy year/insured person.",
+          "evidence_ids": [
+            "EV-NIVA-2-073"
+          ],
+          "quote": "Maximum coverage offered for 30 days/policy year/insured person."
         },
         {
           "type": "OTHER_CONDITION",
-          "description": "Minimum 48 hrs. of continuous hospitalisation required. Maximum coverage offered for 30 days/policy year/insured person. Payment made from day one is subject to the hospitalisation claim being admissible.",
+          "description": "Payment made from day one is subject to the hospitalisation claim being admissible.",
           "evidence_ids": [
             "EV-NIVA-2-073"
-          ]
+          ],
+          "quote": "Payment made from day one is subject to the hospitalisation claim being admissible."
         }
       ],
       "benefit_evidence_ids": [
-        "EV-NIVA-2-040",
-        "EV-NIVA-2-073"
+        "EV-NIVA-2-040"
       ],
       "limitation_evidence_ids": [
+        "EV-NIVA-2-038",
         "EV-NIVA-2-040",
         "EV-NIVA-2-073"
       ],
@@ -553,13 +515,9 @@
         {
           "evidence_id": "EV-NIVA-2-040",
           "quote": "Between INR 7.5 Lacs to INR 15 Lac Base Sum Insured: INR 2,000/day"
-        },
-        {
-          "evidence_id": "EV-NIVA-2-073",
-          "quote": "Minimum 48 hrs. of continuous hospitalisation required. Maximum coverage offered for 30 days/policy year/insured person. Payment made from day one is subject to the hospitalisation claim being admissible."
         }
       ],
-      "reasoning": "Daily hospital cash is an optional benefit with a daily amount dependent on the sum insured (INR 2,000/day for 10 Lacs SI), subject to minimum 48 hours hospitalisation and a 30-day annual limit."
+      "reasoning": "Daily hospital cash is an optional benefit with a daily amount dependent on SI, a minimum hospitalisation period, and a maximum coverage duration."
     },
     {
       "exposure_id": "EXP-ORGAN",
@@ -580,46 +538,14 @@
     },
     {
       "exposure_id": "EXP-WELLNESS",
-      "coverage_status": "COVERED_WITH_LIMITATIONS",
-      "limitations": [
-        {
-          "type": "OTHER_CONDITION",
-          "description": "Up to 30% discount on renewal premium basis step count.",
-          "evidence_ids": [
-            "EV-NIVA-1-039",
-            "EV-NIVA-2-029"
-          ]
-        },
-        {
-          "type": "OTHER_CONDITION",
-          "description": "Eligible insured person for this benefit will be - a. All members except son/daughter under a Family Floater policy & b. Any member of age at least 18 years under an Individual policy.",
-          "evidence_ids": [
-            "EV-NIVA-2-071"
-          ]
-        }
-      ],
-      "benefit_evidence_ids": [
-        "EV-NIVA-1-039",
-        "EV-NIVA-2-029",
-        "EV-NIVA-2-071"
-      ],
-      "limitation_evidence_ids": [
-        "EV-NIVA-1-039",
-        "EV-NIVA-2-029",
-        "EV-NIVA-2-071"
-      ],
+      "coverage_status": "NOT_STATED",
+      "limitations": [],
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
-      "quotes": [
-        {
-          "evidence_id": "EV-NIVA-1-039",
-          "quote": "Up to 30% discount on renewal premium basis step count."
-        },
-        {
-          "evidence_id": "EV-NIVA-2-071",
-          "quote": "Eligible insured person for this benefit will be - a. All members except son/daughter under a Family Floater policy & b. Any member of age at least 18 years under an Individual policy."
-        }
-      ],
-      "reasoning": "The 'Live Healthy' program offers up to a 30% discount on renewal premium based on step count, with specific eligibility criteria."
+      "quotes": [],
+      "reasoning": "The \"Live Healthy\" benefit offers a discount on renewal premium, which is not considered coverage for wellness programs themselves."
     }
-  ]
+  ],
+  "repaired": []
 }

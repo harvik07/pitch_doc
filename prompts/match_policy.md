@@ -25,12 +25,17 @@ Return one entry in "matches" for EVERY exposure above, with:
     "not payable" naming it), and no add-on covers it. A benefit that is limited to India or to some cases is
     not an exclusion of this exposure.
   - NOT_STATED: the brochure doesn't say whether it is covered. Use this whenever you are unsure.
-- limitations: every limitation that applies, each {type, description, evidence_ids}:
-  SUBLIMIT (a cap below the SI), COPAY, WAITING_PERIOD, SI_TIER_CONDITION (depends on the SI; say what applies at
-  the assumed SI), VARIANT_ONLY (only some plan variants), ADDON_REQUIRED (needs an add-on policy/rider),
-  OPTIONAL_EXTRA_PREMIUM (optional benefit for extra premium), NETWORK_ONLY, OTHER_CONDITION.
+- limitations: every limitation that applies, each {type, description, evidence_ids, quote}:
+  SUBLIMIT (a cap below the SI), COPAY, WAITING_PERIOD, SI_TIER_CONDITION (depends on the SI; cite the items that
+  state the SI values), VARIANT_ONLY (only some plan variants), ADDON_REQUIRED (needs an add-on policy/rider),
+  OPTIONAL_EXTRA_PREMIUM (optional benefit for extra premium), NETWORK_ONLY, OTHER_CONDITION (a real restriction
+  that fits no other type).
   COVERED_VIA_ADDON always has an ADDON_REQUIRED or OPTIONAL_EXTRA_PREMIUM limitation.
   description: short, using the brochure's own numbers and words.
+  quote: copied verbatim from ONE of the limitation's evidence items (required for OTHER_CONDITION).
+  NOT limitations (never list them): terms that define the benefit itself, such as the pre/post-hospitalisation
+  day windows ("60 days" pre / "180 days" post) and "covered up to Sum Insured". A benefit whose only terms are
+  these is FULLY_COVERED.
 - benefit_evidence_ids: the items that state the benefit (required for any COVERED_* status).
 - limitation_evidence_ids: the items (often footnotes) that state the limitations.
 - exclusion_evidence_ids: the items that state the exclusion (required for EXCLUDED).
@@ -48,6 +53,11 @@ Rules:
 - A discount on services ("discounts on consultations, diagnostics, maternity") is NOT coverage of those services.
 - A benefit that the brochure does not mention for this exposure → NOT_STATED. Never guess covered or excluded.
 - If the base plan excludes it but an add-on covers it → COVERED_VIA_ADDON.
+- If the base plan (tier BASE, in any variant) covers the exposure, classify by the base-plan benefit
+  (FULLY_COVERED or COVERED_WITH_LIMITATIONS), even if an optional benefit or add-on adds more. Use
+  COVERED_VIA_ADDON only when no base-plan benefit covers it.
+- Treat the same kind of term the same way in every exposure: a cap is always SUBLIMIT, a wait is always
+  WAITING_PERIOD, an optional benefit is always OPTIONAL_EXTRA_PREMIUM.
 - Evaluate SI-tiered benefits at the assumed SI and record the tier as a SI_TIER_CONDITION limitation.
 - A VARIANT_ONLY benefit: if the evidence gives that variant a sum-insured range, also add a SI_TIER_CONDITION
   limitation stating the range and whether the assumed SI is inside it.

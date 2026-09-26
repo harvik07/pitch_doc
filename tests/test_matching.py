@@ -14,11 +14,14 @@ from marsh import matching, settings
 from marsh.evidence_store import load_evidence
 from marsh.exposures import load_taxonomy
 from marsh.matching import (
+    SI_UNREADABLE,
     build_coverage_matrix,
     evidence_hash,
+    is_covered,
     matrix_cache_path,
     prompt_hash,
     select_relevant,
+    si_availability,
     taxonomy_hash,
     validate_match,
     validate_matrix,
@@ -56,11 +59,16 @@ def text(store, evidence_id):
 
 
 def cell(exposure_id, status, *, benefit=(), limitation=(), exclusion=(), quotes=(), limitations=()):
+    """limitations: (type, evidence_ids) or (type, evidence_ids, description, quote)."""
+    def lim(spec):
+        kind, ids, description, quote = (*spec, "Placeholder.", None)[:4] if len(spec) == 2 else spec
+        return {"type": kind, "description": description, "evidence_ids": list(ids), "quote": quote}
+
     return MatchDraft.model_validate({
         "exposure_id": exposure_id, "coverage_status": status, "benefit_evidence_ids": list(benefit),
         "limitation_evidence_ids": list(limitation), "exclusion_evidence_ids": list(exclusion),
         "quotes": [{"evidence_id": e, "quote": q} for e, q in quotes],
-        "limitations": [{"type": t, "description": "Placeholder.", "evidence_ids": list(ids)} for t, ids in limitations],
+        "limitations": [lim(spec) for spec in limitations],
     })
 
 
@@ -101,6 +109,20 @@ def test_invalid_cells_become_not_stated(store, change, error):
     assert match.validation_errors[0] == "LLM said COVERED_WITH_LIMITATIONS"
     assert any(error in e for e in match.validation_errors), match.validation_errors
     assert match.quotes == [] and match.benefit_evidence_ids == []
+
+
+def test_a_quote_may_span_a_split_heading_sentence(store):
+    """ABHI: Docling split "NO CAPPING ^ on hospitalization expenses …" into a heading and a text item."""
+    item = store.get("EV-ABHI-1-043")
+    assert item.text.startswith("on ") and item.section == "NO CAPPING ^"
+    draft = cell("EXP-HOSP", FULL, benefit=[item.evidence_id],
+                 quotes=[(item.evidence_id, "NO CAPPING ^ " + item.text)])
+    assert validate_match(draft, "POL-ABHI", store).validated
+    capitalised = next(i for i in store.items_for_policy("POL-NIVA") if i.text[:1].isupper() and i.section != i.text
+                       and i.benefit_tier.value == "BASE")
+    joined = cell("EXP-HOSP", FULL, benefit=[capitalised.evidence_id],
+                  quotes=[(capitalised.evidence_id, f"{capitalised.section} {capitalised.text}")])
+    assert not validate_match(joined, "POL-NIVA", store).validated  # only a lower-case continuation joins
 
 
 def test_non_citable_evidence_is_rejected(store):
@@ -156,17 +178,140 @@ def test_addon_status_is_corrected_from_the_tiers(store):
                           "POL-NIVA", store)  # BASE-tier evidence: not an add-on
     assert base.validated and base.coverage_status == FULL
     assert base.validation_errors[0].startswith("corrected: COVERED_VIA_ADDON")
+
+
+def complete(taxonomy, *cells):
+    """A full LLM matrix: the given cells, NOT_STATED for every other exposure."""
+    given = {c.exposure_id for c in cells}
+    return MatchResponse(matches=[*cells, *(cell(e.id, NOT_STATED) for e in taxonomy.exposures if e.id not in given)])
+
+
+def care_air(store, limitations):
     air_care = next(i for i in store.items_for_policy("POL-CARE") if i.page == 3 and "5 lacs per year" in i.text)
     optional = next(i for i in store.items_for_policy("POL-CARE") if i.benefit_tier.value == "OPTIONAL")
-    added = validate_match(cell("EXP-AMB-AIR", ADDON, benefit=[air_care.evidence_id, optional.evidence_id],
-                                quotes=[(air_care.evidence_id, air_care.text)]), "POL-CARE", store)
-    assert added.validated and added.coverage_status == ADDON
-    assert [lim.type for lim in added.limitations] == [LimitationType.OPTIONAL_EXTRA_PREMIUM]
+    return cell("EXP-AMB-AIR", ADDON, benefit=[air_care.evidence_id, optional.evidence_id],
+                quotes=[(air_care.evidence_id, air_care.text)], limitations=limitations), optional.evidence_id
 
 
-def test_fully_covered_with_limitations_is_corrected(store):
+def test_c3_addon_needs_an_addon_limitation(store):
+    draft, optional_id = care_air(store, [])
+    missing = validate_match(draft, "POL-CARE", store)
+    assert not missing.validated and any("ADDON_REQUIRED or OPTIONAL_EXTRA_PREMIUM" in e
+                                         for e in missing.validation_errors)
+    draft, optional_id = care_air(store, [("OPTIONAL_EXTRA_PREMIUM", [optional_id])])
+    ok = validate_match(draft, "POL-CARE", store)
+    assert ok.validated and ok.coverage_status == ADDON
+
+
+def test_c3_fully_covered_with_limitations_is_downgraded(store):
     match = validate_match(air_niva(store).model_copy(update={"coverage_status": FULL}), "POL-NIVA", store)
     assert match.validated and match.coverage_status == LIMITS
+    assert "corrected: FULLY_COVERED with material limitations → COVERED_WITH_LIMITATIONS" in match.validation_errors
+
+
+# --- M1: benefit-defining terms and OTHER_CONDITION ----------------------------------------------------------
+
+
+def niva_prepost(store, limitations):
+    return cell("EXP-PREPOST", LIMITS, benefit=["EV-NIVA-2-008", "EV-NIVA-2-010"],
+                quotes=[("EV-NIVA-2-008", text(store, "EV-NIVA-2-008")),
+                        ("EV-NIVA-2-010", text(store, "EV-NIVA-2-010"))], limitations=limitations)
+
+
+def test_m1_pre_post_windows_are_not_limitations(store):
+    """Niva's "60 Days. Covered up to Sum Insured." is the benefit, not a limitation of it."""
+    draft = niva_prepost(store, [("OTHER_CONDITION", ["EV-NIVA-2-008"], "60 Days.", "60 Days."),
+                                 ("OTHER_CONDITION", ["EV-NIVA-2-010"], "180 Days.", "180 Days.")])
+    match = validate_match(draft, "POL-NIVA", store)
+    assert match.validated and match.coverage_status == FULL and match.limitations == []
+    assert sum(n.startswith("dropped:") for n in match.validation_errors) == 2
+
+
+@pytest.mark.parametrize("description", ["Covered up to Sum Insured.", "up to the sum insured"])
+def test_m1_covered_up_to_si_is_not_a_sublimit(store, description):
+    match = validate_match(niva_prepost(store, [("SUBLIMIT", ["EV-NIVA-2-008"], description, None)]), "POL-NIVA", store)
+    assert match.validated and match.coverage_status == FULL
+
+
+def test_m1_real_caps_and_waits_stay(store):
+    match = validate_match(air_niva(store), "POL-NIVA", store)  # "up to INR 2,50,000" is a real sublimit
+    assert [lim.type for lim in match.limitations] == [LimitationType.SUBLIMIT]
+
+
+def test_c3_other_condition_needs_its_own_verbatim_quote(store):
+    ayush = "Minimum 24 hours of hospitalisation required for AYUSH treatment"
+    base = dict(benefit=["EV-NIVA-2-006"], quotes=[("EV-NIVA-2-006", "Covered up to Sum Insured.")])
+    kept = validate_match(cell("EXP-AYUSH", LIMITS, limitations=[("OTHER_CONDITION", ["EV-NIVA-2-076"],
+                                                                   "Minimum 24 hours", ayush)], **base),
+                          "POL-NIVA", store)
+    assert kept.validated and kept.limitations[0].quote == ayush
+    unquoted = validate_match(cell("EXP-AYUSH", LIMITS, limitations=[("OTHER_CONDITION", ["EV-NIVA-2-076"],
+                                                                       "Minimum 24 hours", None)], **base),
+                              "POL-NIVA", store)
+    assert unquoted.validated and unquoted.coverage_status == FULL and unquoted.limitations == []
+    wrong_quote = validate_match(cell("EXP-AYUSH", LIMITS, limitations=[("OTHER_CONDITION", ["EV-NIVA-2-076"],
+                                                                          "x", "Minimum 12 hours")], **base),
+                                 "POL-NIVA", store)
+    assert wrong_quote.limitations == []
+
+
+def test_c3_limitations_without_any_limitation_is_an_error(store):
+    match = validate_match(air_niva(store, limitations=[]), "POL-NIVA", store)
+    assert not match.validated and "COVERED_WITH_LIMITATIONS without any limitation" in match.validation_errors
+
+
+# --- C4 / M2: available_at_assumed_si --------------------------------------------------------------------------
+
+
+def abhi_maternity(store, si_evidence=("EV-ABHI-2-009",)):
+    return cell("EXP-MATERNITY", LIMITS, benefit=["EV-ABHI-2-009"],
+                quotes=[("EV-ABHI-2-009", "International & Domestic Maternity Cover")],
+                limitations=[("VARIANT_ONLY", ["EV-ABHI-2-009"]), ("SI_TIER_CONDITION", list(si_evidence))])
+
+
+@pytest.mark.parametrize("si, available", [(1_000_000, False), (5_000_000, True), (7_500_000, True),
+                                           (6_000_000, False), (10_000_000, True), (50_000_000, True)])
+def test_c4_abhi_maternity_availability(store, si, available):
+    """Footnote %: "For BSI INR 50 Lacs and 75 Lacs … For BSI INR 1 Cr and Above" (golden fact)."""
+    match = validate_match(abhi_maternity(store), "POL-ABHI", store, si)
+    assert match.validated and match.available_at_assumed_si is available and is_covered(match) is available
+    if not available and si < 5_000_000:
+        assert any(n.startswith("needs higher SI") for n in match.validation_errors)
+
+
+@pytest.mark.parametrize("si, available", [(1_000_000, False), (5_000_000, True), (60_000_000, True),
+                                           (70_000_000, False)])
+def test_c4_abhi_international_availability(store, si, available):
+    draft = cell("EXP-INTL", LIMITS, benefit=["EV-ABHI-2-008"], quotes=[("EV-ABHI-2-008", text(store, "EV-ABHI-2-008"))],
+                 limitations=[("VARIANT_ONLY", ["EV-ABHI-2-008"]), ("SI_TIER_CONDITION", ["EV-ABHI-2-034"])])
+    assert validate_match(draft, "POL-ABHI", store, si).available_at_assumed_si is available
+
+
+def test_c4_unreadable_si_condition_is_not_available(store):
+    draft = cell("EXP-INTL", LIMITS, benefit=["EV-ABHI-2-008"], quotes=[("EV-ABHI-2-008", text(store, "EV-ABHI-2-008"))],
+                 limitations=[("SI_TIER_CONDITION", ["EV-ABHI-2-064"])])  # "…SI under VIP+ plan is combined."
+    match = validate_match(draft, "POL-ABHI", store)
+    assert match.validated and not match.available_at_assumed_si and SI_UNREADABLE in match.validation_errors
+
+
+def test_c4_care_road_ambulance_tiers_cover_every_si(store):
+    tiers = [i for i in store.items_for_policy("POL-CARE") if i.page == 2 and "15 lac" in i.text
+             and "10,000" in i.text or (i.page == 2 and "15 lac and above" in i.text)]
+    ids = [i.evidence_id for i in tiers]
+    draft = cell("EXP-AMB-ROAD", LIMITS, benefit=ids[:1], quotes=[(ids[0], text(store, ids[0]))],
+                 limitations=[("SI_TIER_CONDITION", ids)])
+    for si in (500_000, 1_000_000, 1_500_000, 5_000_000):
+        assert validate_match(draft, "POL-CARE", store, si).available_at_assumed_si
+
+
+def test_c4_no_si_condition_means_available_and_not_stated_means_not(store):
+    assert validate_match(air_niva(store), "POL-NIVA", store).available_at_assumed_si
+    assert not validate_match(cell("EXP-AMB-AIR", NOT_STATED), "POL-NIVA", store).available_at_assumed_si
+
+
+def test_c4_availability_is_recomputed_for_another_si(store):
+    match = validate_match(abhi_maternity(store), "POL-ABHI", store, 1_000_000)
+    assert si_availability(match, store, 5_000_000) == (True, None)
 
 
 def test_not_stated_claims_nothing(store):
@@ -192,16 +337,49 @@ def test_select_relevant_keeps_the_company_order(store, taxonomy):
 # --- Cache ----------------------------------------------------------------------------------------------------
 
 
+def test_m3_failed_cells_get_one_repair_retry(store, taxonomy, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "CACHE_DIR", tmp_path)
+    bad_ayush = cell("EXP-AYUSH", LIMITS, benefit=["EV-NIVA-2-006"], limitations=[("OTHER_CONDITION", [])],
+                     quotes=[("EV-NIVA-2-006", "In-patient Care (including AYUSH) ... Covered up to Sum Insured.")])
+    good_ayush = cell("EXP-AYUSH", FULL, benefit=["EV-NIVA-2-006"],
+                      quotes=[("EV-NIVA-2-006", "Covered up to Sum Insured.")])
+    calls = []
+
+    def fake_llm(prompt_name, variables, response_model, model=None, run_id=None, **_):
+        calls.append((prompt_name, variables.get("failed_cells")))
+        if prompt_name == "match_policy":
+            return complete(taxonomy, air_niva(store), bad_ayush)
+        return MatchResponse(matches=[good_ayush, cell("EXP-AMB-AIR", NOT_STATED)])  # may only replace failed cells
+
+    monkeypatch.setattr(matching, "call_structured", fake_llm)
+    cells = {m.exposure_id: m for m in build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy)}
+    assert [c[0] for c in calls] == ["match_policy", "match_policy_repair"]
+    assert "not found verbatim" in calls[1][1] and "EXP-AYUSH" in calls[1][1] and "EXP-AMB-AIR" not in calls[1][1]
+    assert cells["EXP-AYUSH"].validated and cells["EXP-AYUSH"].coverage_status == FULL
+    assert cells["EXP-AMB-AIR"].coverage_status == LIMITS  # untouched by the repair
+    cached = load_json(CoverageMatrixCache, matrix_cache_path(store.document("POL-NIVA").sha256, 1_000_000))
+    assert "EXP-AYUSH" in cached.repaired
+
+
+def test_m3_a_cell_still_failing_after_repair_is_not_stated(store, taxonomy, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "CACHE_DIR", tmp_path)
+    bad = cell("EXP-AYUSH", LIMITS, benefit=["EV-NIVA-2-006"], limitations=[("SUBLIMIT", ["EV-NIVA-2-006"])],
+               quotes=[("EV-NIVA-2-006", "In-patient Care ... Sum Insured.")])
+    monkeypatch.setattr(matching, "call_structured", lambda *a, **k: complete(taxonomy, bad))
+    cells = {m.exposure_id: m for m in build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy)}
+    assert (cells["EXP-AYUSH"].coverage_status, cells["EXP-AYUSH"].validated) == (NOT_STATED, False)
+
+
 def test_matrix_cache_is_used_and_rebuilt_when_stale(store, taxonomy, tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "CACHE_DIR", tmp_path)
     calls = []
 
     def fake_llm(prompt_name, variables, response_model, model=None, run_id=None, **_):
         calls.append(prompt_name)
-        return MatchResponse(matches=[air_niva(store)])
+        return complete(taxonomy, air_niva(store))
 
     monkeypatch.setattr(matching, "call_structured", fake_llm)
-    first = build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy)
+    first = build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy)  # no failed cell: no repair
     again = build_coverage_matrix("POL-NIVA", 1_000_000, store=store, taxonomy=taxonomy)
     assert calls == ["match_policy"] and first == again
     path = matrix_cache_path(store.document("POL-NIVA").sha256, 1_000_000)
@@ -260,6 +438,47 @@ def test_expected_cells(committed):
     chronic = statuses(committed, "EXP-CHRONIC")
     assert chronic["NIVA"] == NOT_STATED and chronic["HDFC"] == ADDON and chronic["CARE"] == ADDON
     assert chronic["ABHI"] in (FULL, LIMITS)
+
+
+def test_committed_availability_at_the_default_si(store, committed):
+    """VIP+ SI starts at INR 50 Lacs: ABHI maternity and treatment abroad aren't available at ₹10 lakh."""
+    for exposure_id in ("EXP-MATERNITY", "EXP-INTL"):
+        m = committed["POL-ABHI"][exposure_id]
+        assert not m.available_at_assumed_si and not is_covered(m)
+        assert si_availability(m, store, 5_000_000)[0]  # available at ₹50 lakh
+    assert is_covered(committed["POL-NIVA"]["EXP-AMB-AIR"])
+
+
+def test_committed_availability_reads_every_tier_of_the_row(store, committed):
+    """Niva hospital cash cites the ₹7.5–15 lakh row; its sibling tiers (up to 5 Lac, above 15 Lac) count too.
+    HDFC's preventive check-up tiers state the SI only in the column label ("10 L"): the annotated si_condition
+    is used."""
+    hospital_cash = committed["POL-NIVA"]["EXP-HOSPCASH"]
+    assert hospital_cash.available_at_assumed_si
+    assert si_availability(hospital_cash, store, 500_000)[0] and si_availability(hospital_cash, store, 5_000_000)[0]
+    assert committed["POL-HDFC"]["EXP-PREVENTIVE"].available_at_assumed_si
+    not_available = [m.match_id for cells in committed.values() for m in cells.values()
+                     if m.coverage_status in (FULL, LIMITS, ADDON) and not m.available_at_assumed_si]
+    assert sorted(not_available) == ["MATCH-ABHI-INTL", "MATCH-ABHI-MATERNITY"]
+
+
+def test_committed_m1_m3(committed):
+    assert committed["POL-NIVA"]["EXP-PREPOST"].coverage_status == FULL  # windows are not limitations (M1)
+    assert is_covered(committed["POL-NIVA"]["EXP-AYUSH"])  # valid on the first pass of this run (M3)
+    assert committed["POL-HDFC"]["EXP-PED"].validated  # fixed by its one repair retry
+    care_ped = committed["POL-CARE"]["EXP-PED"]  # still invalid after its one repair: NOT_STATED, validated=False
+    assert (care_ped.coverage_status, care_ped.validated) == (NOT_STATED, False)
+    failed = [m.match_id for cells in committed.values() for m in cells.values() if not m.validated]
+    assert failed == ["MATCH-CARE-PED"]
+
+
+@pytest.mark.xfail(strict=True, reason="M4 open: Gemini files Booster+ (BASE) under EXP-SI-EXHAUST and treats "
+                                       "EXP-INFLATION as CPI-linked only (optional Safeguard+). Fix: name the SI-growth "
+                                       "mechanisms in the EXP-INFLATION description, then re-run the matrices.")
+def test_committed_m4_niva_inflation_is_covered_by_booster(committed):
+    inflation = committed["POL-NIVA"]["EXP-INFLATION"]
+    assert inflation.coverage_status in (FULL, LIMITS) and {"EV-NIVA-2-026", "EV-NIVA-2-027"} & set(
+        inflation.benefit_evidence_ids)
 
 
 def test_every_covered_or_excluded_cell_has_validated_quotes(committed):

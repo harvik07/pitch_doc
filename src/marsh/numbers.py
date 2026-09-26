@@ -431,3 +431,77 @@ def numbers_for_item(item: EvidenceItem) -> list[NormalisedNumber]:
         unit = next((u for u in units if u), None) or row_unit or count
         numbers = parse_numbers(text, bare_unit=unit[0], bare_scale=unit[1])
     return [n.model_copy(update={"raw": item.text[n.span[0]:n.span[1]].strip()}) for n in numbers]
+
+
+# --- Sum-insured ranges (availability at the assumed SI) ----------------------------------------------------------
+
+_SI_WORD = r"(?:base\s+)?(?:sum\s+insured|bsi|si)"
+_CUR = r"(?:inr\.?|rs\.?|₹|`)?"
+_LOWER_WORDS = r"above|over|more than|from|at least|minimum|min\.?|starting at|starts at"
+_UPPER_WORDS = r"below|under|less than|up\s*to|upto"
+_STRICT_WORDS = {"above", "over", "more than", "below", "under", "less than"}
+# SI word right before the amount, optionally with a bound word: "SI below `15 lac", "Sum Insured from INR 50 Lacs",
+# "BSI INR 1 Cr". A ":" after the SI word introduces a benefit amount ("Base Sum Insured: INR 800 per day"), so it
+# is not allowed here.
+_SI_BEFORE = re.compile(rf"\b{_SI_WORD}\s*(?:\(\s*si\s*\))?\s*(?:(?P<bound>{_LOWER_WORDS}|{_UPPER_WORDS}|of)\s*)?{_CUR}\s*$",
+                        re.IGNORECASE)
+_BOUND_BEFORE = re.compile(rf"(?P<bound>{_LOWER_WORDS}|{_UPPER_WORDS})\s*{_CUR}\s*$", re.IGNORECASE)
+# SI word right after the amount: "INR 15 Lac Base Sum Insured", "`15 Lakh and above SI".
+_SI_AFTER = re.compile(rf"^\s*(?P<bound>and above|or above|or more|onwards|\+|and below|or below|or less)?\s*{_SI_WORD}\b",
+                       re.IGNORECASE)
+_BOUND_AFTER = re.compile(r"^\s*(?P<bound>and above|or above|or more|onwards|\+|and below|or below|or less)",
+                          re.IGNORECASE)
+_RANGE_OPEN = re.compile(rf"\b(?:between|from)\s*{_CUR}\s*$", re.IGNORECASE)
+_RANGE_JOIN = re.compile(rf"^\s*(?:to|and|-|–)\s*{_CUR}\s*$", re.IGNORECASE)
+_SI_LIST_SEPARATOR = re.compile(rf"^\s*(?P<sep>,|and|&|/|or|to|-|–)\s*{_CUR}\s*$", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class SIRange:
+    """A range of sums insured a benefit applies to: [low, high], each end inclusive unless flagged."""
+    low: float = 0.0
+    high: float = float("inf")
+    low_exclusive: bool = False
+    high_exclusive: bool = False
+
+    def contains(self, si: float) -> bool:
+        above = si > self.low if self.low_exclusive else si >= self.low * (1 - 1e-9)
+        below = si < self.high if self.high_exclusive else si <= self.high * (1 + 1e-9)
+        return above and below
+
+
+def sum_insured_ranges(text: str, numbers: list[NormalisedNumber] | None = None) -> list[SIRange]:
+    """The SI ranges a piece of verbatim evidence states ("For SI below `15 lac", "Sum Insured from INR 50 Lacs to
+    INR 6 Crores", "For BSI INR 50 Lacs and 75 Lacs", "BSI INR 1 Cr and Above"). Amounts that are benefit limits
+    ("up to `10,000", "Maternity up to INR 1 Lac") are not SI values. Empty if the text states no SI value."""
+    numbers = numbers if numbers is not None else parse_numbers(text)
+    ranges: list[SIRange] = []
+    previous: tuple[NormalisedNumber, str | None] | None = None  # the last SI amount and its bound word
+    opening: NormalisedNumber | None = None  # "between/from X" before an SI-anchored "to Y … Sum Insured"
+    for n in (n for n in numbers if n.unit == NumberUnit.INR):
+        start, end = n.span
+        before, after = text[max(0, start - 60):start], text[end:end + 40]
+        si_before, si_after = _SI_BEFORE.search(before), _SI_AFTER.match(after)
+        if opening is not None and si_after and _RANGE_JOIN.match(text[opening.span[1]:start]):
+            ranges.append(SIRange(low=opening.value, high=n.value))  # "Between INR 7.5 Lacs to INR 15 Lac Base SI"
+            opening, previous = None, (n, None)
+            continue
+        opening = n if (not si_before and _RANGE_OPEN.search(before)) else None
+        sep = _SI_LIST_SEPARATOR.match(text[previous[0].span[1]:start]) if previous else None
+        if not (si_before or si_after or sep):
+            previous = None
+            continue
+        bound = ((si_before and si_before.group("bound")) or (si_after and si_after.group("bound"))
+                 or (m.group("bound") if (m := _BOUND_BEFORE.search(before) or _BOUND_AFTER.match(after)) else None))
+        bound = re.sub(r"\s+", " ", bound.lower()) if bound else None
+        if sep and not (si_before or si_after) and sep.group("sep").lower() in ("to", "-", "–") \
+                and previous[1] in ("from",) and ranges:
+            ranges[-1] = SIRange(ranges[-1].low, n.value, ranges[-1].low_exclusive, False)  # "from X to Y"
+        elif bound and re.fullmatch(rf"{_LOWER_WORDS}|and above|or above|or more|onwards|\+", bound):
+            ranges.append(SIRange(low=n.value, low_exclusive=bound in _STRICT_WORDS))
+        elif bound and re.fullmatch(rf"{_UPPER_WORDS}|and below|or below|or less", bound):
+            ranges.append(SIRange(high=n.value, high_exclusive=bound in _STRICT_WORDS))
+        else:
+            ranges.append(SIRange(low=n.value, high=n.value))  # a listed SI option: "For BSI INR 50 Lacs and 75 Lacs"
+        previous = (n, bound)
+    return ranges

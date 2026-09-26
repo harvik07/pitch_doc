@@ -170,9 +170,11 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `REC-`, `CL-`
 **Exposure**: `exposure_id (from taxonomy), name, rationale, basis_fact_ids: list[str], assumption_based: bool`
 - `assumption_based = True` if every basis fact has status ASSUMPTION.
 
-**PolicyMatch**: `match_id, policy_id, exposure_id, coverage_status, limitations: list[Limitation], benefit_evidence_ids, limitation_evidence_ids, exclusion_evidence_ids, quotes: list[str], validated: bool, validation_errors: list[str]`
+**PolicyMatch**: `match_id, policy_id, exposure_id, coverage_status, limitations: list[Limitation], benefit_evidence_ids, limitation_evidence_ids, exclusion_evidence_ids, quotes: list[str], available_at_assumed_si: bool, validated: bool, validation_errors: list[str]`
 - `coverage_status ∈ {FULLY_COVERED, COVERED_WITH_LIMITATIONS, COVERED_VIA_ADDON, EXCLUDED, NOT_STATED}`
-- `Limitation.type ∈ {SUBLIMIT, COPAY, WAITING_PERIOD, SI_TIER_CONDITION, VARIANT_ONLY, ADDON_REQUIRED, OPTIONAL_EXTRA_PREMIUM, NETWORK_ONLY, OTHER_CONDITION}`. Every one of these is a **material limitation**.
+- `Limitation.type ∈ {SUBLIMIT, COPAY, WAITING_PERIOD, SI_TIER_CONDITION, VARIANT_ONLY, ADDON_REQUIRED, OPTIONAL_EXTRA_PREMIUM, NETWORK_ONLY, OTHER_CONDITION}`. Every one of these is a **material limitation**. A benefit-defining time window or amount ("60 days pre / 180 days post", "covered up to Sum Insured") is **not** a limitation.
+- `available_at_assumed_si`: computed by Python (numbers.py) from the verbatim evidence of the cell's SI_TIER_CONDITION limitations and SI-conditioned benefit items (plus their linked footnotes and the other tiers of the same table row), **never by the matching LLM**. Only when an item's SI appears in no verbatim text (a column label such as "10 L") is its annotated `si_condition` label parsed instead. True when no SI condition applies or the assumed SI is inside a stated SI range. If no SI range can be parsed → False, flagged "SI condition unreadable". Always False for NOT_STATED and EXCLUDED cells.
+- **covered** = `coverage_status ∈ {FULLY_COVERED, COVERED_WITH_LIMITATIONS, COVERED_VIA_ADDON}` **and** `available_at_assumed_si = True`. A covered-by-status cell that needs a higher SI is shown as "Needs higher SI" (display only; it is not covered).
 
 **RecommendationDecision**: `rec_id, selected_policy_id, selected_variant, required_addons, decided_by (RULES|ADVISOR|None — None while a special case awaits the advisor), deciding_rule (e.g. "RULE_2_MOST_FULLY_COVERED"), reason_text (code-generated), rule_table (per-policy counts for each rule), special_case (None|TIE|NO_COVERAGE|ASSUMPTION_SENSITIVE), advisor_reason`
 
@@ -198,7 +200,7 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `REC-`, `CL-`
 3. **Policy extraction** — Docling with OCR → EvidenceItems → annotation (tier, variant, SI condition, footnote links) → apply `data/evidence_overrides.yaml` → cache. Pre-extract the 4 bundled brochures via `scripts/extract_policies.py`. Uploads are extracted live.
 4. **Exposure identification** — the LLM selects **only** from `config/exposure_taxonomy.yaml` (closed list of employee-health exposures). Business risks stay on slide 1 only. Every exposure needs ≥1 valid `basis_fact_id`. Code rejects unknown exposure IDs and unknown fact IDs.
 5. **Policy matching** — build the coverage matrix `policy × taxonomy exposure` **once per (policy sha256, assumed_sum_insured)** and cache it. It's company-independent; the company only selects which rows matter. One LLM call per policy with that policy's full evidence set (small docs) and the whole taxonomy. The LLM must return verbatim `quotes`.
-6. **Match validation (deterministic)** — every cited evidence ID exists and belongs to that policy; every quote is a normalised substring of a cited evidence item's text; `EXCLUDED` requires exclusion evidence; `COVERED_*` requires benefit evidence; `COVERED_VIA_ADDON` requires evidence with `benefit_tier` `ADDON` or `OPTIONAL`, else downgrade. A match that fails validation becomes `NOT_STATED` with `validated=False` and the errors are logged. Only validated matches feed recommendation.
+6. **Match validation (deterministic)** — every cited evidence ID exists and belongs to that policy; every quote is a normalised substring of a cited evidence item's text; `EXCLUDED` requires exclusion evidence; `COVERED_*` requires benefit evidence; `COVERED_VIA_ADDON` requires evidence with `benefit_tier` `ADDON` or `OPTIONAL`, else downgrade; it must also carry an `ADDON_REQUIRED` or `OPTIONAL_EXTRA_PREMIUM` limitation (else a validation error). `FULLY_COVERED` with any material limitation → downgraded to `COVERED_WITH_LIMITATIONS` (logged). `COVERED_WITH_LIMITATIONS` with zero limitations from the LLM → validation error. An `OTHER_CONDITION` needs its own verbatim quote and can't be a benefit-defining window; otherwise it's dropped (and a cell whose limitations were all dropped this way becomes `FULLY_COVERED`). Failed cells get **one** repair retry with the validation errors fed back; a cell still failing becomes `NOT_STATED` with `validated=False` and the errors are logged. Only validated matches feed recommendation.
 7. **Deterministic recommendation** — section 7.
 8. **Special cases → advisor decision** (before pitch generation): TIE, NO_COVERAGE, ASSUMPTION_SENSITIVE. The advisor picks one policy and gives a reason; this is logged.
 9. **Pitch generation** — `generateMarketingPitch` → structured `PitchDeck`. Code injects the fixed fields: recommended policy name, variant/add-ons, deciding rule, reason text. The LLM can't change them.
@@ -215,22 +217,26 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `REC-`, `CL-`
 
 Only relevant exposures (identified for this company) and validated matches count.
 
+"Covered" means covered by status **and** `available_at_assumed_si` (section 5).
+
 | Order | Rule | Better = |
 |---|---|---|
-| 1 | Count of relevant exposures with status `EXCLUDED` | fewer |
-| 2 | Count `FULLY_COVERED` (base plan, zero material limitations) | more |
-| 3 | Count covered at all (`FULLY_COVERED` + `COVERED_WITH_LIMITATIONS` + `COVERED_VIA_ADDON`) | more |
-| 4 | Total material limitations across covered relevant exposures | fewer |
-| 5 | Count of covered exposures that are `assumption_based` | fewer |
+| 1 | Relevant exposures covered at all (`FULLY_COVERED` + `COVERED_WITH_LIMITATIONS` + `COVERED_VIA_ADDON`, available at the assumed SI) | more |
+| 2 | Relevant exposures `FULLY_COVERED` (base plan, zero material limitations, available at the assumed SI) | more |
+| 3 | Relevant exposures `EXCLUDED` | fewer |
+| 4 | Distinct material limitation types, summed per covered relevant exposure (types deduplicated within a cell) | fewer |
+| 5 | Covered relevant exposures that are `assumption_based` | fewer |
 
-- `NOT_STATED` counts in **no** rule. Show NOT_STATED counts in the rule table for transparency only.
-- Evaluate in order. The **first rule that separates the top policy from the runner-up** is `deciding_rule`, and `reason_text` is generated from a fixed template, e.g. `"Selected because it has the most exposures fully covered (5 vs 3 for HDFC ERGO Optima Secure+)."`
+Why this order: under the old order (fewest exclusions first), a policy stating no exclusions but covering almost nothing beat one covering nearly everything with one explicit exclusion. That penalised disclosure (HDFC is the only brochure with an exclusions list).
+
+- `NOT_STATED` counts in **no** rule: it is never EXCLUDED and never covered. Show NOT_STATED counts (and "Needs higher SI" counts) in the rule table for display only.
+- **C2.** All policies are ranked together, lexicographically by rules 1–5. The **first rule that separates #1 from #2** is `deciding_rule`, and `reason_text` is generated from a fixed template naming the runner-up, e.g. `"Selected because it covers the most relevant exposures (7 vs 5 for HDFC ERGO Optima Secure+)."`
 - No weighted scores, no LLM.
-- **TIE**: all 5 rules tie for the top → advisor decides.
-- **NO_COVERAGE**: no policy covers any relevant exposure → advisor decides.
-- **ASSUMPTION_SENSITIVE**: rerun without `assumption_based` exposures; if the winner changes → advisor decides.
+- **C1. NO_COVERAGE**: after computing availability, if every policy covers 0 relevant exposures → NO_COVERAGE; skip ranking; the advisor decides.
+- **TIE**: two or more policies tied at the top on all 5 rules → the advisor decides.
+- **C5. ASSUMPTION_SENSITIVE**: rerun rules 1–4 without the `assumption_based` exposures. Sensitive only if the original winner isn't in the rerun's top group (the policies tied for #1) → the advisor decides.
 - Output is **always exactly one** policy (plus variant and required add-ons listed from its matches).
-- Unit tests must include a case where one policy has explicit exclusions and another is `NOT_STATED` on the same exposures, proving that NOT_STATED isn't rewarded or penalised.
+- Unit tests must include a case where one policy has explicit exclusions and another is `NOT_STATED` on the same exposures: rule 3 prefers the NOT_STATED policy only when rules 1–2 tie, and NOT_STATED never counts as covered.
 
 ---
 

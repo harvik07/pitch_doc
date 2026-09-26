@@ -259,8 +259,10 @@ def call_structured(
     run_id: str | None = None,
     *,
     temperature: float = 0.0,
+    max_output_tokens: int | None = None,
 ) -> T:
-    """Render prompts/<prompt_name>.md, call Gemini with structured output, return a validated model."""
+    """Render prompts/<prompt_name>.md, call Gemini with structured output, return a validated model.
+    max_output_tokens caps a reply (a runaway reply then fails validation and gets the one repair retry)."""
     model_name = model or settings.GEMINI_MODEL
     prompt = render_prompt(load_prompt(prompt_name), variables)
     schema = gemini_schema(response_model)
@@ -269,6 +271,7 @@ def call_structured(
         response_mime_type="application/json",
         response_json_schema=schema,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),  # no tools, ever
+        max_output_tokens=max_output_tokens,
     )
     log = _CallLog(run_id, prompt_name, model_name)
     try:

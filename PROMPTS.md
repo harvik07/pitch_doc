@@ -196,7 +196,8 @@ Implement matching.py per CLAUDE.md section 6 (steps 5 and 6) and the PolicyMatc
 - build_coverage_matrix(policy_id, assumed_sum_insured, run_id): ONE LLM call per policy (prompts/match_policy.md) with that policy's full evidence set (id, page, section, tier, variant, si_condition, text, linked footnotes) plus the whole taxonomy. For EVERY taxonomy exposure it returns: coverage_status, limitations (typed), benefit/limitation/exclusion evidence IDs, and verbatim quotes.
 - Prompt rules: if the brochure does not mention it → NOT_STATED (never guess covered or excluded); optional/add-on benefits → COVERED_VIA_ADDON with an ADDON_REQUIRED or OPTIONAL_EXTRA_PREMIUM limitation; variant-only → VARIANT_ONLY limitation; SI-tiered → SI_TIER_CONDITION evaluated at the assumed sum insured; a "discount on services" is NOT coverage.
 - Cache the matrix at data/cache/matrix_<sha>_<SI>.json.
-- validate_match(match): the deterministic rules in CLAUDE.md section 6 step 6 (IDs exist and belong to the policy, quotes are substrings via grounding.quote_in_evidence, EXCLUDED needs exclusion evidence, COVERED_* needs benefit evidence, COVERED_VIA_ADDON needs ADDON/OPTIONAL tier evidence, else downgrade). Failed → NOT_STATED, validated=False, errors logged.
+- validate_match(match): the deterministic rules in CLAUDE.md section 6 step 6 (IDs exist and belong to the policy, quotes are substrings via grounding.quote_in_evidence, EXCLUDED needs exclusion evidence, COVERED_* needs benefit evidence, COVERED_VIA_ADDON needs ADDON/OPTIONAL tier evidence, else downgrade, and an ADDON_REQUIRED/OPTIONAL_EXTRA_PREMIUM limitation; FULLY_COVERED with limitations → COVERED_WITH_LIMITATIONS; benefit-defining windows are not limitations). Failed cells get one repair retry with the errors fed back; still failing → NOT_STATED, validated=False, errors logged.
+- available_at_assumed_si: computed in Python from the SI condition's verbatim evidence (numbers.py), never by the LLM; unparseable → False, flagged.
 - select_relevant(matrix, exposures) returns the matches for this company's exposures.
 - scripts/show_matrix.py prints a policy × exposure grid of statuses.
 
@@ -216,17 +217,20 @@ Done when: the grid matches the checks above and every non-NOT_STATED cell has v
 Implement recommendation.py exactly per CLAUDE.md section 7. NO LLM in this file.
 
 - recommend(relevant_matches_by_policy, exposures) -> RecommendationDecision
-- Build rule_table: for each policy, the counts for rules 1–5 plus NOT_STATED (display only).
-- Sort policies lexicographically by (rule1 asc, rule2 desc, rule3 desc, rule4 asc, rule5 asc). deciding_rule = the first rule where the #1 and #2 policies differ.
+- "Covered" = covered status AND available_at_assumed_si (CLAUDE.md section 5).
+- Build rule_table: for each policy, the counts for rules 1–5 plus NOT_STATED and "Needs higher SI" (display only).
+- Sort all policies together lexicographically by (rule1 covered desc, rule2 fully covered desc, rule3 excluded asc, rule4 distinct limitation types asc, rule5 assumption-based asc). deciding_rule = the first rule where the #1 and #2 policies differ.
 - reason_text from a fixed template per rule, naming the runner-up and both counts.
-- Special cases: TIE (all 5 equal at the top), NO_COVERAGE (no policy covers any relevant exposure), ASSUMPTION_SENSITIVE (rerun excluding assumption_based exposures; the winner changes). These return decided_by=None with special_case set, and the pipeline must ask the advisor.
+- Special cases: NO_COVERAGE (after availability, every policy covers 0 relevant exposures; skip ranking), TIE (two or more tied at the top on all 5 rules), ASSUMPTION_SENSITIVE (rerun rules 1–4 without assumption_based exposures; the original winner isn't in the rerun's top group). These return decided_by=None with special_case set, and the pipeline must ask the advisor.
 - apply_advisor_decision(decision, policy_id, reason) → decided_by=ADVISOR, logged.
 - selected_variant / required_addons: derived from the winner's relevant matches (VARIANT_ONLY and ADDON_REQUIRED limitations).
 - Every decision is logged to the decision log with the rule_table.
 
 Tests (pure, no LLM), at least:
-- Rule 1 decides; Rule 2 decides; Rule 4 decides; Rule 5 decides
-- NOT_STATED neutrality: policy A has 2 EXCLUDED on exposures where policy B is NOT_STATED; everything else equal → B wins on rule 1, and a test documents this is intended (NOT_STATED is not EXCLUDED). A second test shows NOT_STATED doesn't count as covered in rules 2–3.
+- Rule 1 decides; Rule 2 decides; Rule 3 decides; Rule 4 decides; Rule 5 decides
+- A policy covering more relevant exposures beats one with fewer stated exclusions (disclosure isn't penalised).
+- NOT_STATED neutrality: policy A has 2 EXCLUDED on exposures where policy B is NOT_STATED; everything else equal → B wins on rule 3, and a test documents this is intended (NOT_STATED is not EXCLUDED). A second test shows NOT_STATED doesn't count as covered in rules 1–2.
+- A cell not available at the assumed SI doesn't count as covered.
 - TIE, NO_COVERAGE, ASSUMPTION_SENSITIVE each trigger
 - Exactly one policy is always returned after the advisor decision
 Update PROGRESS.md, commit.

@@ -30,7 +30,8 @@ def main() -> None:
     taxonomy = load_taxonomy()
     cells = {(m.policy_id, m.exposure_id): m for matches in matrix.values() for m in matches}
 
-    print(f"Assumed SI: {args.si}   (LIMITS = COVERED_WITH_LIMITATIONS; ✗ = failed validation → NOT_STATED)")
+    print(f"Assumed SI: {args.si}   (LIMITS = COVERED_WITH_LIMITATIONS; ✗ = failed validation → NOT_STATED; "
+          f"[needs higher SI] = not available at the assumed SI, so not covered)")
     print(f"| Exposure | {' | '.join(p.removeprefix('POL-') for p in policies)} |")
     print(f"|---|{'---|' * len(policies)}")
     for entry in taxonomy.exposures:
@@ -40,6 +41,9 @@ def main() -> None:
             text = SHORT[m.coverage_status.value]
             if m.limitations:
                 text += " (" + ", ".join(dict.fromkeys(lim.type.value for lim in m.limitations)) + ")"
+            if m.coverage_status.value in ("FULLY_COVERED", "COVERED_WITH_LIMITATIONS", "COVERED_VIA_ADDON")                     and not m.available_at_assumed_si:
+                unreadable = any(n == "SI condition unreadable" for n in m.validation_errors)
+                text += " [SI condition unreadable]" if unreadable else " [needs higher SI]"
             row.append(text + (" ✗" if not m.validated else ""))
         print(f"| {entry.id} | {' | '.join(row)} |")
 
@@ -55,9 +59,11 @@ def main() -> None:
         print(f"\n### {exposure_id}")
         for p in policies:
             m = cells[(p, exposure_id)]
-            print(f"- {p}: {m.coverage_status.value}{'' if m.validated else ' (failed validation)'}")
+            print(f"- {p}: {m.coverage_status.value}{'' if m.validated else ' (failed validation)'}"
+                  f"  available_at_assumed_si={m.available_at_assumed_si}")
             for lim in m.limitations:
-                print(f"    limitation {lim.type.value}: {lim.description} [{', '.join(lim.evidence_ids)}]")
+                print(f"    limitation {lim.type.value}: {lim.description} [{', '.join(lim.evidence_ids)}]"
+                      + (f" quote: \"{lim.quote}\"" if lim.quote else ""))
             cited = list(dict.fromkeys(m.benefit_evidence_ids + m.limitation_evidence_ids + m.exclusion_evidence_ids))
             for q in m.quotes:
                 where = [e for e in cited if quote_in_evidence(q, store.get(e))]

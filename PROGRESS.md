@@ -279,8 +279,36 @@ Prompt 2 plus additions A–E (the additions win where they conflict).
   - It also missed ABHI's INTL SI tier (fixed by a generic "variant SI range" prompt line), and it joined ABHI's "NO CAPPING ^" heading into a quote (fixed by the "one item per quote" rule).
   - **One cell still fails validation:** MATCH-NIVA-AYUSH. Gemini's quote joins the row label and text with "…", so the cell is NOT_STATED.
 
+### Pre-Prompt 6: rules, matrix fixes (2026-09-26)
+- **Recommendation rules rewritten** (CLAUDE.md §5–§7, PROMPTS.md Prompts 5–6):
+  - "covered" = covered status AND `available_at_assumed_si`.
+  - New order: (1) covered at all ↑, (2) FULLY_COVERED ↑, (3) EXCLUDED ↓, (4) distinct material limitation types per covered cell, summed ↓, (5) assumption-based covered ↓.
+  - C1 NO_COVERAGE (after availability), C2 lexicographic ranking of all policies with TIE on a full tie, C5 ASSUMPTION_SENSITIVE (rules 1–4 without assumption-based exposures; sensitive only if the winner leaves the top group). "Needs higher SI" is display only.
+  - Why: the old "fewest exclusions first" order penalised disclosure (HDFC is the only brochure with an exclusions list).
+- **M2/C4 `PolicyMatch.available_at_assumed_si`:** computed in Python, never by the LLM.
+  - `numbers.sum_insured_ranges` reads SI ranges from verbatim evidence: "SI below `15 lac", "from INR 50 Lacs to INR 6 Crores", "Between INR 7.5 Lacs to INR 15 Lac Base Sum Insured", "For BSI INR 50 Lacs and 75 Lacs … INR 1 Cr and Above". A benefit limit ("up to INR 2,50,000") is not an SI.
+  - Sources: the cell's SI_TIER_CONDITION evidence and SI-conditioned benefit items, plus their linked footnotes, plus the other tiers of the same table row. When the SI sits only in a column label ("10 L"), the annotated `si_condition` is the fallback.
+  - No SI condition → available. No parseable SI → False, flagged "SI condition unreadable".
+  - At ₹10 lakh only ABHI MATERNITY and ABHI INTL need a higher SI (VIP+ from ₹50 lakh).
+- **M1:** pre/post day windows and "covered up to Sum Insured" are not limitations. The prompt says so, and validation drops OTHER_CONDITION/SUBLIMIT limitations that are benefit-defining; a cell left with no limitation becomes FULLY_COVERED. `scripts/consistency_report.py` shows each exposure's cells side by side and flags shared terms with different statuses.
+- **C3:**
+  - FULLY_COVERED with limitations → COVERED_WITH_LIMITATIONS (logged).
+  - COVERED_WITH_LIMITATIONS with zero limitations → error. COVERED_VIA_ADDON without ADDON_REQUIRED/OPTIONAL_EXTRA_PREMIUM → error (it is no longer auto-added).
+  - An OTHER_CONDITION without its own verbatim quote (the new `Limitation.quote`) is dropped.
+- **M3:**
+  - One repair call (`prompts/match_policy_repair.md`) for failed cells only, with their errors fed back; only those cells are replaced (`CoverageMatrixCache.repaired`).
+  - A repair that fails keeps the first-pass cells; its failed cells stay NOT_STATED with validated=False.
+  - `call_structured(max_output_tokens=…)` caps the repair reply at 8192 tokens.
+- **Quote check:** a quote may span an item's section heading + its text when the text continues the heading's sentence (lower-case start). This is ABHI's "NO CAPPING ^" + "on hospitalization expenses …", split by Docling, and it validated ABHI HOSP / DAYCARE / AMB-ROAD / ORGAN.
+- **Matrix re-run (once):**
+  - NIVA's first pass was clean.
+  - HDFC and CARE each had EXP-PED repaired. HDFC's repair validated; CARE-PED is still invalid → NOT_STATED, validated=False.
+  - ABHI's repair ran away twice (62k output tokens, invalid JSON). That aborted the ABHI save before the fallback existed, so the ABHI matrix was finished from this run's logged first-pass reply, with a repair retry that also ran away and fell back. No extra first-pass call was made.
+  - Niva AYUSH is covered on this run's first pass, so no repair was needed.
+- **M4 (open, strict xfail):** Niva EXP-INFLATION is still COVERED_VIA_ADDON. Gemini files Booster+ (EV-NIVA-2-026 Platinum+ 5X / 2-027 Titanium+ 10X, both BASE) under EXP-SI-EXHAUST and treats inflation as the CPI-linked Safeguard+ (optional). The evidence supports Booster+ as base SI growth. Cause: the EXP-INFLATION description doesn't name SI-growth mechanisms. Fix: add them to the description, then re-run the matrices (not done: one re-run only).
+
 ## Next
-- **For Prompt 6:** an SI_TIER_CONDITION can mean "not available at the assumed SI" (ABHI MATERNITY and INTL: VIP+ starts at ₹50 lakh; assumed ₹10 lakh). The cell still counts as covered (rule 3), with the limitation counted in rule 4. The pitch must show that qualifier.
+- **Before Prompt 6 (decide):** the M4 taxonomy-description fix plus one more matrix re-run. Run-to-run variance in this re-run: Niva WELLNESS lost Live Healthy (→ NOT_STATED), Niva DAYCARE → COVERED_VIA_ADDON, and Care CHRONIC lost its Care Advanced ADDON_REQUIRED limitation.
 - **For Prompt 8 (audit) — required deterministic checks (not built yet):**
   - **Number check on supporting items only.** Run `number_check` against the claim's **supporting** evidence only. Against the whole brochure, three planted false claims pass, because their numbers occur elsewhere: Niva "₹5,00,000" (a SI tier "INR 5 Lac"), Niva "30-day initial waiting period" (footnote (8) "30 days/policy year"), and ABHI "100% HealthReturns every year" ("up to 100%"). `tests/test_grounding.py::test_the_whole_brochure_is_the_wrong_input` pins this.
   - **Topic-anchor check.** The claim's benefit topic (e.g. "waiting period", "air ambulance", "maternity") must appear in a supporting item's text, row_label or section, or in the claim's exposure's taxonomy keywords (`config/exposure_taxonomy.yaml`). Otherwise the claim can't be VERIFIED. This catches "Niva 30-day waiting period" being supported by footnote (8)'s "30 days/policy year" hospital-cash limit.
@@ -381,6 +409,7 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **LimitationDraft / QuoteDraft / MatchDraft / MatchResponse** (Gemini output for matching): `type, description, evidence_ids` / `evidence_id, quote` / `exposure_id, coverage_status, limitations, benefit/limitation/exclusion_evidence_ids, quotes, reasoning` / `matches`
 - **CoverageMatrixCache** (`data/cache/matrix_<sha>_<SI>.json`): `policy_id, sha256, assumed_sum_insured, model, taxonomy_hash, evidence_hash, prompt_hash, drafts`
 - **PolicyMatch.match_id**: `MATCH-<POLICY>-<EXPOSURE>` (e.g. MATCH-NIVA-AMB-AIR). `quotes` are the verified quote strings; the evidence IDs are in the cell's evidence lists.
+- **PolicyMatch.available_at_assumed_si**: `bool`, computed by `matching.si_availability`. **Limitation.quote / LimitationDraft.quote**: `str | None` (verified verbatim; required for OTHER_CONDITION). **CoverageMatrixCache.repaired**: exposure IDs replaced by the repair retry.
 
 ## Known issues
 - **Matching cells are LLM judgements within the validation rules.** The committed matrices are the reviewed run. A `--force` re-run may classify borderline cells differently (e.g. NIVA DAYCARE flipped between FULL, ADDON and LIMITS across the three runs); the checked cells stayed stable.

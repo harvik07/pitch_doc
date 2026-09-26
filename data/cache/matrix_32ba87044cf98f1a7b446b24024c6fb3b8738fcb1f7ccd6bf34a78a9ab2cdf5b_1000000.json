@@ -5,7 +5,7 @@
   "model": "gemini-2.5-flash",
   "taxonomy_hash": "930f42cc3fe05573",
   "evidence_hash": "42bff53ff8e966fa",
-  "prompt_hash": "62564040e7a0d803",
+  "prompt_hash": "fa2243f988353ea5",
   "drafts": [
     {
       "exposure_id": "EXP-HOSP",
@@ -27,7 +27,7 @@
           "quote": "Up to SI"
         }
       ],
-      "reasoning": "The brochure explicitly states coverage for In-Patient Care up to the Sum Insured in the base plan."
+      "reasoning": "The base plan covers in-patient care up to the sum insured."
     },
     {
       "exposure_id": "EXP-PREPOST",
@@ -56,7 +56,7 @@
           "quote": "Up to SI, post-hospitalization expense cover for 180 days after discharge"
         }
       ],
-      "reasoning": "The base plan covers pre-hospitalization expenses for 60 days and post-hospitalization expenses for 180 days, both up to the Sum Insured."
+      "reasoning": "The base plan covers pre and post-hospitalization medical expenses up to the sum insured for specified periods."
     },
     {
       "exposure_id": "EXP-DAYCARE",
@@ -85,23 +85,23 @@
       "coverage_status": "FULLY_COVERED",
       "limitations": [],
       "benefit_evidence_ids": [
-        "EV-CARE-1-015",
         "EV-CARE-2-027",
-        "EV-CARE-2-028"
+        "EV-CARE-2-028",
+        "EV-CARE-1-015"
       ],
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [
         {
-          "evidence_id": "EV-CARE-1-015",
-          "quote": "on Modern or Conventional Treatments"
+          "evidence_id": "EV-CARE-2-027",
+          "quote": "Modern Treatment"
         },
         {
           "evidence_id": "EV-CARE-2-028",
           "quote": "Up to SI"
         }
       ],
-      "reasoning": "The base plan covers modern treatments up to the Sum Insured with no sub-limits."
+      "reasoning": "The base plan covers modern treatments up to the sum insured."
     },
     {
       "exposure_id": "EXP-AMB-ROAD",
@@ -113,15 +113,18 @@
           "evidence_ids": [
             "EV-CARE-2-055",
             "EV-CARE-1-023"
-          ]
+          ],
+          "quote": "For SI below ₹15 lac - up to ₹10,000"
         },
         {
           "type": "SI_TIER_CONDITION",
-          "description": "For SI below ₹15 lac - up to ₹10,000 (applies to ₹10,00,000 SI)",
+          "description": "For SI below ₹15 lakh",
           "evidence_ids": [
             "EV-CARE-2-055",
+            "EV-CARE-2-056",
             "EV-CARE-1-023"
-          ]
+          ],
+          "quote": "For SI below ₹15 lac - up to ₹10,000"
         }
       ],
       "benefit_evidence_ids": [
@@ -130,6 +133,8 @@
         "EV-CARE-2-056"
       ],
       "limitation_evidence_ids": [
+        "EV-CARE-2-055",
+        "EV-CARE-2-056",
         "EV-CARE-1-023"
       ],
       "exclusion_evidence_ids": [],
@@ -141,13 +146,9 @@
         {
           "evidence_id": "EV-CARE-2-055",
           "quote": "For SI below ₹15 lac - up to ₹10,000"
-        },
-        {
-          "evidence_id": "EV-CARE-1-023",
-          "quote": "for SI below ₹15 lac - up to ₹10,000"
         }
       ],
-      "reasoning": "Road ambulance cover is provided by the base plan but is limited to ₹10,000 for a Sum Insured below ₹15 lakh, which applies to the assumed SI of ₹10,00,000."
+      "reasoning": "Road ambulance cover is provided by the base plan but is limited to ₹10,000 for the assumed sum insured of ₹10 Lakh."
     },
     {
       "exposure_id": "EXP-AMB-AIR",
@@ -155,17 +156,19 @@
       "limitations": [
         {
           "type": "OPTIONAL_EXTRA_PREMIUM",
-          "description": "Optional benefit under Care Supreme available on payment of additional premium.",
+          "description": "Optional benefit available on payment of additional premium",
           "evidence_ids": [
             "EV-CARE-4-016"
-          ]
+          ],
+          "quote": "Optional benefit under Care Supreme available on payment of additional premium."
         },
         {
           "type": "SUBLIMIT",
           "description": "Up to ₹5 lacs per year",
           "evidence_ids": [
             "EV-CARE-3-012"
-          ]
+          ],
+          "quote": "Up to ₹5 lacs per year"
         }
       ],
       "benefit_evidence_ids": [
@@ -173,7 +176,8 @@
         "EV-CARE-3-012"
       ],
       "limitation_evidence_ids": [
-        "EV-CARE-4-016"
+        "EV-CARE-4-016",
+        "EV-CARE-3-012"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
@@ -184,13 +188,9 @@
         {
           "evidence_id": "EV-CARE-3-012",
           "quote": "Up to ₹5 lacs per year"
-        },
-        {
-          "evidence_id": "EV-CARE-4-016",
-          "quote": "Optional benefit under Care Supreme available on payment of additional premium."
         }
       ],
-      "reasoning": "Air ambulance cover is available as an optional benefit upon payment of an additional premium, with a sub-limit of ₹5 lacs per year."
+      "reasoning": "Air ambulance cover is available as an optional benefit with an additional premium and has a sublimit."
     },
     {
       "exposure_id": "EXP-DOMICILIARY",
@@ -213,7 +213,7 @@
           "quote": "Up to SI"
         }
       ],
-      "reasoning": "The base plan covers domiciliary hospitalization up to 100% of the Sum Insured."
+      "reasoning": "The base plan covers domiciliary hospitalization up to the sum insured."
     },
     {
       "exposure_id": "EXP-AYUSH",
@@ -236,7 +236,7 @@
           "quote": "Up to SI"
         }
       ],
-      "reasoning": "The base plan covers AYUSH treatment up to 100% of the Sum Insured."
+      "reasoning": "The base plan covers AYUSH treatment up to the sum insured."
     },
     {
       "exposure_id": "EXP-NONMED",
@@ -244,17 +244,20 @@
       "limitations": [
         {
           "type": "OPTIONAL_EXTRA_PREMIUM",
-          "description": "Optional benefit under Care Supreme available on payment of additional premium.",
+          "description": "Optional benefit available on payment of additional premium",
           "evidence_ids": [
-            "EV-CARE-4-019"
-          ]
+            "EV-CARE-4-019",
+            "EV-CARE-4-020"
+          ],
+          "quote": "Optional benefit under Care Supreme available on payment of additional premium."
         },
         {
-          "type": "ADDON_REQUIRED",
-          "description": "This benefit is under Care Advanced add-on policy and available on payment of additional premium.",
+          "type": "OTHER_CONDITION",
+          "description": "Coverage of expense related to listed 68 non-payable items during hospitalization",
           "evidence_ids": [
-            "EV-CARE-4-020"
-          ]
+            "EV-CARE-4-002"
+          ],
+          "quote": "Coverage of expense related to listed 68 non-payable items during hospitalization"
         }
       ],
       "benefit_evidence_ids": [
@@ -265,24 +268,21 @@
       ],
       "limitation_evidence_ids": [
         "EV-CARE-4-019",
-        "EV-CARE-4-020"
+        "EV-CARE-4-020",
+        "EV-CARE-4-002"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
         {
+          "evidence_id": "EV-CARE-4-001",
+          "quote": "Claim Shield 12"
+        },
+        {
           "evidence_id": "EV-CARE-4-002",
           "quote": "Coverage of expense related to listed 68 non-payable items during hospitalization"
-        },
-        {
-          "evidence_id": "EV-CARE-4-012",
-          "quote": "List of items as per annexure I (list I, II, III and IV) of Policy T&C that are non-payable shall be covered up to Sum Insured"
-        },
-        {
-          "evidence_id": "EV-CARE-4-019",
-          "quote": "Optional benefit under Care Supreme available on payment of additional premium."
         }
       ],
-      "reasoning": "Coverage for non-payable items is available through either the optional 'Claim Shield' benefit or the 'Claim Shield+' add-on policy, both requiring additional premium."
+      "reasoning": "Non-medical/non-payable items are covered through optional benefits (Claim Shield or Claim Shield+) which require additional premium and cover specific listed items."
     },
     {
       "exposure_id": "EXP-SI-EXHAUST",
@@ -311,7 +311,7 @@
           "quote": "50% of SI per year, max. up to 100% of SI; shall not reduce in case of claim"
         }
       ],
-      "reasoning": "The base plan includes unlimited automatic recharge for related and unrelated illnesses and a cumulative bonus that increases the Sum Insured without reduction due to claims."
+      "reasoning": "The base plan provides unlimited automatic recharge for related and unrelated illnesses and a cumulative bonus that does not reduce on claims."
     },
     {
       "exposure_id": "EXP-INFLATION",
@@ -333,7 +333,7 @@
           "quote": "50% of SI per year, max. up to 100% of SI; shall not reduce in case of claim"
         }
       ],
-      "reasoning": "The base plan includes a cumulative bonus that increases the Sum Insured by 50% per year up to 100% of SI, helping to mitigate medical cost inflation."
+      "reasoning": "The base plan includes a cumulative bonus that increases the sum insured by 50% per year up to 100% of SI."
     },
     {
       "exposure_id": "EXP-MATERNITY",
@@ -343,7 +343,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure does not provide specific coverage details for maternity expenses within the policy."
+      "reasoning": "The brochure does not explicitly state coverage for maternity expenses."
     },
     {
       "exposure_id": "EXP-CHRONIC",
@@ -351,17 +351,11 @@
       "limitations": [
         {
           "type": "OPTIONAL_EXTRA_PREMIUM",
-          "description": "Customer can opt either Instant Cover Benefit or Modification of PED Wait Period Benefit and these are optional Benefits available on payment of additional premium.",
+          "description": "Optional benefit available on payment of additional premium",
           "evidence_ids": [
             "EV-CARE-4-015"
-          ]
-        },
-        {
-          "type": "ADDON_REQUIRED",
-          "description": "This benefit is under Care Advanced add-on policy and available on payment of additional premium.",
-          "evidence_ids": [
-            "EV-CARE-4-018"
-          ]
+          ],
+          "quote": "Customer can opt either Instant Cover Benefit or Modification of PED Wait Period Benefit and these are optional Benefits available on payment of additional premium."
         },
         {
           "type": "WAITING_PERIOD",
@@ -369,7 +363,17 @@
           "evidence_ids": [
             "EV-CARE-3-034",
             "EV-CARE-3-035"
-          ]
+          ],
+          "quote": "post initial wait period of 30 days"
+        },
+        {
+          "type": "OTHER_CONDITION",
+          "description": "Covers specific listed chronic conditions",
+          "evidence_ids": [
+            "EV-CARE-3-034",
+            "EV-CARE-3-035"
+          ],
+          "quote": "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial wait period of 30 days"
         }
       ],
       "benefit_evidence_ids": [
@@ -378,24 +382,17 @@
       ],
       "limitation_evidence_ids": [
         "EV-CARE-4-015",
-        "EV-CARE-4-018"
+        "EV-CARE-3-034",
+        "EV-CARE-3-035"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
         {
           "evidence_id": "EV-CARE-3-034",
           "quote": "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial wait period of 30 days"
-        },
-        {
-          "evidence_id": "EV-CARE-3-035",
-          "quote": "For Diabetes/ Hypertension/ Hyperlipidimia/ Asthma/ Chronic Obstructive Pulmonary Disease (COPD)/ Obesity/ Coronary Artery Disease with PTCA done prior to 1 year, post initial wait period of 30 days"
-        },
-        {
-          "evidence_id": "EV-CARE-4-015",
-          "quote": "optional Benefits available on payment of additional premium."
         }
       ],
-      "reasoning": "Coverage for chronic conditions like hypertension, diabetes, hyperlipidemia, and asthma is available through the optional 'Instant Cover' benefit or as part of the 'Care Advanced' add-on policy, both requiring additional premium and subject to a 30-day waiting period."
+      "reasoning": "Coverage for specific chronic conditions like hypertension, diabetes, hyperlipidemia, and asthma is available through the optional Instant Cover benefit, subject to an additional premium and a 30-day waiting period."
     },
     {
       "exposure_id": "EXP-PED",
@@ -406,41 +403,24 @@
           "description": "36 months",
           "evidence_ids": [
             "EV-CARE-4-028"
-          ]
-        },
-        {
-          "type": "OPTIONAL_EXTRA_PREMIUM",
-          "description": "Customer can opt either Instant Cover Benefit or Modification of PED Wait Period Benefit and these are optional Benefits available on payment of additional premium.",
-          "evidence_ids": [
-            "EV-CARE-4-015"
-          ]
-        }
-      ],
-      "benefit_evidence_ids": [
-        "EV-CARE-4-003",
-        "EV-CARE-4-004"
-      ],
-      "limitation_evidence_ids": [
-        "EV-CARE-4-027",
-        "EV-CARE-4-028",
-        "EV-CARE-4-015"
-      ],
-      "exclusion_evidence_ids": [],
-      "quotes": [
-        {
-          "evidence_id": "EV-CARE-4-028",
+          ],
           "quote": "36 months"
         },
         {
-          "evidence_id": "EV-CARE-4-004",
+          "type": "OPTIONAL_EXTRA_PREMIUM",
+          "description": "PED wait period can be modified to 1 or 2 years as an optional benefit with additional premium",
+          "evidence_ids": [
+            "EV-CARE-4-004",
+            "EV-CARE-4-015"
+          ],
           "quote": "PED wait period will be modified to 1 or 2 years as opted"
-        },
-        {
-          "evidence_id": "EV-CARE-4-015",
-          "quote": "Modification of PED Wait Period Benefit and these are optional Benefits available on payment of additional premium."
         }
       ],
-      "reasoning": "The base plan has a 36-month waiting period for Pre-Existing Diseases, which can be modified to 1 or 2 years as an optional benefit with additional premium."
+      "benefit_evidence_ids": [],
+      "limitation_evidence_ids": [],
+      "exclusion_evidence_ids": [],
+      "quotes": [],
+      "reasoning": "Pre-existing diseases are covered after a 36-month waiting period. This waiting period can be optionally reduced to 1 or 2 years by paying an additional premium, as stated in the optional benefits section for 'Modification of PED Wait Period'. The optional benefit itself is a form of coverage related to PEDs, making it a valid benefit quote from an OPTIONAL tier item."
     },
     {
       "exposure_id": "EXP-OPD",
@@ -448,65 +428,43 @@
       "limitations": [
         {
           "type": "NETWORK_ONLY",
-          "description": "As per the empanelled list of general physicians within the company network.",
+          "description": "As per the empanelled list of general physicians within the company network",
           "evidence_ids": [
             "EV-CARE-1-022"
-          ]
+          ],
+          "quote": "As per the empanelled list of general physicians within the company network."
         },
         {
-          "type": "ADDON_REQUIRED",
-          "description": "Care OPD is an add-on policy and available on payment of additional premium.",
+          "type": "OTHER_CONDITION",
+          "description": "Limited to e-consultations with general physicians",
           "evidence_ids": [
-            "EV-CARE-4-017"
-          ]
-        },
-        {
-          "type": "SUBLIMIT",
-          "description": "Max. 4 physical consultations with general physician, up to ₹500 per consultation per insured in a policy year",
-          "evidence_ids": [
-            "EV-CARE-3-002"
-          ]
-        },
-        {
-          "type": "COPAY",
-          "description": "co-payment of 10% per claim is applicable",
-          "evidence_ids": [
-            "EV-CARE-3-003"
-          ]
+            "EV-CARE-1-013",
+            "EV-CARE-2-050"
+          ],
+          "quote": "Available for consultations with general physicians"
         }
       ],
       "benefit_evidence_ids": [
         "EV-CARE-1-013",
         "EV-CARE-2-049",
-        "EV-CARE-2-050",
-        "EV-CARE-3-001",
-        "EV-CARE-3-002",
-        "EV-CARE-3-003"
+        "EV-CARE-2-050"
       ],
       "limitation_evidence_ids": [
         "EV-CARE-1-022",
-        "EV-CARE-4-017"
+        "EV-CARE-2-050"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
         {
+          "evidence_id": "EV-CARE-1-013",
+          "quote": "E-consultation with General Physician 2"
+        },
+        {
           "evidence_id": "EV-CARE-2-050",
           "quote": "Available for consultations with general physicians"
-        },
-        {
-          "evidence_id": "EV-CARE-1-022",
-          "quote": "As per the empanelled list of general physicians within the company network."
-        },
-        {
-          "evidence_id": "EV-CARE-3-002",
-          "quote": "Max. 4 physical consultations with general physician, up to ₹500 per consultation per insured in a policy year"
-        },
-        {
-          "evidence_id": "EV-CARE-4-017",
-          "quote": "Care OPD is an add-on policy and available on payment of additional premium."
         }
       ],
-      "reasoning": "E-consultations with general physicians are covered in the base plan but are network-only. Physical OPD consultations are available through the 'Care OPD' add-on policy, which has sub-limits and co-payments."
+      "reasoning": "The base plan covers unlimited e-consultations with general physicians within the company network."
     },
     {
       "exposure_id": "EXP-PREVENTIVE",
@@ -514,10 +472,19 @@
       "limitations": [
         {
           "type": "OPTIONAL_EXTRA_PREMIUM",
-          "description": "Optional benefit under Care Supreme available on payment of additional premium.",
+          "description": "Optional benefit available on payment of additional premium",
           "evidence_ids": [
             "EV-CARE-4-016"
-          ]
+          ],
+          "quote": "Optional benefit under Care Supreme available on payment of additional premium."
+        },
+        {
+          "type": "OTHER_CONDITION",
+          "description": "Once per Insured per policy year",
+          "evidence_ids": [
+            "EV-CARE-3-010"
+          ],
+          "quote": "Once per Insured per policy year"
         }
       ],
       "benefit_evidence_ids": [
@@ -525,7 +492,8 @@
         "EV-CARE-3-010"
       ],
       "limitation_evidence_ids": [
-        "EV-CARE-4-016"
+        "EV-CARE-4-016",
+        "EV-CARE-3-010"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
@@ -536,13 +504,9 @@
         {
           "evidence_id": "EV-CARE-3-010",
           "quote": "Once per Insured per policy year"
-        },
-        {
-          "evidence_id": "EV-CARE-4-016",
-          "quote": "Optional benefit under Care Supreme available on payment of additional premium."
         }
       ],
-      "reasoning": "An annual health check-up is available as an optional benefit once per insured per policy year upon payment of an additional premium."
+      "reasoning": "Annual health check-ups are available as an optional benefit once per insured per policy year, requiring an additional premium."
     },
     {
       "exposure_id": "EXP-INTL",
@@ -552,7 +516,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure does not provide any information regarding coverage for treatment abroad."
+      "reasoning": "The brochure does not state whether treatment abroad is covered."
     },
     {
       "exposure_id": "EXP-CRITICAL",
@@ -562,7 +526,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure does not provide specific coverage details for critical illness within the policy."
+      "reasoning": "The brochure does not explicitly state coverage for critical illness within this policy."
     },
     {
       "exposure_id": "EXP-ACCIDENT",
@@ -572,7 +536,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure does not provide specific coverage details for personal accident within the policy."
+      "reasoning": "The brochure does not explicitly state coverage for personal accident benefits within this policy."
     },
     {
       "exposure_id": "EXP-DEPENDENTS",
@@ -589,7 +553,7 @@
           "quote": "Self, Spouse/ Live-in partner/ Same sex partner, Son, Daughter, Father, Mother, Mother-in-law, Father-in law, Grand father, Grand mother"
         }
       ],
-      "reasoning": "The policy explicitly lists parents and grandparents as relationships that can be covered."
+      "reasoning": "The policy explicitly states that parents, spouses, and children can be covered as insured members."
     },
     {
       "exposure_id": "EXP-HOSPCASH",
@@ -599,7 +563,7 @@
       "limitation_evidence_ids": [],
       "exclusion_evidence_ids": [],
       "quotes": [],
-      "reasoning": "The brochure does not provide any information regarding daily hospital cash benefits."
+      "reasoning": "The brochure does not state whether daily hospital cash is covered."
     },
     {
       "exposure_id": "EXP-ORGAN",
@@ -621,7 +585,7 @@
           "quote": "Up to SI"
         }
       ],
-      "reasoning": "The base plan covers organ donor expenses up to the Sum Insured."
+      "reasoning": "The base plan covers organ donor expenses up to the sum insured."
     },
     {
       "exposure_id": "EXP-WELLNESS",
@@ -629,43 +593,34 @@
       "limitations": [
         {
           "type": "OPTIONAL_EXTRA_PREMIUM",
-          "description": "Through healthy days program under wellness benefit (optional cover) on payment of additional premium.",
+          "description": "Optional benefit available on payment of additional premium",
           "evidence_ids": [
-            "EV-CARE-1-021"
-          ]
-        },
-        {
-          "type": "OPTIONAL_EXTRA_PREMIUM",
-          "description": "Optional benefit under Care Supreme available on payment of additional premium.",
-          "evidence_ids": [
+            "EV-CARE-1-021",
             "EV-CARE-4-016"
-          ]
-        },
-        {
-          "type": "NETWORK_ONLY",
-          "description": "Fitness centers sessions booking is available through mobile app from the selected list of networks only.",
-          "evidence_ids": [
-            "EV-CARE-4-014"
-          ]
+          ],
+          "quote": "Through healthy days program under wellness benefit (optional cover) on payment of additional premium."
         },
         {
           "type": "OTHER_CONDITION",
-          "description": "Only applicable for Insured Person above 12 years of age",
+          "description": "Discount calculated based on number of healthy days (10,000 steps or more)",
           "evidence_ids": [
-            "EV-CARE-4-006"
-          ]
+            "EV-CARE-3-021"
+          ],
+          "quote": "a) Recording 10,000 steps or more in a day through"
+        },
+        {
+          "type": "OTHER_CONDITION",
+          "description": "Access to fitness centres only for Insured Person above 12 years of age and through mobile app from selected network",
+          "evidence_ids": [
+            "EV-CARE-4-006",
+            "EV-CARE-4-014"
+          ],
+          "quote": "Avail unlimited access to fitness centres in a policy year. Only applicable for Insured Person above 12 years of age"
         }
       ],
       "benefit_evidence_ids": [
-        "EV-CARE-1-009",
         "EV-CARE-3-013",
-        "EV-CARE-3-005",
         "EV-CARE-3-021",
-        "EV-CARE-3-025",
-        "EV-CARE-3-026",
-        "EV-CARE-3-027",
-        "EV-CARE-3-028",
-        "EV-CARE-3-029",
         "EV-CARE-3-030",
         "EV-CARE-3-031",
         "EV-CARE-3-032",
@@ -674,33 +629,30 @@
       ],
       "limitation_evidence_ids": [
         "EV-CARE-1-021",
-        "EV-CARE-4-014",
-        "EV-CARE-4-016"
+        "EV-CARE-4-016",
+        "EV-CARE-3-021",
+        "EV-CARE-4-006",
+        "EV-CARE-4-014"
       ],
       "exclusion_evidence_ids": [],
       "quotes": [
         {
-          "evidence_id": "EV-CARE-1-009",
-          "quote": "Earn up to 30% Discount on Renewal 1"
+          "evidence_id": "EV-CARE-3-013",
+          "quote": "Wellness Benefit 1"
         },
         {
-          "evidence_id": "EV-CARE-1-021",
-          "quote": "Through healthy days program under wellness benefit (optional cover) on payment of additional premium."
-        },
-        {
-          "evidence_id": "EV-CARE-3-030",
-          "quote": "b) Access to Digital Fitness Coaching"
+          "evidence_id": "EV-CARE-3-021",
+          "quote": "a) Recording 10,000 steps or more in a day through"
         },
         {
           "evidence_id": "EV-CARE-4-006",
           "quote": "Avail unlimited access to fitness centres in a policy year. Only applicable for Insured Person above 12 years of age"
-        },
-        {
-          "evidence_id": "EV-CARE-4-014",
-          "quote": "Fitness centers sessions booking is available through mobile app from the selected list of networks only."
         }
       ],
-      "reasoning": "Wellness programs, including renewal discounts for healthy days, digital/AI fitness coaching, nutritionist access, and fitness center access, are available as optional benefits requiring additional premium, with some being network-only or age-restricted."
+      "reasoning": "Wellness programmes and benefits like discounts for healthy days and access to fitness centers are available as optional benefits requiring additional premium and have specific conditions."
     }
+  ],
+  "repaired": [
+    "EXP-PED"
   ]
 }

@@ -10,7 +10,7 @@ import pytest
 from marsh import settings
 from marsh.evidence_store import load_evidence
 from marsh.models import EvidenceItem, ExtractionMethod, ItemType, NumberUnit
-from marsh.numbers import header_unit, numbers_for_item, parse_numbers
+from marsh.numbers import header_unit, numbers_for_item, parse_numbers, sum_insured_ranges
 
 INR, PCT, DAYS, MONTHS, YEARS, HOURS, MULT, COUNT = (NumberUnit.INR, NumberUnit.PERCENT, NumberUnit.DAYS,
                                                      NumberUnit.MONTHS, NumberUnit.YEARS, NumberUnit.HOURS,
@@ -222,3 +222,38 @@ def test_recorded_footnote_markers_are_not_numbers():
                 "30 days 6", item_type=ItemType.TEXT, markers=["5", "6"])
     assert values(numbers_for_item(body)) == [(30, DAYS), (30, DAYS)]
     assert values(numbers_for_item(cell("(7) Annual Health Checkup (Day 1)", markers=["7"]))) == [(1, DAYS)]
+
+
+# --- Sum-insured ranges (availability at the assumed SI) -----------------------------------------------------
+
+SI_RANGES = [  # REAL: each string occurs in the committed evidence (checked below)
+    ("For SI below `15 lac - up to `10,000", [(0, 1500000, False, True)]),
+    ("International and Domestic Sum Insured from INR 50 Lacs to INR 6 Crores", [(5000000, 60000000, False, False)]),
+    ("For BSI INR 50 Lacs and 75 Lacs - Domestic Maternity up to INR 1 Lac; For BSI INR 1 Cr and Above",
+     [(5000000, 5000000, False, False), (7500000, 7500000, False, False), (10000000, float("inf"), False, False)]),
+    ("Up to INR 15 Lac Base Sum Insured: INR 800 per day; Maximum INR 4,800", [(0, 1500000, False, False)]),
+    ("Air Ambulance: up to INR 2,50,000 per Hospitalisation", []),  # a benefit limit, not an SI
+    ("Between INR 7.5 Lacs to INR 15 Lac Base Sum Insured: INR 2,000/day", [(750000, 1500000, False, False)]),
+    ("Above 15 Lac Base Sum Insured: INR 4,000/day", [(1500000, float("inf"), True, False)]),
+]
+
+
+@pytest.mark.parametrize("text, expected", SI_RANGES)
+def test_sum_insured_ranges(text, expected):
+    got = [(r.low, r.high, r.low_exclusive, r.high_exclusive) for r in sum_insured_ranges(text)]
+    assert got == [(float(a), float(b), c, d) for a, b, c, d in expected]
+
+
+def test_si_range_strings_are_in_the_committed_evidence():
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(settings, "CACHE_DIR", REAL_CACHE_DIR)
+        store = load_evidence(list(settings.BUNDLED_POLICY_FILES))
+    texts = [i.text for d in settings.BUNDLED_POLICY_FILES for i in store.items_for_policy(d, citable_only=False)]
+    assert [t for t, _ in SI_RANGES if not any(t in x for x in texts)] == []
+
+
+def test_si_range_bounds():
+    (below,) = sum_insured_ranges("For SI below `15 lac - up to `10,000")
+    assert below.contains(1_000_000) and not below.contains(1_500_000)
+    (above,) = sum_insured_ranges("SI `15 lac and above - up to SI")
+    assert above.contains(1_500_000) and above.contains(10**9) and not above.contains(1_000_000)

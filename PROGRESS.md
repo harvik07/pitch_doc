@@ -324,11 +324,56 @@ Prompt 2 plus additions A–E (the additions win where they conflict).
   - CARE PED failed → LIMITS (WAITING_PERIOD "36 months", plus OPTIONAL_EXTRA_PREMIUM for the optional PED-wait reduction; see Next).
 - **T4:** 9 of 92 cells changed (T1: 2, T2: 4, T3: 3); no other cell changed. No cell fails validation now.
 
+### Architecture change: the LLM selects the policy (2026-09-26, docs only)
+- **Decision (user):** the final policy is chosen by an LLM, not by deterministic rules. Deterministic code stays only for validation, audit and the gate.
+- **CLAUDE.md updated:**
+  - §0 governing principle;
+  - §4 (`selection.py` replaces `recommendation.py`);
+  - §5 (`PolicySelection` replaces `RecommendationDecision`; ID prefix `SEL-` replaces `REC-`; RunContext `selection`; the matrix is an evidence input);
+  - §6 pipeline order: company → exposures → evidence → coverage matrix → LLM selection → selection validation → pitch → audit → repair → advisor review → gate → PPT;
+  - §7 "Policy selection (LLM)": inputs, exactly one policy, cited evidence + verbatim quotes, temperature 0, saved and reused, advisor override, deterministic selection validation;
+  - §8 (slide-4 reason claims are audited);
+  - §9 (slide 4 injects name / variant / add-ons from `PolicySelection`; the reason is audited claims);
+  - §10 (selection FAIL / REVIEW_REQUIRED conditions; rule-ranking special cases removed).
+- **PROMPTS.md updated:** Prompts 5–10, plus the time-plan row for Prompt 6 ("LLM policy selection").
+- **No code was changed in this step.** The removal list below is for Prompt 6.
+
+**Removal list (rule-based policy selection):**
+
+| Where | What | Action | Why |
+|---|---|---|---|
+| `src/marsh/recommendation.py` | stub module ("ordered deterministic rules"); ranking never implemented | **remove**; add `selection.py` | selection is by LLM + deterministic validation |
+| `models.py` | `RecommendationDecision` (+ its `_consistent` validator: special_case / deciding_rule invariants) | **replace** with `PolicySelection` | new §5 model |
+| `models.py` | `RuleTableRow` | **remove** | no rule counts |
+| `models.py` | `SpecialCase` (TIE / NO_COVERAGE / ASSUMPTION_SENSITIVE) | **remove** | no ranking special cases; unresolved validation / advisor override replace them |
+| `models.py` | `DecidedBy` (RULES / ADVISOR) | **replace** with LLM / ADVISOR | |
+| `models.py` | `RecId` (`REC-`) | **replace** with `SEL-` | |
+| `models.py` | `RecommendedPolicyBlock.deciding_rule`, `.reason_text`, `decided_by` type | **replace**: keep policy_id / name / variant / add-ons, decided_by LLM / ADVISOR; drop deciding_rule and reason_text | the reason becomes audited claims |
+| `models.py` | `RunContext.recommendation` | **replace** with `selection: PolicySelection` | |
+| `models.py` | `AdvisorActionType.RECOMMENDATION_DECIDED` | **replace** with `SELECTION_OVERRIDDEN` | |
+| `models.py` | module docstring mention of `RuleTableRow` | **update** | |
+| `tests/test_models.py` | `make_rule_rows`, `make_recommendation`, the `RecommendedPolicyBlock` factory, `test_special_case_can_await_advisor`, `test_recommendation_invariants`, the advisor-decision test | **replace** with PolicySelection factories and invariant tests | |
+| `tests/test_run_context.py` | decision-log test logging a `RecommendationDecision` / `SpecialCase.TIE` | **replace** with a PolicySelection payload | |
+| `matching.py` | nothing exists solely for rule counting (rule-4 dedupe etc. was never written) | **keep all** | validated, quote-checked coverage per exposure is the selection's evidence input |
+| `matching.is_covered` | "covered" = status + `available_at_assumed_si` | **keep** | the gate's "selection relies on cells not available at the assumed SI" check and the selection input |
+| `exposures.py` `assumption_based` | | **keep** | selection input and the gate's REVIEW item |
+| `pipeline.py` | `match_run` | **keep**; add the selection step | |
+| prompts | no rule-based prompt exists | add `prompts/select_policy.md` (+ repair) in Prompt 6 | |
+| UI (`app.py`), gate, pitch, render, audit, repair | stubs; no rule code | **keep**; built to the new spec | |
+| `PROMPTS.md` line 32 "Never cut … the recommendation rules" | **stale, not edited** (outside Prompts 5–10) | flag | |
+| `PROMPTS.md` Prompt 11 ("the rule_table as recommendation_<company>.md") | **stale, not edited** | flag: should export the PolicySelection instead | |
+| `PROMPTS.md` Prompt 12 (write-up: "deterministic recommendation", "LLM has no final authority", "ordered recommendation rules instead of scores") | **stale, not edited** | flag: should describe LLM selection + validation + audit | |
+| `PROGRESS.md` history (pre-Prompt 6 rules, T1–T4) | history | keep as history; superseded by this entry | |
+
+Kept unchanged: extraction, annotation, evidence_store, numbers.py, grounding.py, audit, repair, gate, render, decision_log, run_context, company, exposures, validation, llm, matching.
+
 ## Next
-- **Decide before Prompt 6** (stopped here per instruction, because T3 didn't come out cleanly):
+- **Prompt 6 (waiting for your go): LLM policy selection.** Implement the removal list, `selection.py`, `prompts/select_policy.md`, and the selection validation.
+- **Open matrix-quality questions** (no longer about rule counting; they are now evidence the selection LLM sees):
   1. NIVA DAYCARE: accept COVERED_VIA_ADDON (Safeguard+ "Hospitalisation covered for 2 hours and more") or require NOT_STATED (no "day care" wording)? Its second quote ("Claim Safeguard+: Non-payable items …") is irrelevant to day care.
-  2. CARE PED: an optional *improvement* (PED wait reduced to 1–2 years for extra premium) is recorded as an OPTIONAL_EXTRA_PREMIUM limitation on a base-covered cell. It counts in rule 4. Drop it (prompt rule / validation), or keep it?
-  3. NIVA INFLATION: Booster+'s variant-dependent cap (5X Platinum+ / 10X Titanium+) is labelled VARIANT_ONLY, but Booster+ is in both variants. With the Prompt 6 variant-conflict rule, VARIANT_ONLY labels matter. Treat a variant-dependent cap as SUBLIMIT instead?
+  2. CARE PED: an optional *improvement* (PED wait reduced to 1–2 years for extra premium) is recorded as an OPTIONAL_EXTRA_PREMIUM limitation on a base-covered cell.
+  3. NIVA INFLATION / SI-EXHAUST: Booster+'s variant-dependent cap (5X Platinum+ / 10X Titanium+) is labelled VARIANT_ONLY, although Booster+ is in both variants.
+- **Stale PROMPTS.md text to update when you say so:** line 32, Prompt 11 and Prompt 12 (see the removal list).
 - **For Prompt 8 (audit) — required deterministic checks (not built yet):**
   - **Number check on supporting items only.** Run `number_check` against the claim's **supporting** evidence only. Against the whole brochure, three planted false claims pass, because their numbers occur elsewhere: Niva "₹5,00,000" (a SI tier "INR 5 Lac"), Niva "30-day initial waiting period" (footnote (8) "30 days/policy year"), and ABHI "100% HealthReturns every year" ("up to 100%"). `tests/test_grounding.py::test_the_whole_brochure_is_the_wrong_input` pins this.
   - **Topic-anchor check.** The claim's benefit topic (e.g. "waiting period", "air ambulance", "maternity") must appear in a supporting item's text, row_label or section, or in the claim's exposure's taxonomy keywords (`config/exposure_taxonomy.yaml`). Otherwise the claim can't be VERIFIED. This catches "Niva 30-day waiting period" being supported by footnote (8)'s "30 days/policy year" hospital-cash limit.

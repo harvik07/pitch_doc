@@ -21,7 +21,7 @@
 | 3 | Number normaliser + grounding checks | 0:45 | 4:00 |
 | 4 | Company profile + exposures | 1:00 | 5:00 |
 | 5 | Coverage matrix + match validation | 1:15 | 6:15 |
-| 6 | Deterministic recommendation | 0:45 | 7:00 |
+| 6 | LLM policy selection | 0:45 | 7:00 |
 | 7 | Pitch generation | 1:00 | 8:00 |
 | 8 | Audit + repair | 1:30 | 9:30 |
 | 9 | Final gate + PPT rendering | 1:00 | 10:30 |
@@ -191,14 +191,14 @@ Done when: running python -c "from marsh.api import generateCompanyProfile; prin
 ## PROMPT 5 — Coverage matrix + deterministic match validation
 
 ```
-Implement matching.py per CLAUDE.md section 6 (steps 5 and 6) and the PolicyMatch model.
+Implement matching.py per CLAUDE.md section 6 (steps 5 and 6) and the PolicyMatch model. The coverage matrix is an evidence input to the LLM policy selection (Prompt 6); no code counts or ranks it.
 
 - build_coverage_matrix(policy_id, assumed_sum_insured, run_id): ONE LLM call per policy (prompts/match_policy.md) with that policy's full evidence set (id, page, section, tier, variant, si_condition, text, linked footnotes) plus the whole taxonomy. For EVERY taxonomy exposure it returns: coverage_status, limitations (typed), benefit/limitation/exclusion evidence IDs, and verbatim quotes.
 - Prompt rules: if the brochure does not mention it → NOT_STATED (never guess covered or excluded); optional/add-on benefits → COVERED_VIA_ADDON with an ADDON_REQUIRED or OPTIONAL_EXTRA_PREMIUM limitation; variant-only → VARIANT_ONLY limitation; SI-tiered → SI_TIER_CONDITION evaluated at the assumed sum insured; a "discount on services" is NOT coverage.
 - Cache the matrix at data/cache/matrix_<sha>_<SI>.json.
 - validate_match(match): the deterministic rules in CLAUDE.md section 6 step 6 (IDs exist and belong to the policy, quotes are substrings via grounding.quote_in_evidence, EXCLUDED needs exclusion evidence, COVERED_* needs benefit evidence, COVERED_VIA_ADDON needs ADDON/OPTIONAL tier evidence, else downgrade, and an ADDON_REQUIRED/OPTIONAL_EXTRA_PREMIUM limitation; FULLY_COVERED with limitations → COVERED_WITH_LIMITATIONS; benefit-defining windows are not limitations). Failed cells get one repair retry with the errors fed back; still failing → NOT_STATED, validated=False, errors logged.
 - available_at_assumed_si: computed in Python from the SI condition's verbatim evidence (numbers.py), never by the LLM; unparseable → False, flagged.
-- select_relevant(matrix, exposures) returns the matches for this company's exposures.
+- select_relevant(matrix, exposures) returns the matches for this company's exposures (the cells given to the policy selection).
 - scripts/show_matrix.py prints a policy × exposure grid of statuses.
 
 Run it for all 4 policies at the default SI and show me the grid. Then check these against CLAUDE.md section 2 and fix the prompts/overrides if any are wrong:
@@ -211,31 +211,44 @@ Done when: the grid matches the checks above and every non-NOT_STATED cell has v
 
 ---
 
-## PROMPT 6 — Deterministic recommendation + special cases
+## PROMPT 6 — LLM policy selection
 
 ```
-Implement recommendation.py exactly per CLAUDE.md section 7. NO LLM in this file.
+Implement selection.py per CLAUDE.md sections 5 (PolicySelection) and 7. Replace the rule-based recommendation
+(recommendation.py, RecommendationDecision, RuleTableRow, SpecialCase, DecidedBy RULES) — see PROGRESS.md for the
+removal list.
 
-- recommend(relevant_matches_by_policy, exposures) -> RecommendationDecision
-- "Covered" = covered status AND available_at_assumed_si (CLAUDE.md section 5).
-- Build rule_table: for each policy, the counts for rules 1–5 plus NOT_STATED and "Needs higher SI" (display only).
-- Sort all policies together lexicographically by (rule1 covered desc, rule2 fully covered desc, rule3 excluded asc, rule4 distinct limitation types asc, rule5 assumption-based asc). deciding_rule = the first rule where the #1 and #2 policies differ.
-- reason_text from a fixed template per rule, naming the runner-up and both counts.
-- Special cases: NO_COVERAGE (after availability, every policy covers 0 relevant exposures; skip ranking), TIE (two or more tied at the top on all 5 rules), ASSUMPTION_SENSITIVE (rerun rules 1–4 without assumption_based exposures; the original winner isn't in the rerun's top group). These return decided_by=None with special_case set, and the pipeline must ask the advisor.
-- apply_advisor_decision(decision, policy_id, reason) → decided_by=ADVISOR, logged.
-- selected_variant / required_addons: derived from the winner's relevant matches (VARIANT_ONLY and ADDON_REQUIRED limitations).
-- Every decision is logged to the decision log with the rule_table.
+- select_policy(run_context) -> PolicySelection: ONE LLM call (prompts/select_policy.md, temperature 0) with the company
+  profile (facts with status/confidence), the exposures (with assumption_based), ONLY the user-selected/uploaded policies
+  with their citable evidence, their validated coverage cells for the relevant exposures (status, limitations, quotes,
+  available_at_assumed_si) and the assumed SI. It returns exactly one selected_policy_id plus variant, required add-ons,
+  reason, relevant_exposure_ids, supporting_evidence_ids, supporting_quotes, important_limitations,
+  important_conditions and confidence.
+- Prompt rules: only the supplied evidence and cells; NOT_STATED = the brochure is silent (never covered, never
+  excluded); a cell not available at the assumed SI is not coverage at that SI; never compare premiums; no outside
+  knowledge.
+- validate_selection(selection, run_context): the deterministic checks in CLAUDE.md section 7 (selected policy is one of
+  the compared ones and the compared ones are exactly the run's selected/uploaded policies; evidence IDs exist, are
+  citable and belong to a compared policy, at least one to the selected policy; every quote is verbatim in a supporting
+  item; relevant exposures are the run's; variant and add-ons are named in the selected policy's evidence). One repair
+  retry with the errors fed back; unresolved errors stay in validation_errors.
+- The selection is saved in the RunContext and reused by every later step and re-run; select_policy is not called again
+  when the RunContext already has one.
+- apply_advisor_override(run_context, policy_id, reason) → decided_by=ADVISOR, advisor_reason set, logged; the policy must
+  be one of the compared ones and the reason non-empty.
+- Every selection, validation result and override is logged to the decision log.
 
-Tests (pure, no LLM), at least:
-- Rule 1 decides; Rule 2 decides; Rule 3 decides; Rule 4 decides; Rule 5 decides
-- A policy covering more relevant exposures beats one with fewer stated exclusions (disclosure isn't penalised).
-- NOT_STATED neutrality: policy A has 2 EXCLUDED on exposures where policy B is NOT_STATED; everything else equal → B wins on rule 3, and a test documents this is intended (NOT_STATED is not EXCLUDED). A second test shows NOT_STATED doesn't count as covered in rules 1–2.
-- A cell not available at the assumed SI doesn't count as covered.
-- TIE, NO_COVERAGE, ASSUMPTION_SENSITIVE each trigger
-- Exactly one policy is always returned after the advisor decision
-Update PROGRESS.md, commit.
+Tests with a mocked LLM (no ranking tests):
+- a valid selection passes validation; a policy outside compared_policy_ids, an unknown/non-citable/foreign evidence ID,
+  a non-verbatim quote, an unknown exposure ID and an unknown variant each produce a validation error;
+- a failing selection gets exactly one repair call with the errors in the prompt;
+- only the user-selected policies are sent to the LLM;
+- the saved selection is reused (no second LLM call);
+- advisor override: logged, decided_by=ADVISOR, rejects a policy outside the compared set or an empty reason.
+Run the selection for the frozen Infosys profile at ₹10 lakh with all 4 brochures and show the PolicySelection and its
+validation result. Update PROGRESS.md, commit.
 
-Done when: all recommendation tests pass.
+Done when: the tests pass and the Infosys selection validates (or its validation errors are shown to me).
 ```
 
 ---
@@ -246,10 +259,11 @@ Done when: all recommendation tests pass.
 Implement pitch.py and the generateMarketingPitch wrapper per CLAUDE.md sections 6 (step 9) and 9.
 
 - generate_pitch(run_context) -> PitchDeck with exactly the 5 slides in section 9.
-- prompts/generate_pitch.md receives: company profile (with statuses), relevant exposures, the validated matches for the RECOMMENDED policy (with evidence text + qualifiers), a short summary of the other policies' matches, the recommendation (read-only), and marsh_profile.md.
+- prompts/generate_pitch.md receives: company profile (with statuses), relevant exposures, the validated matches for the SELECTED policy (with evidence text + qualifiers), a short summary of the other policies' matches, the PolicySelection (read-only: reason, important limitations and conditions, supporting evidence), and marsh_profile.md.
 - The LLM returns slides whose bullets are Claim objects (text, claim_type, policy_id, cited_evidence_ids, basis_fact_ids, material). Enforce the limits in section 9 through the schema (max items, max chars).
 - Prompt rules: only state policy facts present in the provided evidence; keep numbers exactly as written; include the qualifier when the evidence has si_condition/variant/add-on/footnote; label company facts with status ASSUMPTION as assumptions; slide 2 uses ONLY marsh_profile.md; never mention insurer statistics on slide 2; never compare premiums.
-- Code-injected fields (the LLM can't set them): slide 4 policy name, variant, required add-ons, deciding rule, reason_text; the slide 3 Source column (doc display name + page from evidence); the slide 5 disclaimer and sources list.
+- Code-injected fields (the LLM can't set them): slide 4 policy name, variant and required add-ons from the PolicySelection; the slide 3 Source column (doc display name + page from evidence); the slide 5 disclaimer and sources list.
+- Slide 4's selection reason is written as Claim objects (claim_type POLICY_*, policy_id = the selected policy) and audited like every other claim; it is never injected as unaudited text.
 - Assign claim IDs CL-001… in slide order.
 - If marsh_profile.md is missing or empty → raise a clear error (the UI shows it).
 - api.generateMarketingPitch(company_name=None, policy_docs=None, run_context=None): works from a RunContext, or runs the upstream steps if given a name + docs.
@@ -270,13 +284,14 @@ audit.py
 - Policy claims: candidate evidence = the full evidence set of the claimed policy when estimate_tokens < FULL_CONTEXT_TOKEN_LIMIT, else keyword_search. The generator's cited_evidence_ids are NOT given to the audit LLM.
 - prompts/audit_claim.md (uses GEMINI_AUDIT_MODEL): returns status, supporting_evidence_ids, verbatim quotes, required_qualifier, explanation. Tell it: "absence of evidence = UNSUPPORTED; different number = CONTRADICTED; you do not know anything outside the evidence".
 - Deterministic overrides after the LLM: quote check, evidence ownership, number_check (CONTRADICTED beats the LLM's VERIFIED), policy-name check, qualifier requirement from footnotes/si_condition/variant/tier, slide-2 Marsh-only check.
+- Slide 4's selection-reason claims are audited like every other claim; the PolicySelection's own evidence IDs aren't given to the audit LLM.
 - Batch several claims per LLM call if it's faster, but results stay per claim.
 - build_summary(): counts per status, confidence_score, overall_flag (PASS | REVIEW_REQUIRED | FAIL) using gate rules.
 - api.auditPitchContent(pitch_slides, policy_docs) -> AuditReport. Must work standalone: accepts a PitchDeck or list of dicts; policy_docs as PolicyDocuments, file paths or IDs; resolves the evidence from cache by sha256 or extracts it.
 - Export outputs/<run_id>/audit_report.json and audit_report.md (a table: claim_id, slide, claim text, status, evidence doc/page/section, quote, qualifier, explanation, plus the summary at the top).
 
 repair.py
-- repair_claim(claim, audit_result, evidence): prompts/repair_claim.md gets ONLY that claim + its audit explanation + the relevant evidence; it returns the replacement claim text. It can't change claim_type/policy_id, other claims, slide structure or the recommendation.
+- repair_claim(claim, audit_result, evidence): prompts/repair_claim.md gets ONLY that claim + its audit explanation + the relevant evidence; it returns the replacement claim text. It can't change claim_type/policy_id, other claims, slide structure or the selected policy.
 - Loop: re-audit the repaired claim; max 2 attempts; then remove it if material=False, else NEEDS_REVIEW. Log each attempt.
 
 scripts/eval_audit.py: builds a fake deck from the golden TRUE facts and the planted FALSE claims in CLAUDE.md section 2, runs auditPitchContent, and prints a table of expected vs actual. Target: every false claim is NOT VERIFIED and ≥ 80% of true claims are VERIFIED or VERIFIED_WITH_QUALIFIER. Iterate on the prompts until it passes. Save the output to deliverables/audit_eval.md.
@@ -293,7 +308,7 @@ Done when: eval_audit.py meets the target and the tests pass.
 Implement gate.py and render_ppt.py per CLAUDE.md sections 9 and 10.
 
 gate.py
-- run_gate(run_context) -> GateResult(status PASS | REVIEW_REQUIRED | FAIL, failures: list, review_items: list). Every FAIL and REVIEW condition in section 10, each with a unit test.
+- run_gate(run_context) -> GateResult(status PASS | REVIEW_REQUIRED | FAIL, failures: list, review_items: list). Every FAIL and REVIEW condition in section 10, each with a unit test — including the selection conditions: no selection, selected policy not in compared_policy_ids, unresolved selection validation errors (FAIL); confidence=low, advisor override, selection relying on cells not available at the assumed SI (REVIEW_REQUIRED).
 - Export is allowed only if PASS, or REVIEW_REQUIRED with every review item acknowledged by the advisor (stored in advisor_actions).
 
 render_ppt.py
@@ -318,13 +333,13 @@ Build app.py per CLAUDE.md sections 1 (1.1, 1.4, 2.2), 6, 10 and 11. Keep it one
 
 Page 1 — "Generate"
 - Title "Marsh Pitch Studio". Company name text input. Policy documents: a multiselect of the 4 bundled brochures (all selected by default) + a file uploader (PDF, multiple). An "Advanced" expander with the assumed sum insured (default ₹10 lakh, labelled as an assumption). A GENERATE PITCH button.
-- On click: validation errors are shown inline (missing name, no documents, bad files; duplicates are shown as info). Then run the pipeline with st.status steps: Company profile → Extract policies → Exposures → Coverage matrix → Recommendation → Pitch → Audit → Repair.
-- If the recommendation has a special_case: stop and show the rule_table and a radio to pick exactly one policy + a required reason text → "Confirm decision" → continue.
+- On click: validation errors are shown inline (missing name, no documents, bad files; duplicates are shown as info). Then run the pipeline with st.status steps: Company profile → Exposures → Extract policies → Coverage matrix → Policy selection → Selection validation → Pitch → Audit → Repair.
+- If the selection has unresolved validation errors: stop, show them with the selection, and let the advisor pick exactly one of the compared policies + a required reason ("Override selection") → continue.
 - Friendly error messages for every case in section 11; tracebacks go only to errors.log.
 
 Page 2 — "Review & Audit"
 - Audit summary at the top: overall flag badge (PASS / REVIEW REQUIRED / FAIL), confidence score %, counts per status.
-- Recommendation panel: selected policy, deciding rule, reason, rule_table as a dataframe.
+- Selection panel: selected policy, variant, add-ons, confidence, reason, important limitations and conditions, supporting quotes with evidence links, validation errors, and the coverage cells of every compared policy as a dataframe (evidence, not a score). "Override selection" (a compared policy + required reason; logged; makes the run REVIEW_REQUIRED).
 - Claims grouped by slide. For each claim: text, status badge, and an expander "View evidence" showing doc, page, section, quote, full evidence text, linked footnotes, qualifier, audit explanation.
 - Actions per claim: Approve · Edit (text area → saves, marks DIRTY, re-audits immediately, shows the new status) · Remove · Attest (only for UNSUPPORTED, needs a justification; disabled for CONTRADICTED).
 - Review items checklist from the gate: each must be ticked to acknowledge.

@@ -16,14 +16,15 @@ The brief is in `docs/Marsh_Internship_Case_Study.pdf`. The 4 policy brochures a
 
 ### Governing principle (non-negotiable)
 
-> The LLM drafts and interprets. It never has final authority. What reaches the final PPT is decided by
-> **source documents → deterministic code → fixed recommendation rules → advisor review**, in that order.
+> The LLM interprets the supplied company information and policy evidence and selects the recommended policy.
+> Deterministic code does not choose the policy; deterministic validation and the independent audit verify the
+> LLM output against source evidence, followed by advisor review.
 
 The LLM must never:
-- decide what is true
+- decide what is true (validation and the independent audit do)
 - override policy evidence
 - create policy facts
-- choose the final policy
+- select a policy the user did not select or upload, or more than one policy
 - create the PowerPoint (python-pptx code renders a fixed template)
 
 ---
@@ -127,7 +128,7 @@ src/marsh/
   company.py                   company profile
   exposures.py                 closed-taxonomy exposure identification
   matching.py                  exposure × policy coverage matrix + validation
-  recommendation.py            ordered deterministic rules + special cases
+  selection.py                 LLM policy selection + deterministic selection validation
   pitch.py                     structured pitch generation
   audit.py                     independent claim audit + summary
   repair.py                    targeted repair (max 2 attempts/claim)
@@ -153,7 +154,7 @@ PROGRESS.md                    update after every prompt: done / next / known is
 
 ## 5. Data model (pydantic, in `models.py`)
 
-All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `REC-`, `CL-`, `AUD-`, `RUN-`.
+All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`, `AUD-`, `RUN-`.
 
 **CompanyFact**: `fact_id, field (industry|size|headcount_band|geography|workforce_profile|business_risk|other), value, status (MODEL_KNOWLEDGE | ASSUMPTION), confidence (low|medium|high), rationale`
 - V1 has no web lookup, so **every** company fact is unverified model knowledge. The UI and the deck label them "Unverified" and label `ASSUMPTION` facts "Assumption".
@@ -174,9 +175,11 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `REC-`, `CL-`
 - `coverage_status ∈ {FULLY_COVERED, COVERED_WITH_LIMITATIONS, COVERED_VIA_ADDON, EXCLUDED, NOT_STATED}`
 - `Limitation.type ∈ {SUBLIMIT, COPAY, WAITING_PERIOD, SI_TIER_CONDITION, VARIANT_ONLY, ADDON_REQUIRED, OPTIONAL_EXTRA_PREMIUM, NETWORK_ONLY, OTHER_CONDITION}`. Every one of these is a **material limitation**. A benefit-defining time window or amount ("60 days pre / 180 days post", "covered up to Sum Insured") is **not** a limitation.
 - `available_at_assumed_si`: computed by Python (numbers.py) from the verbatim evidence of the cell's SI_TIER_CONDITION limitations and SI-conditioned benefit items (plus their linked footnotes and the other tiers of the same table row), **never by the matching LLM**. Only when an item's SI appears in no verbatim text (a column label such as "10 L") is its annotated `si_condition` label parsed instead. True when no SI condition applies or the assumed SI is inside a stated SI range. If no SI range can be parsed → False, flagged "SI condition unreadable". Always False for NOT_STATED and EXCLUDED cells.
-- **covered** = `coverage_status ∈ {FULLY_COVERED, COVERED_WITH_LIMITATIONS, COVERED_VIA_ADDON}` **and** `available_at_assumed_si = True`. A covered-by-status cell that needs a higher SI is shown as "Needs higher SI" (display only; it is not covered).
+- **covered** = `coverage_status ∈ {FULLY_COVERED, COVERED_WITH_LIMITATIONS, COVERED_VIA_ADDON}` **and** `available_at_assumed_si = True`. A covered-by-status cell that needs a higher SI is shown as "Needs higher SI" (it is not covered). The coverage matrix is an evidence input to the policy selection (section 7); no code counts or ranks it.
 
-**RecommendationDecision**: `rec_id, selected_policy_id, selected_variant, required_addons, decided_by (RULES|ADVISOR|None — None while a special case awaits the advisor), deciding_rule (e.g. "RULE_2_MOST_FULLY_COVERED"), reason_text (code-generated), rule_table (per-policy counts for each rule), special_case (None|TIE|NO_COVERAGE|ASSUMPTION_SENSITIVE), advisor_reason`
+**PolicySelection**: `selection_id, compared_policy_ids, selected_policy_id, selected_variant, required_addons, reason, relevant_exposure_ids, supporting_evidence_ids, supporting_quotes, important_limitations, important_conditions, confidence (low|medium|high), decided_by (LLM|ADVISOR), advisor_reason, validation_errors`
+- `compared_policy_ids` = exactly the policies the user selected or uploaded for this run; `selected_policy_id` is exactly one of them.
+- `reason`, `important_limitations` and `important_conditions` are LLM text: they reach the deck only as audited `Claim` objects (section 9).
 
 **Claim**: `claim_id, slide_number, text, claim_type, policy_id (nullable), cited_evidence_ids (generator's citation — logged, never trusted), basis_fact_ids, material: bool, qualifier_text (nullable), state (DRAFT|DIRTY|AUDITED|REMOVED)`
 - `claim_type ∈ {POLICY_FACT, POLICY_BENEFIT, POLICY_LIMIT, POLICY_PRICING, POLICY_CONDITION, POLICY_EXCLUSION, COMPANY_FACT, MARSH_STATEMENT, ASSUMPTION, NON_FACTUAL}`
@@ -189,54 +192,69 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `REC-`, `CL-`
 
 **PitchSlide / PitchDeck**: fixed 5 slides (section 9). Bullets are `Claim` objects: **one bullet = one claim**. There's no free text on slides outside claims, except fixed template labels and code-generated fields.
 
-**RunContext**: `run_id, created_at, company_name, assumed_sum_insured, company_profile, selected_documents, evidence_index_paths, exposures, matches, recommendation, deck, audit_report, advisor_actions, final_status`
+**RunContext**: `run_id, created_at, company_name, assumed_sum_insured, company_profile, selected_documents, evidence_index_paths, exposures, matches, selection, deck, audit_report, advisor_actions, final_status`
 
 ---
 
 ## 6. Pipeline (order is fixed)
 
 1. **Validate inputs** — company name non-empty (trimmed, 2–120 chars); ≥1 document; each file must be a PDF, non-empty, not corrupt, not encrypted, ≤ 25 MB. Duplicates are detected by SHA-256 and reuse the cached extraction.
-2. **Company profile** — `generateCompanyProfile`. Returns industry, size, key business risks, and facts with status. If the model doesn't know the company, return `ASSUMPTION` facts with low confidence. Never refuse, never invent specific numbers (revenue, headcount) presented as fact.
-3. **Policy extraction** — Docling with OCR → EvidenceItems → annotation (tier, variant, SI condition, footnote links) → apply `data/evidence_overrides.yaml` → cache. Pre-extract the 4 bundled brochures via `scripts/extract_policies.py`. Uploads are extracted live.
-4. **Exposure identification** — the LLM selects **only** from `config/exposure_taxonomy.yaml` (closed list of employee-health exposures). Business risks stay on slide 1 only. Every exposure needs ≥1 valid `basis_fact_id`. Code rejects unknown exposure IDs and unknown fact IDs.
-5. **Policy matching** — build the coverage matrix `policy × taxonomy exposure` **once per (policy sha256, assumed_sum_insured)** and cache it. It's company-independent; the company only selects which rows matter. One LLM call per policy with that policy's full evidence set (small docs) and the whole taxonomy. The LLM must return verbatim `quotes`.
-6. **Match validation (deterministic)** — every cited evidence ID exists and belongs to that policy; every quote is a normalised substring of a cited evidence item's text; `EXCLUDED` requires exclusion evidence; `COVERED_*` requires benefit evidence; `COVERED_VIA_ADDON` requires evidence with `benefit_tier` `ADDON` or `OPTIONAL`, else downgrade; it must also carry an `ADDON_REQUIRED` or `OPTIONAL_EXTRA_PREMIUM` limitation (else a validation error). `FULLY_COVERED` with any material limitation → downgraded to `COVERED_WITH_LIMITATIONS` (logged). `COVERED_WITH_LIMITATIONS` with zero limitations from the LLM → validation error. An `OTHER_CONDITION` needs its own verbatim quote and can't be a benefit-defining window; otherwise it's dropped (and a cell whose limitations were all dropped this way becomes `FULLY_COVERED`). Failed cells get **one** repair retry with the validation errors fed back; a cell still failing becomes `NOT_STATED` with `validated=False` and the errors are logged. Only validated matches feed recommendation.
-7. **Deterministic recommendation** — section 7.
-8. **Special cases → advisor decision** (before pitch generation): TIE, NO_COVERAGE, ASSUMPTION_SENSITIVE. The advisor picks one policy and gives a reason; this is logged.
-9. **Pitch generation** — `generateMarketingPitch` → structured `PitchDeck`. Code injects the fixed fields: recommended policy name, variant/add-ons, deciding rule, reason text. The LLM can't change them.
+2. **Company profile** — `generateCompanyProfile`. Returns industry, size, key business risks, and facts with status. If the model doesn't know the company, return `ASSUMPTION` facts with low confidence. Never refuse, never invent specific numbers (revenue, headcount) presented as fact. Generated once per run (or loaded from a frozen profile) and stored in the RunContext.
+3. **Exposure identification** — the LLM selects **only** from `config/exposure_taxonomy.yaml` (closed list of employee-health exposures). Business risks stay on slide 1 only. Every exposure needs ≥1 valid `basis_fact_id`. Code rejects unknown exposure IDs and unknown fact IDs.
+4. **Evidence for the selected/uploaded policies** — Docling with OCR → EvidenceItems → annotation (tier, variant, SI condition, footnote links) → apply `data/evidence_overrides.yaml` → cache. Pre-extract the 4 bundled brochures via `scripts/extract_policies.py`. Uploads are extracted live. Only the policies the user selected or uploaded go further.
+5. **Coverage matrix (evidence input)** — build the coverage matrix `policy × taxonomy exposure` **once per (policy sha256, assumed_sum_insured)** and cache it. It's company-independent; the company only selects which rows matter. One LLM call per policy with that policy's full evidence set (small docs) and the whole taxonomy. The LLM must return verbatim `quotes`.
+6. **Match validation (deterministic)** — every cited evidence ID exists and belongs to that policy; every quote is a normalised substring of a cited evidence item's text; `EXCLUDED` requires exclusion evidence; `COVERED_*` requires benefit evidence; `COVERED_VIA_ADDON` requires evidence with `benefit_tier` `ADDON` or `OPTIONAL`, else downgrade; it must also carry an `ADDON_REQUIRED` or `OPTIONAL_EXTRA_PREMIUM` limitation (else a validation error). `FULLY_COVERED` with any material limitation → downgraded to `COVERED_WITH_LIMITATIONS` (logged). `COVERED_WITH_LIMITATIONS` with zero limitations from the LLM → validation error. An `OTHER_CONDITION` needs its own verbatim quote and can't be a benefit-defining window; otherwise it's dropped (and a cell whose limitations were all dropped this way becomes `FULLY_COVERED`). Failed cells get **one** repair retry with the validation errors fed back; a cell still failing becomes `NOT_STATED` with `validated=False` and the errors are logged. Only validated matches are given to the policy selection.
+7. **LLM policy selection** — section 7. Exactly one of the compared policies, with cited evidence and verbatim quotes.
+8. **Selection validation (deterministic)** — section 7. One repair retry with the errors fed back; errors still unresolved go to the advisor and the gate.
+9. **Pitch generation** — `generateMarketingPitch` → structured `PitchDeck`. Code injects slide 4's policy name, variant and required add-ons from `PolicySelection`; the selection reason becomes Claim objects (section 9). The LLM can't change the injected fields.
 10. **Independent audit** — `auditPitchContent` (section 8).
-11. **Targeted repair** — only failing claims, max 2 attempts each, can't touch other claims, slide structure or the recommendation. After 2 failures: remove the claim if `material=False`, else set it to `NEEDS_REVIEW`.
-12. **Advisor review** — approve / edit / remove / attest per claim; approve / reject the deck. An edited claim becomes `DIRTY` and is re-audited automatically.
+11. **Targeted repair** — only failing claims, max 2 attempts each, can't touch other claims, slide structure or the selected policy. After 2 failures: remove the claim if `material=False`, else set it to `NEEDS_REVIEW`.
+12. **Advisor review** — approve / edit / remove / attest per claim; override the selected policy (with a logged reason); approve / reject the deck. An edited claim becomes `DIRTY` and is re-audited automatically.
 13. **Final gate** — section 10.
 14. **Render PPT** — fixed template, structural QA.
 15. Write `outputs/<run_id>/…` and the decision log.
 
 ---
 
-## 7. Recommendation rules (deterministic, `recommendation.py`, no LLM)
+## 7. Policy selection (LLM, `selection.py`)
 
-Only relevant exposures (identified for this company) and validated matches count.
+The LLM chooses the recommended policy; deterministic code validates the choice, the independent audit checks
+every claim the deck makes about it, and the advisor can override it.
 
-"Covered" means covered by status **and** `available_at_assumed_si` (section 5).
+**Inputs** (`prompts/select_policy.md`):
+- the company profile (facts with status and confidence) and the identified exposures (with `assumption_based`);
+- **only** the policies the user selected or uploaded for this run, each with its citable evidence;
+- their validated coverage matrix cells for the relevant exposures (status, limitations, quotes,
+  `available_at_assumed_si`), and the assumed sum insured.
 
-| Order | Rule | Better = |
-|---|---|---|
-| 1 | Relevant exposures covered at all (`FULLY_COVERED` + `COVERED_WITH_LIMITATIONS` + `COVERED_VIA_ADDON`, available at the assumed SI) | more |
-| 2 | Relevant exposures `FULLY_COVERED` (base plan, zero material limitations, available at the assumed SI) | more |
-| 3 | Relevant exposures `EXCLUDED` | fewer |
-| 4 | Distinct material limitation types, summed per covered relevant exposure (types deduplicated within a cell) | fewer |
-| 5 | Covered relevant exposures that are `assumption_based` | fewer |
+**Output**: one `PolicySelection` (section 5) with **exactly one** `selected_policy_id` from `compared_policy_ids`,
+the selected variant and required add-ons, a reason, the relevant exposures it rests on, the important limitations
+and conditions, a confidence, and the **evidence IDs and verbatim quotes** that support it. `temperature=0`.
 
-Why this order: under the old order (fewest exclusions first), a policy stating no exclusions but covering almost nothing beat one covering nearly everything with one explicit exclusion. That penalised disclosure (HDFC is the only brochure with an exclusions list).
+**Prompt rules**: use only the supplied evidence and cells; `NOT_STATED` means the brochure is silent — never
+treat it as covered or as excluded; a cell not available at the assumed SI is not coverage at that SI (say so if it
+matters); never compare premiums; never use outside knowledge about insurers or products.
 
-- `NOT_STATED` counts in **no** rule: it is never EXCLUDED and never covered. Show NOT_STATED counts (and "Needs higher SI" counts) in the rule table for display only.
-- **C2.** All policies are ranked together, lexicographically by rules 1–5. The **first rule that separates #1 from #2** is `deciding_rule`, and `reason_text` is generated from a fixed template naming the runner-up, e.g. `"Selected because it covers the most relevant exposures (7 vs 5 for HDFC ERGO Optima Secure+)."`
-- No weighted scores, no LLM.
-- **C1. NO_COVERAGE**: after computing availability, if every policy covers 0 relevant exposures → NO_COVERAGE; skip ranking; the advisor decides.
-- **TIE**: two or more policies tied at the top on all 5 rules → the advisor decides.
-- **C5. ASSUMPTION_SENSITIVE**: rerun rules 1–4 without the `assumption_based` exposures. Sensitive only if the original winner isn't in the rerun's top group (the policies tied for #1) → the advisor decides.
-- Output is **always exactly one** policy (plus variant and required add-ons listed from its matches).
-- Unit tests must include a case where one policy has explicit exclusions and another is `NOT_STATED` on the same exposures: rule 3 prefers the NOT_STATED policy only when rules 1–2 tie, and NOT_STATED never counts as covered.
+**Selection validation (deterministic, no LLM)** — errors go to `validation_errors`:
+1. `selected_policy_id` ∈ `compared_policy_ids`, and `compared_policy_ids` = the run's selected/uploaded policies.
+2. Every `supporting_evidence_id` exists, is citable and belongs to a compared policy; at least one belongs to the
+   selected policy.
+3. Every supporting quote is a normalised substring of one of the supporting evidence items
+   (`grounding.quote_in_evidence`); there is at least one.
+4. `relevant_exposure_ids` ⊆ the run's exposures.
+5. `selected_variant` is empty or one of the selected document's variants; each required add-on is named in the
+   selected policy's evidence.
+A selection that fails gets **one** repair retry with the errors fed back. Errors still unresolved are shown to the
+advisor and block export (section 10) until the advisor overrides the selection.
+
+**Reuse**: the selection is made once per run, saved in the RunContext, and reused by every later step and every
+re-run of that run (including "Regenerate with feedback"). Only an advisor override changes it.
+
+**Advisor override**: the advisor may pick a different policy from `compared_policy_ids` with a written reason;
+this sets `decided_by=ADVISOR` and `advisor_reason`, is logged to the decision log, and makes the run
+REVIEW_REQUIRED (section 10).
+
+No weighted scores and no rule-based ranking: code never counts coverage to pick a policy.
 
 ---
 
@@ -246,6 +264,8 @@ Why this order: under the old order (fewest exclusions first), a policy stating 
 - `pitch_slides`: a `PitchDeck` or list of slides (dicts accepted). `policy_docs`: list of `PolicyDocument`, file paths, or document IDs.
 - Must work **standalone** (an evaluator may call it without a RunContext): resolve the evidence by SHA-256 from the cache, and extract if it's missing.
 - The generator's `cited_evidence_ids` are **not** used for verification.
+- Slide 4's selection-reason claims are audited like every other claim; the `PolicySelection`'s own evidence IDs are
+  not used for verification either.
 
 Per claim:
 1. `NON_FACTUAL` → NON_FACTUAL (still checked: if it contains a number or policy name, reclassify it as factual).
@@ -271,7 +291,7 @@ Per claim:
 | 1 | Company Overview | company name; industry; size; key business risks; relevant employee-health exposures; each unverified/assumption fact labelled | ≤ 6 bullets, ≤ 140 chars each |
 | 2 | Why Choose Marsh | 3–4 points from `marsh_profile.md` only | ≤ 4 bullets |
 | 3 | Policy Benefits Mapped to Exposures | table: Exposure → Benefit → Condition/Limitation → Source (doc, page); the Source column is filled by code from evidence | ≤ 6 rows |
-| 4 | Recommended Policy | exactly one policy name + variant + required add-ons (code); deciding rule + reason (code); 3 supporting benefits; 2 key limitations (LLM, audited) | exactly one policy |
+| 4 | Recommended Policy | exactly one policy name + variant + required add-ons (code-injected from `PolicySelection`); the selection reason as Claim objects (LLM, audited like every claim, never injected unaudited); 3 supporting benefits; 2 key limitations (LLM, audited) | exactly one policy |
 | 5 | Key Terms, Sources & Assumptions | qualifier footnotes; source list; assumptions; disclaimer "Summary based on insurer brochures; the policy wording prevails in case of conflict." | — |
 
 Speaker notes on each slide list `claim_id → evidence_id (doc, page)` for traceability.
@@ -281,9 +301,9 @@ Colours, fonts, positions and slide count are constants in `render_ppt.py`. The 
 
 ## 10. Final gate (`gate.py`, deterministic)
 
-**FAIL (no export)** if any: a material claim is UNSUPPORTED (not attested) or CONTRADICTED; a number check fails; a policy reference is wrong; a material policy statement is unmapped; the deck fails schema validation; a required section is missing; the recommendation is unresolved or more than one policy is recommended; Why Marsh contains a non-Marsh claim; a claim is still DIRTY.
+**FAIL (no export)** if any: a material claim is UNSUPPORTED (not attested) or CONTRADICTED; a number check fails; a policy reference is wrong; a material policy statement is unmapped; the deck fails schema validation; a required section is missing; there is no policy selection; `selected_policy_id` is not in `compared_policy_ids`; the selection has unresolved validation errors (not overridden by the advisor); Why Marsh contains a non-Marsh claim; a claim is still DIRTY.
 
-**REVIEW_REQUIRED (export only after the advisor acknowledges each item)** if any: assumption-based exposures; ADVISOR_ATTESTED claims; recommendation decided by the advisor (TIE / NO_COVERAGE / ASSUMPTION_SENSITIVE); NEEDS_REVIEW claims; VERIFIED_WITH_QUALIFIER claims.
+**REVIEW_REQUIRED (export only after the advisor acknowledges each item)** if any: assumption-based exposures; ADVISOR_ATTESTED claims; selection `confidence=low`; the advisor overrode the selection; the selection relies on cells not available at the assumed SI (a relevant exposure of the selected policy that is covered by status but `available_at_assumed_si=False`); NEEDS_REVIEW claims; VERIFIED_WITH_QUALIFIER claims.
 
 **Advisor attestation**: an advisor may attest an UNSUPPORTED claim (e.g. a fact from the full policy wording) with a written justification. It's logged and shown on slide 5 as "Advisor-attested". CONTRADICTED claims **cannot** be attested — they must be edited or removed.
 

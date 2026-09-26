@@ -558,6 +558,18 @@ policy evidence. CLAUDE.md §§1, 3, 4, 5, 6.2, 8, 9 and 11 amended ("V1 has no 
 - **Not run live:** this session had no `TAVILY_API_KEY` or GCP credentials. Put `TAVILY_API_KEY` in `.env` and run
   a real company through `scripts/run_pipeline.py` to check the queries and quote pass rate.
 
+### Live check script for the company profile (2026-09-26)
+- `scripts/live_profile_check.py` + `prompts/live_profile_check.md`: a real run, with no mocks, for three fields
+  only: industry, size / employee count, and 3 key business risks. No pipeline code changed.
+  - It uses the real `web_search.search_company` (a fresh search, cached in the run's output folder), then Gemini
+    via `llm.call_structured`, then `company.web_source_problems` + `states_specific_figure`.
+  - A failed value → MODEL_KNOWLEDGE (shown as "Assumption").
+  - Output: per-field value / status / source URL / quote / PASS-FAIL, plus the Tavily / Gemini / quote / number
+    summary lines. It also writes `outputs/<run_id>/live_profile_check.json`.
+  - The Tavily key is never printed or written.
+- **Not run live yet:** this cloud container has no `.env`, no Gemini credentials, and its network policy blocks
+  `api.tavily.com`. To be run locally: `python scripts/live_profile_check.py` (default company: Infosys).
+
 ## Next
 - **For Prompt 9 (slide 4 layout, your note):** slide 4 must fit one slide, at most about 8 visible bullets. Company-framing claims (`metadata.framing_of`) render as sub-lines under their policy claim, not as separate bullets. Structural QA fails on overflow.
 - **For Prompt 9 (rendering):** a VERIFIED_WITH_QUALIFIER policy claim's `qualifier_text` is rendered as a footnote on the claim's own slide (adjustment A). Claims with state REMOVED, and UNSUPPORTED / CONTRADICTED ones, are not rendered.

@@ -503,10 +503,66 @@ Kept unchanged: extraction, annotation, evidence_store, numbers.py, grounding.py
   - §10: CONTRADICTED is a FAIL even for non-material claims; adjustment A; the repair-failed review item; when PASS applies.
 - Tests: 744 passing (mocked LLMs). New: `tests/test_audit.py` (each check, independence, batching, row context, summary flags, the standalone API and its exports) and `tests/test_repair.py` (only failing claims, attempt limit, keep / remove, null rewrite, too long, off topic, code lines not repaired). The selection and pipeline tests now route the selection check through the audit.
 
+### Web search for the company profile: Tavily + Gemini 3.8 Flash (2026-09-26)
+Chosen over SerpAPI: Tavily returns page text, so web facts go through the same deterministic quote check as the
+policy evidence. CLAUDE.md §§1, 3, 4, 5, 6.2, 8, 9 and 11 amended ("V1 has no web lookup" is gone).
+- **`web_search.py`** (new, `tavily-python` 0.8.4):
+  - 2 fixed queries per company (overview / industry / employees; business risks), `search_depth="advanced"`,
+    `include_raw_content="text"`, 4 results each.
+  - Pages are deduplicated by URL and numbered WEB-001…. Each keeps Tavily's excerpt + page text, truncated to
+    `WEB_SOURCE_MAX_CHARS` (6,000).
+  - Cached at `data/cache/web/<slug>.json` (git-ignored), so re-runs see the same sources. Failed or empty
+    searches are not cached.
+  - It never raises. No key (the SDK's keyless mode is never used), `WEB_SEARCH_ENABLED=false`, an error, or no
+    results → no sources plus a note (`CompanyProfile.web_search_note`), logged as `web_search_unavailable`.
+    Searches are logged as `web_search`.
+- **Models:**
+  - `FactStatus.WEB_SOURCED`.
+  - `WebSource(source_id, url, title, retrieved_at, content)`.
+  - `CompanyFact.source_ids / quotes`.
+  - `CompanyProfile.sources` (only the cited ones) and `web_search_note`.
+  - `fact_display_label(status)`: "Web-sourced" or "Assumption".
+- **`company.py`:** the prompt gets the sources, marked as untrusted data. `WEB_SOURCED` is decided by code
+  (`web_source_problems`):
+  - the fact cites existing sources;
+  - every quote (≥ 4 words) is verbatim in a cited source (`grounding.quote_in_evidence`);
+  - every number in the value is in the quotes. A lower-bound band ("over 300,000", "300,000+") may round a larger
+    quoted figure down; "around 300,000" may not.
+  - A failure becomes `MODEL_KNOWLEDGE` (recognised company) or `ASSUMPTION` (not recognised), with the reason in
+    the rationale. The decision log lists `web_sourced_fact_ids` / `web_rejected_fact_ids`.
+  - An unrecognised company keeps its verified web facts; everything else is ASSUMPTION / low.
+  - The specific-figure rule still downgrades any status.
+- **Labels (your rule):** users see two labels only. A verified WEB_SOURCED fact is "Web-sourced";
+  MODEL_KNOWLEDGE and ASSUMPTION are both "Assumption". "Unverified" and `MODEL_KNOWLEDGE` never appear in the deck
+  or the audit report; raw statuses stay in `run_context.json` and the logs.
+  - `pitch.py`: a claim resting only on WEB_SOURCED facts is a COMPANY_FACT with `qualifier_text="Web-sourced"`.
+    Every other company claim gets " (Assumption)" and is an ASSUMPTION claim. The `UNVERIFIED` constant is gone.
+  - Slide 5: "Company details are AI-generated … unverified" → "Company details marked (Assumption) are not
+    verified against a web source." The source list adds "Web-sourced: <title> — <url> (retrieved <date>)" for the
+    pages behind the deck's Web-sourced claims.
+  - `audit.py`: a "Web-sourced" claim re-runs `web_source_problems` against `profile.sources`, so the stored status
+    isn't trusted. Pass → VERIFIED; fail, or the label on a non-web fact → NEEDS_REVIEW. Any other company claim
+    needs "(Assumption)" → LABELLED_ASSUMPTION.
+  - The audit report JSON/MD show each fact's label, source URLs and quotes instead of the raw status.
+  - `generate_pitch.md` / `select_policy.md` no longer say "every fact is unverified"; the pitch prompt tells the
+    LLM not to write labels itself.
+- **Unchanged:** `Exposure.assumption_based` and the gate still count only ASSUMPTION facts, so a model-only run
+  isn't REVIEW_REQUIRED just because search was unavailable.
+- **Tests:** 772 passing (Tavily and Gemini mocked; `conftest.py` blanks `TAVILY_API_KEY`). New or changed:
+  - `tests/test_web_search.py`: numbering, dedupe, caching, truncation, every fallback, search→profile end to end.
+    A live Tavily test runs with `-m llm` and needs a key.
+  - `test_company.py`: verification, downgrade matrix, number bands, frozen profile round-trip.
+  - `test_audit.py`: web re-check, tampered page, report labels.
+  - `test_pitch.py`: slide-1 labels, and no "Unverified" in deck text.
+  - `test_models.py`: `WebSource`, display labels.
+- **Not run live:** this session had no `TAVILY_API_KEY` or GCP credentials. Put `TAVILY_API_KEY` in `.env` and run
+  a real company through `scripts/run_pipeline.py` to check the queries and quote pass rate.
+
 ## Next
 - **For Prompt 9 (slide 4 layout, your note):** slide 4 must fit one slide, at most about 8 visible bullets. Company-framing claims (`metadata.framing_of`) render as sub-lines under their policy claim, not as separate bullets. Structural QA fails on overflow.
 - **For Prompt 9 (rendering):** a VERIFIED_WITH_QUALIFIER policy claim's `qualifier_text` is rendered as a footnote on the claim's own slide (adjustment A). Claims with state REMOVED, and UNSUPPORTED / CONTRADICTED ones, are not rendered.
 - **For Prompt 9 (gate):** add the run-level rules to the audit's claim-level summary: selection validation errors, selection `confidence=low`, advisor override, cells not available at the assumed SI, assumption-based exposures, DIRTY claims, and the WM conditions (see Decisions).
+- **For Prompts 9 and 10 (fact labels):** show company facts with `models.fact_display_label` only ("Web-sourced" with its source link, or "Assumption"), never "Unverified" or a raw status; show `CompanyProfile.web_search_note` as an info message when set.
 - **For Prompt 10:** an advisor edit makes the claim DIRTY; re-audit it with `audit.audit_claims` and `apply_results`, then rebuild the report with `make_report`.
 - **For Prompt 7 (selection claims):** slide 4's reason comes from `reason_claims`. Several REASON claims mix a policy fact with a company framing ("…, which is important for a large, desk-based workforce"). The pitch should split them into a POLICY_* claim and a COMPANY_FACT claim, so each is audited against the right source.
 - **For Prompt 7 (Niva):** slides say "hospitalisation of 2 hours and more", never "day care". The brochure never uses the words "day care".
@@ -630,7 +686,8 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **The eval's claims are all slide-4 claims.** The slide-3 row context is covered by unit tests only.
 - **Matching cells are LLM judgements within the validation rules.** The committed matrices are the reviewed run. A `--force` re-run may classify borderline cells differently (e.g. NIVA DAYCARE flipped between FULL, ADDON and LIMITS across the three runs); the checked cells stayed stable.
 - **Company profiles vary between runs** at temperature 0 (two Infosys runs gave 12 and 14 facts, and different business risks). Every fact is labelled either way; the run's profile is stored in the RunContext and decision log, so a pitch always uses one fixed profile.
-- **Gemini labels some industry-typical business risks MODEL_KNOWLEDGE.** They're shown as "Unverified" on slide 1 anyway (no web lookup in V1), and business risks never feed exposures or recommendation.
+- **Gemini labels some industry-typical business risks MODEL_KNOWLEDGE.** They're shown as "(Assumption)" on slide 1 anyway (MODEL_KNOWLEDGE and ASSUMPTION share that label), and business risks never feed exposures or recommendation.
+- **Web-sourced facts are only as good as the page.** The quote check proves the text is on the fetched page, not that the page is right or about the same company (the prompt forbids a similarly named company; the advisor reviews the source URLs). Tavily results can change over time; the cache keeps a run reproducible.
 - google-genai installed as 2.25.0 (a newer major version than the 1.67 used to plan). The API used is unchanged: `response_json_schema`, `HttpOptions.timeout` in ms, `errors.ClientError/ServerError(code, response_json)`, and the SDK does no retries by default.
 - **OCR quality:**
   - Niva p1's decorative wheel yields fragments ("Unli", "aim", "sing").
@@ -653,4 +710,4 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **The Care p3 grid rows keep the brochure's bare numbers** ("270 30%"): the text doesn't say whether 270 means "270 or more" healthy days. Claims must not add that interpretation.
 
 ## Installed versions
-google-genai 2.25.0 · pydantic 2.13.5 · docling 2.130.0 · docling-core 2.99.0 · rapidocr 3.9.2 · pymupdf 1.28.2 · python-pptx 1.0.2 · python-docx 1.2.0 · streamlit 1.64.0 · pyyaml 6.0.3 · python-dotenv 1.2.3 · pytest 9.1.1 · tenacity 9.1.4 · torch 2.14.0
+google-genai 2.25.0 · tavily-python 0.8.4 · pydantic 2.13.5 · docling 2.130.0 · docling-core 2.99.0 · rapidocr 3.9.2 · pymupdf 1.28.2 · python-pptx 1.0.2 · python-docx 1.2.0 · streamlit 1.64.0 · pyyaml 6.0.3 · python-dotenv 1.2.3 · pytest 9.1.1 · tenacity 9.1.4 · torch 2.14.0

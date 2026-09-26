@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 from pydantic import ValidationError
 
@@ -11,6 +13,7 @@ from marsh.evidence_store import load_evidence
 from marsh.matching import build_coverage_matrix, build_matrix
 from marsh.decision_log import read_decisions
 from marsh.models import (
+    WebSource,
     ClaimType,
     Limitation,
     LimitationType,
@@ -39,15 +42,21 @@ NIVA_AIR = "Air Ambulance: up to INR 2,50,000 per Hospitalisation"  # golden fac
 HDFC_AIR = "Air: Up to INR 5,00,000"  # golden fact, EV-HDFC-11-029
 
 
-def fact(field, value, status="MODEL_KNOWLEDGE"):
-    return {"field": field, "value": value, "status": status, "confidence": "medium", "rationale": "Placeholder."}
+def fact(field, value, status="MODEL_KNOWLEDGE", **web):
+    return {"field": field, "value": value, "status": status, "confidence": "medium", "rationale": "Placeholder.",
+            **web}
 
 
+# A placeholder page about the fictional "Example Co" (not a claim about any real company).
+WEB_QUOTE = "Example Co is a placeholder industry company"
+WEB_SOURCES = [WebSource(source_id="WEB-001", url="https://example.com/about", title="About Example Co",
+                         retrieved_at=datetime(2026, 9, 26, tzinfo=timezone.utc), content=f"{WEB_QUOTE}.")]
 PROFILE = build_profile("Example Co", CompanyProfileResponse.model_validate({"company_recognised": True, "facts": [
-    fact("industry", "Placeholder industry"), fact("size", "Large enterprise"),
+    fact("industry", "Placeholder industry", "WEB_SOURCED", source_ids=["WEB-001"], quotes=[WEB_QUOTE]),
+    fact("size", "Large enterprise"),
     fact("business_risk", "Client concentration"), fact("business_risk", "Talent attrition"),
     fact("workforce_profile", "Frequent international travel", "ASSUMPTION"),
-]}))
+]}), WEB_SOURCES)
 EXPOSURES = [Exposure(exposure_id="EXP-AMB-AIR", name="Air ambulance", rationale="x", basis_fact_ids=["CF-005"],
                       assumption_based=True),
              Exposure(exposure_id="EXP-MATERNITY", name="Maternity", rationale="x", basis_fact_ids=["CF-005"],
@@ -176,9 +185,15 @@ def test_a_split_that_changes_numbers_keeps_the_original_sentence(monkeypatch, c
 def test_slide1_labels_and_business_risks(monkeypatch, ctx):
     deck, _ = run(monkeypatch, ctx, draft())
     bullets = deck.slides[0].bullets
-    assert all(b.qualifier_text == "Unverified" for b in bullets)
-    assert bullets[2].text == "Staff travel internationally (Assumption)" and bullets[2].claim_type == ClaimType.ASSUMPTION
+    # Two labels only: "Web-sourced" (verified WEB_SOURCED basis) or "(Assumption)" (MODEL_KNOWLEDGE / ASSUMPTION).
+    assert (bullets[0].text, bullets[0].qualifier_text) == ("Placeholder industry company", "Web-sourced")
     assert bullets[0].claim_type == ClaimType.COMPANY_FACT
+    assert bullets[1].text == "Key business risk: client concentration (Assumption)"  # MODEL_KNOWLEDGE
+    assert bullets[2].text == "Staff travel internationally (Assumption)"  # ASSUMPTION
+    assert all(b.claim_type == ClaimType.ASSUMPTION and b.qualifier_text is None for b in bullets[1:])
+    shown = "\n".join(texts(deck) + [c.qualifier_text or "" for c in deck.all_claims()])
+    assert "Unverified" not in shown and "unverified" not in shown and "MODEL_KNOWLEDGE" not in shown
+    assert any(s.startswith("Web-sourced: About Example Co — https://example.com/about") for s in deck.sources)
     risky = [{"selection_claim_id": "SC-1", "policy_text": NIVA_AIR, "company_text": "Clients are concentrated.",
               "basis_fact_ids": ["CF-003"]}]  # a business risk may not frame slide 4
     deck, _ = run(monkeypatch, ctx, draft(splits=risky))

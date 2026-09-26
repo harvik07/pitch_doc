@@ -17,8 +17,10 @@ from marsh.validation import validate_company_name
 
 
 def generateCompanyProfile(company_name: str, run_id: str | None = None) -> CompanyProfile:  # noqa: N802 (brief's name)
-    """Industry, size, key business risks and workforce facts, each labelled MODEL_KNOWLEDGE or ASSUMPTION
-    with a confidence (brief 1.2). Creates a run_id when none is given (the LLM call is logged under it).
+    """Industry, size, key business risks and workforce facts, each with a status and a confidence (brief 1.2).
+    Web sources (Tavily) are searched first: a fact is WEB_SOURCED only when its quotes pass the deterministic
+    source check; otherwise MODEL_KNOWLEDGE or ASSUMPTION (shown to users as "Assumption"). Without web search it
+    falls back to model knowledge. Creates a run_id when none is given (the calls are logged under it).
     Raises company.CompanyNameError for an invalid name."""
     return generate_company_profile(company_name, run_id or new_run_id())
 

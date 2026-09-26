@@ -4,7 +4,9 @@ Code fills the slide titles, the policy name / variant / add-ons, the Source col
 disclaimer. An independent audit will check every sentence you write against the evidence below.
 
 Company: {{company_name}}
-Company facts (id | field | status | confidence | value). There is no web lookup: every fact is unverified.
+Company facts (id | field | status | confidence | value). WEB_SOURCED = stated in a fetched web page (quote-checked
+by code); MODEL_KNOWLEDGE and ASSUMPTION are not source-verified. Code adds the labels users see ("Web-sourced",
+"(Assumption)"): never write a label, a status name or words such as "unverified" in a bullet yourself.
 {{facts}}
 
 The company's employee-health exposures (id | name | assumption_based):

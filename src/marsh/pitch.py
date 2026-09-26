@@ -2,8 +2,10 @@
 
 The selection is locked. Code decides the structure and injects every fixed field; one Gemini call
 (prompts/generate_pitch.md) writes the prose parts, and code turns them into Claim objects:
-- Slide 1: company bullets (LLM) with basis_fact_ids; every company fact is labelled "Unverified"
-  (qualifier_text) and a bullet resting on an ASSUMPTION fact gets " (Assumption)" appended. Business risks only here.
+- Slide 1: company bullets (LLM) with basis_fact_ids. Users see two labels only (models.fact_display_label): a
+  bullet resting only on verified WEB_SOURCED facts is a COMPANY_FACT with qualifier_text "Web-sourced"; any other
+  bullet (a MODEL_KNOWLEDGE or ASSUMPTION basis) gets " (Assumption)" appended and is an ASSUMPTION claim.
+  Business risks only here.
 - Slide 2: WM-01…WM-04 from data/marsh/marsh_profile.md, verbatim, as MARSH_STATEMENT claims; each keeps its
   condition in `metadata` for the gate. A missing or empty profile raises MarshProfileError before any LLM call.
 - Slide 3: rows = the selected policy's cells for the relevant exposures (max 6; covered and available first, in
@@ -57,10 +59,12 @@ from marsh.matching import (
 
 )
 from marsh.models import (
+    ASSUMPTION_DISPLAY,
     SLIDE4_MAX_FRAMING_BULLETS,
     SLIDE4_MAX_KEY_LIMITATIONS,
     SLIDE4_MAX_POLICY_BULLETS,
     SLIDE_TITLES,
+    WEB_SOURCED_LABEL,
     BenefitRow,
     Claim,
     ClaimType,
@@ -92,8 +96,8 @@ REPAIR_PROMPT = "repair_pitch_claims"
 MAX_OUTPUT_TOKENS = 12_000
 PITCH_FILE = "pitch_deck.json"
 NOT_STATED_TEXT = "Not stated in the brochure"
-ASSUMPTION_LABEL = " (Assumption)"
-UNVERIFIED = "Unverified"
+ASSUMPTION_LABEL = f" ({ASSUMPTION_DISPLAY})"
+NOT_SOURCE_VERIFIED_TEXT = "Company details marked (Assumption) are not verified against a web source."
 MAX_ROWS = 6
 MIN_KEY_LIMITATIONS = 2
 DUPLICATE_OVERLAP = 0.8
@@ -215,15 +219,28 @@ def _company_claim(text: str, basis: list[str], facts: dict[str, CompanyFact], s
     basis = [b for b in dict.fromkeys(basis) if b in facts]
     if not basis:
         return None
-    assumption = any(facts[b].status == FactStatus.ASSUMPTION for b in basis)
-    all_assumption = all(facts[b].status == FactStatus.ASSUMPTION for b in basis)
+    web = all(facts[b].status == FactStatus.WEB_SOURCED for b in basis)
     text = _display(text)
-    if assumption and not text.endswith(ASSUMPTION_LABEL.strip()):
+    if web:
+        text = text.removesuffix(ASSUMPTION_LABEL.strip()).rstrip()
+    elif not text.endswith(ASSUMPTION_LABEL.strip()):
         text += ASSUMPTION_LABEL
     return Claim(claim_id="CL-000", slide_number=slide, text=text,
-                 claim_type=ClaimType.ASSUMPTION if all_assumption else ClaimType.COMPANY_FACT,
-                 basis_fact_ids=basis, material=False, qualifier_text=UNVERIFIED,
+                 claim_type=ClaimType.COMPANY_FACT if web else ClaimType.ASSUMPTION,
+                 basis_fact_ids=basis, material=False, qualifier_text=WEB_SOURCED_LABEL if web else None,
                  metadata={k: v for k, v in metadata.items() if v})
+
+
+def web_source_lines(ctx: RunContext, claims: list[Claim]) -> list[str]:
+    """Slide 5 source list entries for the web pages behind the deck's Web-sourced company claims."""
+    profile = ctx.company_profile
+    if profile is None:
+        return []
+    facts = {f.fact_id: f for f in profile.facts}
+    used = {i for c in claims if c.qualifier_text == WEB_SOURCED_LABEL
+            for b in c.basis_fact_ids if b in facts for i in facts[b].source_ids}
+    return [f"{WEB_SOURCED_LABEL}: {s.title + ' — ' if s.title else ''}{s.url} (retrieved {s.retrieved_at:%Y-%m-%d})"
+            for s in profile.sources if s.source_id in used]
 
 
 def _policy_claim(text: str, claim_type: ClaimType, policy_id: str, evidence_ids: list[str], store: EvidenceStore,
@@ -429,7 +446,7 @@ def build_deck(ctx: RunContext, draft: PitchDraft, store: EvidenceStore, cells: 
                                  text="Exposures based on assumptions: " + ", ".join(e.name for e in assumed)
                                       + ASSUMPTION_LABEL))
     assumptions.append(Claim(claim_id="CL-000", slide_number=5, claim_type=ClaimType.NON_FACTUAL, material=False,
-                             text="Company details are AI-generated from model knowledge and unverified."))
+                             text=NOT_SOURCE_VERIFIED_TEXT))
     footnotes = _footnotes(rows, names, store)
     if sel.decided_by.value == "ADVISOR":
         footnotes.append(f"Policy selected by the advisor: {sel.advisor_reason}")
@@ -460,6 +477,7 @@ def _assemble(ctx: RunContext, slides: list[PitchSlide], store: EvidenceStore, s
     sources = [f"{store.document(p).display_name} — {store.document(p).file_name}, p. {', '.join(map(str, sorted(pages)))}"
                for p, pages in cited_docs.items()]
     sources.append("Marsh: data/marsh/marsh_profile.md (from docs/Marsh_Internship_Case_Study.pdf)")
+    sources += web_source_lines(ctx, [c for slide in slides for c in slide.all_claims()])
     doc = store.document(sel.selected_policy_id)
     return PitchDeck(run_id=ctx.run_id, company_name=ctx.company_name, slides=slides, sources=sources,
                      recommended=RecommendedPolicyBlock(policy_id=sel.selected_policy_id, policy_name=doc.display_name,

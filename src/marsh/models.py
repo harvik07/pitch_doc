@@ -30,6 +30,7 @@ def _prefixed(*prefixes: str) -> AfterValidator:
 
 
 FactId = Annotated[str, _prefixed("CF-")]
+WebSourceId = Annotated[str, _prefixed("WEB-")]
 EvidenceId = Annotated[str, _prefixed("EV-")]
 ExposureId = Annotated[str, _prefixed("EXP-")]
 MatchId = Annotated[str, _prefixed("MATCH-")]
@@ -54,8 +55,19 @@ class FactField(StrEnum):
 
 
 class FactStatus(StrEnum):
+    WEB_SOURCED = "WEB_SOURCED"  # cites fetched web sources and passed the deterministic source / quote check
     MODEL_KNOWLEDGE = "MODEL_KNOWLEDGE"
     ASSUMPTION = "ASSUMPTION"
+
+
+WEB_SOURCED_LABEL = "Web-sourced"
+ASSUMPTION_DISPLAY = "Assumption"
+
+
+def fact_display_label(status: FactStatus) -> str:
+    """The only fact labels users see: a verified WEB_SOURCED fact is "Web-sourced"; MODEL_KNOWLEDGE and
+    ASSUMPTION are both "Assumption" (the raw status stays in internal files only)."""
+    return WEB_SOURCED_LABEL if status == FactStatus.WEB_SOURCED else ASSUMPTION_DISPLAY
 
 
 class Confidence(StrEnum):
@@ -266,6 +278,16 @@ class FileValidation(_Model):
 # --- Company ---------------------------------------------------------------------------------------
 
 
+class WebSource(_Model):
+    """One fetched web page (Tavily). `content` is the page text as returned, truncated; it is the only text a
+    WEB_SOURCED fact's quotes are checked against."""
+    source_id: WebSourceId
+    url: str
+    title: str = ""
+    retrieved_at: datetime
+    content: str
+
+
 class CompanyFact(_Model):
     fact_id: FactId
     field: FactField
@@ -273,6 +295,12 @@ class CompanyFact(_Model):
     status: FactStatus
     confidence: Confidence
     rationale: str
+    source_ids: list[WebSourceId] = Field(default_factory=list)  # WEB_SOURCED only
+    quotes: list[str] = Field(default_factory=list)  # verbatim from those sources' content
+
+    @property
+    def display_label(self) -> str:
+        return fact_display_label(self.status)
 
 
 class CompanyProfile(_Model):
@@ -281,6 +309,8 @@ class CompanyProfile(_Model):
     size: str
     key_risks: list[str] = Field(default_factory=list)
     facts: list[CompanyFact] = Field(default_factory=list)
+    sources: list[WebSource] = Field(default_factory=list)
+    web_search_note: str = ""  # why no web sources were used (no API key, search error, ...); empty when used
 
     @model_validator(mode="after")
     def _unique_fact_ids(self) -> CompanyProfile:
@@ -297,6 +327,8 @@ class CompanyFactDraft(_Model):
     status: FactStatus
     confidence: Confidence
     rationale: str = Field(min_length=1)
+    source_ids: list[str] = Field(default_factory=list)  # checked by code (company.build_profile)
+    quotes: list[str] = Field(default_factory=list)
 
 
 class CompanyProfileResponse(_Model):

@@ -3,7 +3,8 @@ Deterministic checks and an independent audit will verify every statement you ma
 a human advisor reviews your choice.
 
 Company: {{company_name}}
-Company facts (id | field | status | confidence | value). V1 has no web lookup: every fact is unverified.
+Company facts (id | field | status | confidence | value). WEB_SOURCED = stated in a fetched web page (quote-checked
+by code); MODEL_KNOWLEDGE and ASSUMPTION are not source-verified.
 {{facts}}
 
 The company's employee-health exposures (id | name | assumption_based | why it matters):

@@ -12,6 +12,8 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from marsh.models import (
+    WebSource,
+    fact_display_label,
     SELECTION_MAX_CONDITIONS,
     SELECTION_MAX_LIMITATIONS,
     SELECTION_MAX_REASONS,
@@ -120,10 +122,27 @@ def make_fact(n: int = 1, status: FactStatus = FactStatus.ASSUMPTION) -> Company
                        status=status, confidence=Confidence.LOW, rationale="Placeholder rationale")
 
 
+def make_web_source() -> WebSource:
+    return WebSource(source_id="WEB-001", url="https://example.com/about", title="Placeholder title",
+                     retrieved_at=datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc), content="Placeholder page text.")
+
+
 def make_profile() -> CompanyProfile:
+    web = CompanyFact(fact_id="CF-003", field=FactField.INDUSTRY, value="Placeholder industry",
+                      status=FactStatus.WEB_SOURCED, confidence=Confidence.HIGH, rationale="Placeholder rationale",
+                      source_ids=["WEB-001"], quotes=["Placeholder page text"])
     return CompanyProfile(company_name="Example Co", industry="Placeholder industry", size="Placeholder size",
                           key_risks=["Placeholder business risk"],
-                          facts=[make_fact(1), make_fact(2, FactStatus.MODEL_KNOWLEDGE)])
+                          facts=[make_fact(1), make_fact(2, FactStatus.MODEL_KNOWLEDGE), web],
+                          sources=[make_web_source()])
+
+
+def test_users_see_two_fact_labels_only():
+    assert fact_display_label(FactStatus.WEB_SOURCED) == "Web-sourced"
+    assert fact_display_label(FactStatus.MODEL_KNOWLEDGE) == fact_display_label(FactStatus.ASSUMPTION) == "Assumption"
+    assert [f.display_label for f in make_profile().facts] == ["Assumption", "Assumption", "Web-sourced"]
+    with pytest.raises(ValidationError):
+        WebSource(source_id="SRC-1", url="https://example.com", retrieved_at=datetime.now(timezone.utc), content="x")
 
 
 def make_document() -> PolicyDocument:
@@ -262,7 +281,7 @@ def make_file_validation() -> FileValidation:
 
 
 ALL_MODELS = [
-    make_fact, make_profile, make_document, make_evidence, make_exposure, make_match, make_selection,
+    make_fact, make_profile, make_web_source, make_document, make_evidence, make_exposure, make_match, make_selection,
     make_selection_claim,
     lambda: PitchDraft(slide1_bullets=[DraftCompanyBullet(text="Placeholder.", basis_fact_ids=["CF-001"])],
                        slide3_rows=[DraftRow(exposure_id="EXP-AMB-AIR", benefit_text=NIVA_AIR,

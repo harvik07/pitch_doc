@@ -84,3 +84,11 @@ GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
 GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "global").strip()  # gemini-3.8-flash is served on "global" only
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
 GEMINI_AUDIT_MODEL = os.getenv("GEMINI_AUDIT_MODEL", "").strip() or GEMINI_MODEL
+
+# --- Web search for the company profile (Tavily) ---------------------------------------------------
+# No key, disabled, or a search error -> the profile is made from model knowledge only (never keyless mode).
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "").strip()
+WEB_SEARCH_ENABLED = os.getenv("WEB_SEARCH_ENABLED", "true").strip().lower() in {"1", "true", "yes"}
+WEB_MAX_RESULTS = 4  # per query
+WEB_SOURCE_MAX_CHARS = 6000  # page text kept per source (the prompt and the quote check see only this)
+WEB_SEARCH_TIMEOUT_S = 30

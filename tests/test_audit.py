@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 
 import pytest
 
@@ -14,6 +15,8 @@ from marsh import api, audit, settings
 from marsh.company import build_profile
 from marsh.llm import LLMCallError
 from marsh.models import (
+    FactStatus,
+    WebSource,
     AuditResponse,
     AuditStatus,
     Claim,
@@ -30,16 +33,22 @@ NIVA_AIR = "Air Ambulance: up to INR 2,50,000 per Hospitalisation"  # golden fac
 NIVA_FOOTNOTE_8 = "Maximum coverage offered for 30 days/policy year/insured person"  # EV-NIVA-2-073
 
 
-def fact(field, value, status="MODEL_KNOWLEDGE"):
-    return {"field": field, "value": value, "status": status, "confidence": "medium", "rationale": "Placeholder."}
+def fact(field, value, status="MODEL_KNOWLEDGE", **web):
+    return {"field": field, "value": value, "status": status, "confidence": "medium", "rationale": "Placeholder.",
+            **web}
 
 
+# A placeholder page about the fictional "Example Co" (not a claim about any real company).
+WEB_QUOTE = "Example Co employs more than 200,000 people"
+WEB_SOURCES = [WebSource(source_id="WEB-001", url="https://example.com/about", title="About Example Co",
+                         retrieved_at=datetime(2026, 9, 26, tzinfo=timezone.utc),
+                         content=f"About us. {WEB_QUOTE} in placeholder offices.")]
 PROFILE = build_profile("Example Co", CompanyProfileResponse.model_validate({"company_recognised": True, "facts": [
     fact("industry", "Placeholder industry services"), fact("size", "Very large enterprise"),
-    fact("headcount_band", "200,000+ employees"), fact("business_risk", "Client concentration"),
-    fact("business_risk", "Talent attrition"),
+    fact("headcount_band", "200,000+ employees", "WEB_SOURCED", source_ids=["WEB-001"], quotes=[WEB_QUOTE]),
+    fact("business_risk", "Client concentration"), fact("business_risk", "Talent attrition"),
     fact("workforce_profile", "Predominantly desk-based professionals", "ASSUMPTION"),
-]}))
+]}), WEB_SOURCES)
 
 
 @pytest.fixture(scope="module")
@@ -275,35 +284,77 @@ def test_slide2(monkeypatch, sources):
     assert any("non-Marsh claim on slide 2" in f for f in summary.gate_failures)
 
 
-def company(text, basis, n=1, slide=1, claim_type=ClaimType.COMPANY_FACT, label=True):
+def company(text, basis, n=1, slide=1, claim_type=ClaimType.COMPANY_FACT, label="web"):
     return Claim(claim_id=f"CL-{n:03d}", slide_number=slide, text=text, claim_type=claim_type,
-                 basis_fact_ids=basis, material=False, qualifier_text="Unverified" if label else None)
+                 basis_fact_ids=basis, material=False, qualifier_text="Web-sourced" if label == "web" else None)
 
 
 def test_company_claims_are_deterministic(monkeypatch, sources):
+    assert PROFILE.facts[2].status == FactStatus.WEB_SOURCED and PROFILE.facts[1].status == FactStatus.MODEL_KNOWLEDGE
     claims = [company("The company employs over 200,000 people.", ["CF-003"], 1),
               company("The company employs 214,356 people.", ["CF-003"], 2),
               company("The company employs over 300,000 people.", ["CF-003"], 3),
               company("It is a very large enterprise.", ["CF-099"], 4),
-              company("It is a very large enterprise.", ["CF-002"], 5, label=False),
-              company("Staff are mostly desk-based. (Assumption)", ["CF-006"], 6, claim_type=ClaimType.ASSUMPTION),
-              company("Staff are mostly desk-based.", ["CF-006"], 7, claim_type=ClaimType.ASSUMPTION),
-              company("Client concentration is a key business risk.", ["CF-004"], 8, slide=4)]
+              company("It is a very large enterprise.", ["CF-002"], 5, label=None),
+              company("Staff are mostly desk-based. (Assumption)", ["CF-006"], 6, claim_type=ClaimType.ASSUMPTION,
+                      label=None),
+              company("Staff are mostly desk-based.", ["CF-006"], 7, claim_type=ClaimType.ASSUMPTION, label=None),
+              company("Client concentration is a key business risk. (Assumption)", ["CF-004"], 8, slide=4,
+                      claim_type=ClaimType.ASSUMPTION, label=None),
+              company("It is a very large enterprise. (Assumption)", ["CF-002"], 9, claim_type=ClaimType.ASSUMPTION,
+                      label=None),
+              company("It is a very large enterprise.", ["CF-002"], 10)]  # "Web-sourced" on a model-knowledge fact
     results, auditor = run(monkeypatch, sources, claims)
     status = {k: r.status for k, r in results.items()}
     assert auditor.calls == []
     assert status["CL-001"] == AuditStatus.VERIFIED and results["CL-001"].supporting_fact_ids == ["CF-003"]
+    assert check(results["CL-001"], "web_source").result.value == "PASS"
     assert status["CL-002"] == AuditStatus.NEEDS_REVIEW or status["CL-002"] == AuditStatus.CONTRADICTED
     assert "precise" in results["CL-002"].explanation
     assert status["CL-003"] == AuditStatus.CONTRADICTED  # 300,000 vs the profile's 200,000+
     assert status["CL-004"] == AuditStatus.UNSUPPORTED
-    assert status["CL-005"] == AuditStatus.NEEDS_REVIEW  # no "Unverified" label
+    assert status["CL-005"] == AuditStatus.NEEDS_REVIEW  # neither label
     assert status["CL-006"] == AuditStatus.LABELLED_ASSUMPTION
     assert status["CL-007"] == AuditStatus.NEEDS_REVIEW  # no "(Assumption)" label
     assert status["CL-008"] == AuditStatus.NEEDS_REVIEW  # business risk outside slide 1
+    assert status["CL-009"] == AuditStatus.LABELLED_ASSUMPTION  # MODEL_KNOWLEDGE is shown as an assumption
+    assert status["CL-010"] == AuditStatus.NEEDS_REVIEW and "not web-sourced" in results["CL-010"].explanation
     no_profile = audit.AuditSources(store=sources.store, cells=sources.cells, taxonomy=sources.taxonomy,
                                     topics=sources.topics)
     assert audit.audit_claims([claims[0]], no_profile)["CL-001"].status == AuditStatus.NEEDS_REVIEW
+
+
+def test_web_sourced_company_claims_are_re_checked_against_the_pages(monkeypatch, sources):
+    """The audit doesn't trust the stored WEB_SOURCED status: a quote no longer in the page → NEEDS_REVIEW."""
+    tampered = PROFILE.model_copy(deep=True)
+    tampered.sources[0].content = "About us. A different page."
+    changed = audit.AuditSources(store=sources.store, cells=sources.cells, profile=tampered,
+                                 taxonomy=sources.taxonomy, topics=sources.topics)
+    monkeypatch.setattr(audit, "call_structured", FakeAuditor())
+    result = audit.audit_claims([company("The company employs over 200,000 people.", ["CF-003"])], changed)["CL-001"]
+    assert result.status == AuditStatus.NEEDS_REVIEW and "quote not found" in result.explanation
+
+
+def test_the_audit_report_shows_fact_labels_never_raw_statuses(monkeypatch, sources):
+    claims = [company("The company employs over 200,000 people.", ["CF-003"], 1),
+              company("It is a very large enterprise. (Assumption)", ["CF-002"], 2, claim_type=ClaimType.ASSUMPTION,
+                      label=None)]
+    slide = PitchSlide(slide_number=1, title="Company Overview", bullets=claims)
+    run_sources = audit.AuditSources(store=sources.store, cells=sources.cells, profile=PROFILE,
+                                     run_id="RUN-20260926-000000-0002", taxonomy=sources.taxonomy,
+                                     topics=sources.topics)
+    monkeypatch.setattr(audit, "call_structured", FakeAuditor())
+    report = audit.audit_deck([slide], run_sources, "RUN-20260926-000000-0002")
+    json_path, md_path = audit.export_report(report, claims, run_sources)
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    facts = {r["claim_id"]: r["facts"] for r in data["results"]}
+    assert facts["CL-001"] == [{"fact_id": "CF-003", "value": "200,000+ employees", "label": "Web-sourced",
+                                "sources": ["https://example.com/about"], "quotes": [WEB_QUOTE]}]
+    assert facts["CL-002"][0]["label"] == "Assumption" and "status" not in facts["CL-002"][0]
+    md = md_path.read_text(encoding="utf-8")
+    assert "CF-003 (Web-sourced: https://example.com/about)" in md and "CF-002 (Assumption)" in md
+    for shown in (json_path.read_text(encoding="utf-8"), md):
+        assert "MODEL_KNOWLEDGE" not in shown and "unverified" not in shown.lower()
 
 
 def test_precise_figures():
@@ -331,7 +382,7 @@ def test_pricing(monkeypatch, sources):
 
 
 def test_non_factual(monkeypatch, sources):
-    claims = [claim("Company details are unverified.", None, ClaimType.NON_FACTUAL, slide=5, material=False),
+    claims = [claim("Company details are placeholders.", None, ClaimType.NON_FACTUAL, slide=5, material=False),
               claim(f"{NIVA_AIR} in Niva Bupa ReAssure 2.0.", None, ClaimType.NON_FACTUAL, n=2, slide=5)]
     results, auditor = run(monkeypatch, sources, claims,
                            {f"{NIVA_AIR} in Niva Bupa ReAssure 2.0.": verified("EV-NIVA-2-015", quote=NIVA_AIR)})

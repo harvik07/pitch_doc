@@ -13,10 +13,10 @@ Per claim (`audit_claims`; policy claims are batched, one audit LLM call per pol
     (document "MARSH"), its WM condition stays in the claim's metadata for the gate; any other wording → NEEDS_REVIEW.
   - COMPANY_FACT and ASSUMPTION claims resting on company facts (check 10): the claim's basis facts must exist in
     the profile (else UNSUPPORTED; no profile → NEEDS_REVIEW); its numbers must be in those facts' values; a
-    precise headcount or revenue figure → NEEDS_REVIEW (bands such as "over 200,000" / "200,000+" are fine); a
-    company fact must carry the "Unverified" label, and a claim resting on an ASSUMPTION fact the "(Assumption)"
-    label. VERIFIED means "consistent with the generated profile"; resting only on ASSUMPTION facts →
-    LABELLED_ASSUMPTION.
+    precise headcount or revenue figure → NEEDS_REVIEW (bands such as "over 200,000" / "200,000+" are fine). Users
+    see two labels only: a claim labelled "Web-sourced" (qualifier_text) must rest only on WEB_SOURCED facts whose
+    sources and quotes pass company.web_source_problems again (else NEEDS_REVIEW), and is then VERIFIED; any other
+    company claim must carry the "(Assumption)" label (else NEEDS_REVIEW) and is then LABELLED_ASSUMPTION.
   - Run assumptions without basis facts (slide 5): LABELLED_ASSUMPTION with the "(Assumption)" label, else
     NEEDS_REVIEW; a sum-insured amount must be the run's assumed SI.
   - Slide-3 "Not stated in the brochure" rows: check 8 on their coverage cell.
@@ -73,6 +73,7 @@ import yaml
 
 from marsh import settings
 from marsh.decision_log import log_decision
+from marsh.company import web_source_problems
 from marsh.evidence_store import EvidenceStore, load_evidence, to_display
 from marsh.exposures import _keyword_pattern, load_taxonomy
 from marsh.grounding import (
@@ -106,6 +107,7 @@ from marsh.models import (
     Claim,
     ClaimState,
     ClaimType,
+    CompanyFact,
     CompanyProfile,
     CoverageStatus,
     EvidenceItem,
@@ -120,9 +122,11 @@ from marsh.models import (
     PitchDeck,
     PitchSlide,
     PolicyMatch,
+    WEB_SOURCED_LABEL,
+    fact_display_label,
 )
 from marsh.numbers import label_number_segments, numbers_for_item, parse_numbers, sum_insured_ranges
-from marsh.pitch import ASSUMPTION_LABEL, NOT_STATED_TEXT, UNVERIFIED, load_marsh_claims
+from marsh.pitch import ASSUMPTION_LABEL, NOT_STATED_TEXT, load_marsh_claims
 from marsh.run_context import RUN_CONTEXT_FILE, load_run_context, new_run_id, run_dir
 
 log = logging.getLogger(__name__)
@@ -464,17 +468,36 @@ def _audit_company(claim: Claim, sources: AuditSources) -> AuditResult:
     if figures := precise_figures(claim.text):
         state.cap("precise_figure", AuditStatus.NEEDS_REVIEW,
                   f"precise headcount / revenue figure {', '.join(figures)}: use a band (e.g. 'over 200,000')")
-    labelled = ASSUMPTION_LABEL.strip().lower() in claim.text.lower()
-    if claim.claim_type == ClaimType.COMPANY_FACT and (claim.qualifier_text or "") != UNVERIFIED:
-        state.cap("label", AuditStatus.NEEDS_REVIEW, "a company fact must be labelled 'Unverified'")
-    if any(facts[b].status == FactStatus.ASSUMPTION for b in basis) and not labelled:
-        state.cap("label", AuditStatus.NEEDS_REVIEW, "rests on an ASSUMPTION fact but has no '(Assumption)' label")
-    if state.status == AuditStatus.VERIFIED and (claim.claim_type == ClaimType.ASSUMPTION or all(
-            facts[b].status == FactStatus.ASSUMPTION for b in basis)):
+    web_labelled = (claim.qualifier_text or "") == WEB_SOURCED_LABEL
+    if web_labelled:
+        _check_web_facts(state, [facts[b] for b in basis], sources.profile)
+    elif ASSUMPTION_LABEL.strip().lower() in claim.text.lower():
+        state.ok("label", "'(Assumption)' label shown")
+    else:
+        state.cap("label", AuditStatus.NEEDS_REVIEW, "a company claim must be labelled 'Web-sourced' or "
+                                                     "'(Assumption)'")
+    if state.status == AuditStatus.VERIFIED and not web_labelled:
         state.status = AuditStatus.LABELLED_ASSUMPTION
-    explanation = ("Consistent with the generated company profile (unverified model knowledge)."
-                   if state.status in PASSING else "")
+    explanation = ""
+    if state.status in PASSING:
+        explanation = ("Consistent with web-sourced company facts; their quotes were found in the fetched pages."
+                       if web_labelled else "Labelled assumption (company profile).")
     return state.result(explanation=explanation, facts=basis, number_check=outcome.to_number_check())
+
+
+def _check_web_facts(state: _State, basis: list[CompanyFact], profile: CompanyProfile) -> None:
+    """A "Web-sourced" claim: every basis fact is WEB_SOURCED and its source / quote check passes again."""
+    not_web = [f.fact_id for f in basis if f.status != FactStatus.WEB_SOURCED]
+    if not_web:
+        state.cap("web_source", AuditStatus.NEEDS_REVIEW, f"labelled 'Web-sourced' but {', '.join(not_web)} "
+                                                          "is not web-sourced")
+        return
+    problems = [f"{f.fact_id}: {p}" for f in basis
+                for p in web_source_problems(f.value, f.source_ids, f.quotes, profile.sources)]
+    if problems:
+        state.cap("web_source", AuditStatus.NEEDS_REVIEW, "web source check failed: " + "; ".join(problems))
+    else:
+        state.ok("web_source", "quotes found in " + ", ".join(dict.fromkeys(i for f in basis for i in f.source_ids)))
 
 
 def _audit_run_assumption(claim: Claim, sources: AuditSources) -> AuditResult:
@@ -1148,8 +1171,7 @@ def export_report(report: AuditReport, claims: list[Claim], sources: AuditSource
                       "text": claim.text, "display_text": to_display(claim.text),
                       "qualifier_text": claim.qualifier_text, "metadata": claim.metadata},
             "evidence": [_evidence_view(e, sources) for e in r.supporting_evidence_ids],
-            "facts": [{"fact_id": f, "value": facts[f].value, "status": facts[f].status.value}
-                      for f in r.supporting_fact_ids if f in facts],
+            "facts": [_fact_view(facts[f], sources.profile) for f in r.supporting_fact_ids if f in facts],
         })
     directory = run_dir(report.run_id)
     json_path = directory / REPORT_JSON
@@ -1162,6 +1184,21 @@ def export_report(report: AuditReport, claims: list[Claim], sources: AuditSource
 
 def _cell(text: str | None) -> str:
     return " ".join((text or "").split()).replace("|", "\\|") or "—"
+
+
+def _fact_view(fact: CompanyFact, profile: CompanyProfile) -> dict:
+    """A company fact as the audit report shows it: the display label, never the raw status."""
+    urls = {s.source_id: s.url for s in profile.sources}
+    return {"fact_id": fact.fact_id, "value": fact.value, "label": fact_display_label(fact.status),
+            "sources": [urls[i] for i in fact.source_ids if i in urls], "quotes": list(fact.quotes)}
+
+
+def _fact_ref(fact_id: str, profile: CompanyProfile | None) -> str:
+    fact = next((f for f in profile.facts if f.fact_id == fact_id), None) if profile else None
+    if fact is None:
+        return fact_id
+    view = _fact_view(fact, profile)
+    return f"{fact_id} ({view['label']}" + (f": {', '.join(view['sources'])})" if view["sources"] else ")")
 
 
 def report_markdown(report: AuditReport, claims: list[Claim], sources: AuditSources) -> str:
@@ -1200,7 +1237,7 @@ def report_markdown(report: AuditReport, claims: list[Claim], sources: AuditSour
             if not view.get("missing"):
                 evidence.append(f"{view['document']}, p. {view['page']}, {view['section']} ({e})")
         if r.supporting_fact_ids:
-            evidence.append("company profile " + ", ".join(r.supporting_fact_ids))
+            evidence.append("company profile " + ", ".join(_fact_ref(f, sources.profile) for f in r.supporting_fact_ids))
         lines.append(f"| {claim.claim_id} | {claim.slide_number} | {_cell(to_display(claim.text))} | {status} | "
                      f"{_cell('; '.join(evidence))} | {_cell(' / '.join(to_display(q) for q in r.quotes[:2]))} | "
                      f"{_cell(r.required_qualifier)} | {_cell(r.explanation)} |")

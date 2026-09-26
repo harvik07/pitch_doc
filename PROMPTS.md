@@ -312,7 +312,7 @@ gate.py
 render_ppt.py
 - A fixed 16:9 template built in code (no .pptx template file needed): constant colours (navy #002C77 + white + one accent), fonts, positions. Title bar on each slide, footer "Prepared by Marsh | Confidential | <date>", slide numbers.
 - Slide 3 is a real table. Qualifier footnotes are rendered small at the bottom of the slide they belong to, and collected on slide 5.
-- Assumption and unverified labels: company facts with ASSUMPTION status get "(Assumption)" and slide 1 gets a small "Company details are AI-generated and unverified" note.
+- Company fact labels (CLAUDE.md §5): two labels only. A claim with qualifier_text "Web-sourced" shows that label; every other company claim already ends in "(Assumption)" (MODEL_KNOWLEDGE and ASSUMPTION alike). Never render "Unverified" or a raw status. Slide 5 lists the web sources from PitchDeck.sources.
 - Speaker notes: claim_id → evidence_id (doc, page) for every claim on that slide.
 - Only claims whose state isn't REMOVED and whose audit status isn't UNSUPPORTED or CONTRADICTED are rendered (ADVISOR_ATTESTED is rendered with its label).
 - structural_qa(pptx_path): reopen the file and assert 5 slides, expected titles in order, no "{{" left, bullet counts within limits, exactly one policy name in the slide 4 title area, notes present on every slide, file > 10 KB. Raise RenderQAError with details.
@@ -331,7 +331,7 @@ Build app.py per CLAUDE.md sections 1 (1.1, 1.4, 2.2), 6, 10 and 11. Keep it one
 
 Page 1 — "Generate"
 - Title "Marsh Pitch Studio". Company name text input. Policy documents: a multiselect of the 4 bundled brochures (all selected by default) + a file uploader (PDF, multiple). An "Advanced" expander with the assumed sum insured (default ₹10 lakh, labelled as an assumption). A GENERATE PITCH button.
-- On click: validation errors are shown inline (missing name, no documents, bad files; duplicates are shown as info). Then run the pipeline with st.status steps: Company profile → Exposures → Extract policies → Coverage matrix → Policy selection → Selection validation → Pitch → Audit → Repair.
+- On click: validation errors are shown inline (missing name, no documents, bad files; duplicates are shown as info). Company facts are shown with `models.fact_display_label` only ("Web-sourced" with its source link, or "Assumption"), never MODEL_KNOWLEDGE / "Unverified"; when `CompanyProfile.web_search_note` is set, show it as an info message (model-knowledge fallback). Then run the pipeline with st.status steps: Company profile → Exposures → Extract policies → Coverage matrix → Policy selection → Selection validation → Pitch → Audit → Repair.
 - If the selection has unresolved validation errors: stop, show them with the selection, and let the advisor pick exactly one of the compared policies + a required reason ("Override selection") → continue.
 - Friendly error messages for every case in section 11; tracebacks go only to errors.log.
 

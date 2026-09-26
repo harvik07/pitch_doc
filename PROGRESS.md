@@ -392,6 +392,21 @@ Kept unchanged: extraction, annotation, evidence_store, numbers.py, grounding.py
   - (a) All 4 policies → **HDFC ERGO Optima Secure+**, confidence medium, add-ons Parenthood, ABCD Chronic Care, Optima Wellbeing. **1 unresolved validation error:** a LIMITATION claim says "For a 10 L Base Sum Insured, the sub-limit is 2,000 …". "10 L" is only in the check-up table's column label, and label rupee amounts are deliberately not used by the number check → FAIL_MISSING. The gate will FAIL until the claim is fixed or the advisor overrides.
   - (b) NIVA + HDFC → **HDFC ERGO Optima Secure+**, confidence medium, same add-ons, **no validation errors**.
 
+### Compared set: selected / uploaded policies only (2026-09-26)
+- **`pipeline.resolve_policy_docs` / `prepare_policies` / `prepare_run`:** `policy_docs` is the compared set. It may hold bundled IDs, cached upload IDs (`POL-UPL-…`), PolicyDocuments, PDF paths or uploads (bytes, saved as `data/uploads/<sha256>.pdf`, git-ignored).
+  - Documents are validated before any LLM call (`PolicyDocsError`, user-facing).
+  - An upload is extracted, annotated and gets its coverage matrix built like a bundled brochure; a bundled brochure costs no LLM call (all cached).
+- **`match_run`:** loads/builds matrices only for the compared policies, stores them as `RunContext.selected_documents`, and logs `compared_policies` in the decision log.
+- **`select_run(ctx, reselect=False)`:** reuses the saved selection unless `reselect` is set or the compared set changed (both logged as `policy_reselected`; reuse is logged as `policy_selection_reused`).
+- **`scripts/run_pipeline.py`:** `--policies POL-NIVA,POL-HDFC`, `--upload a.pdf` (repeatable), `--run-id RUN-…` (resume) and `--reselect`. With neither `--policies` nor `--upload`, all 4 bundled brochures; with only `--upload`, the bundled ones plus the uploads.
+- **`api.generateMarketingPitch(company_name, policy_docs, run_context)`:** `policy_docs` is the compared set. Inputs are validated now; the pitch itself raises NotImplementedError until Prompt 7.
+- **Tests (fake Gemini client under `llm.call_structured`, so `llm_calls.jsonl` is real):**
+  - 2 of 4 bundled → no CARE/ABHI evidence ID, policy ID or product name appears in any LLM input or logged output;
+  - bundled + a generated 1-page PDF upload → the upload is extracted (text-layer fallback forced to skip Docling), annotated, gets a matrix, and is in the selection prompt and the compared set;
+  - documents are checked before any LLM call; reuse / reselect / compared-set change; `generateMarketingPitch` input handling.
+- **Dead references removed** from PROMPTS.md (Prompt 6 text) and PROGRESS.md's current-state sections ("Decisions", "Model decisions"). The repo-wide search now finds them only in PROGRESS.md history. The stale PROMPTS.md lines flagged in the removal list (line 32, Prompts 11–12) were fixed in the D1–D3 step.
+- Tests redirect `UPLOADS_DIR` and `PROFILES_DIR` to a temp dir too.
+
 ## Next
 - **For Prompt 7 (selection claims):** slide 4's reason comes from `reason_claims`. Several REASON claims mix a policy fact with a company framing ("…, which is important for a large, desk-based workforce"). The pitch should split them into a POLICY_* claim and a COMPANY_FACT claim, so each is audited against the right source.
 - **For Prompt 7 (Niva):** slides say "hospitalisation of 2 hours and more", never "day care". The brochure never uses the words "day care".
@@ -411,11 +426,7 @@ Kept unchanged: extraction, annotation, evidence_store, numbers.py, grounding.py
 
 ## Decisions
 - Exposure IDs use the `EXP-` prefix (CLAUDE.md §5 updated from `EX-`).
-- `RecommendationDecision.decided_by` may be `None` while a special case waits for the advisor. The model enforces:
-  - None ⇒ special_case is set
-  - RULES ⇒ deciding_rule is set and there is no special_case
-  - ADVISOR ⇒ advisor_reason is set
-  - decided ⇒ exactly one selected_policy_id
+- The policy is selected by the LLM (`PolicySelection`, decided_by LLM | ADVISOR); an ADVISOR override requires `advisor_reason`. See the "Architecture change" and "Prompt 6" entries.
 - COVERED_VIA_ADDON accepts evidence with `benefit_tier` ADDON **or** OPTIONAL (CLAUDE.md §6.6 updated).
 - The audit-status enum has no FAIL or REMOVED. "Failed" means UNSUPPORTED or CONTRADICTED, and REMOVED exists only as `Claim.state`. PROMPTS.md Prompt 9's rendering line was reworded to say exactly that.
 - `EvidenceItem.text` is a frozen field: assigning to it raises.
@@ -467,12 +478,11 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **Limitation**: `type: LimitationType, description: str, evidence_ids: list[EV-]`
 - **NumberCheck**: `result: PASS|FAIL|NA, details: str`
 - **AuditSummary**: `counts: {AuditStatus: int}, confidence_score: float 0–1 | None (no factual claims), overall_flag: PASS|REVIEW_REQUIRED|FAIL, gate_failures: list[str], review_items: list[str]`
-- **RuleTableRow**: `policy_id, rule1_excluded, rule2_fully_covered, rule3_covered, rule4_material_limitations, rule5_assumption_based, not_stated (display only)`
 - **BenefitRow** (slide 3): `exposure_id, exposure_name (code), benefit: Claim, condition: Claim | None, source: str (code)`
 - **PitchSlide**: `slide_number 1–5, title (fixed per slide), bullets (slides 1/2/5), table_rows (slide 3), supporting_benefits + key_limitations (slide 4), footnotes (code)`. It also has an `all_claims()` helper. The validator enforces the §9 maximums; minimums are left to the gate.
-- **RecommendedPolicyBlock** (slide 4, all code-injected): `policy_id, policy_name, variant, required_addons, decided_by, deciding_rule, reason_text`
+- **RecommendedPolicyBlock** (slide 4, all code-injected from the PolicySelection): `policy_id, policy_name, variant, required_addons, decided_by (LLM|ADVISOR)`
 - **PitchDeck**: `run_id, company_name, slides (exactly 5, fixed titles, unique claim IDs), recommended: RecommendedPolicyBlock, sources (code), disclaimer (constant)`. It also has `all_claims()` and `get_claim()` helpers.
-- **AdvisorActionRecord**: `timestamp, action: CLAIM_APPROVED|CLAIM_EDITED|CLAIM_REMOVED|CLAIM_ATTESTED|REVIEW_ITEM_ACKNOWLEDGED|RECOMMENDATION_DECIDED|DECK_APPROVED|DECK_REJECTED, target_id, note`
+- **AdvisorActionRecord**: `timestamp, action: CLAIM_APPROVED|CLAIM_EDITED|CLAIM_REMOVED|CLAIM_ATTESTED|REVIEW_ITEM_ACKNOWLEDGED|SELECTION_OVERRIDDEN|DECK_APPROVED|DECK_REJECTED, target_id, note`
 - **final_status (FinalStatus)**: `IN_PROGRESS | AWAITING_REVIEW | EXPORTED | REJECTED | FAILED`
 - **ExtractionMethod**: `docling | docling_full_page_ocr | pymupdf_fallback | pymupdf_supplement | markdown` (docling_full_page_ocr = the page's text came from forced OCR; pymupdf_supplement = curated item read from the text layer; markdown = the `MARSH` chunks of marsh_profile.md)
 - **EvidenceItem.citable**: `bool = True`. It is a label, not text; matching and audit only see citable items.

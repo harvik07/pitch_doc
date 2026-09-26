@@ -22,3 +22,6 @@ data/cache/*
 # POL-ABHI  ABHI Product Brochure.pdf
 !data/cache/85cdd5a54cc5d7bda369332eeb4987540d7d29c491a3ce5a3fb80c2a0aff8372.json
 !data/cache/matrix_85cdd5a54cc5d7bda369332eeb4987540d7d29c491a3ce5a3fb80c2a0aff8372_*.json
+
+# Uploaded policy PDFs (by sha256); their evidence and matrix caches stay git-ignored too.
+data/uploads/

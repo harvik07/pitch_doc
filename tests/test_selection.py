@@ -30,6 +30,7 @@ from marsh.models import (
 from marsh.run_context import new_run_context, new_run_id
 
 REAL_CACHE_DIR = settings.CACHE_DIR
+REAL_PROFILES_DIR = settings.PROFILES_DIR
 NIVA_AIR = "Air Ambulance: up to INR 2,50,000 per Hospitalisation"  # golden fact, EV-NIVA-2-015
 UPLOAD = "POL-UPL-abc123"
 
@@ -225,7 +226,8 @@ def test_advisor_override_is_logged(monkeypatch, store, matrices):
 
 def test_a_saved_selection_is_reused(monkeypatch, store, matrices):
     result, fake = run(monkeypatch, store, matrices, ["POL-NIVA"], response())
-    ctx = new_run_context("Example Co", company_profile=PROFILE, selection=result)
+    ctx = new_run_context("Example Co", company_profile=PROFILE, selection=result,
+                          selected_documents=[store.document("POL-NIVA")])
     assert pipeline.select_run(ctx).selection is result and len(fake.calls) == 1
 
 
@@ -244,7 +246,7 @@ def test_real_selection_for_infosys(store, matrices, capsys, monkeypatch):
     from marsh.exposures import identify_exposures
 
     monkeypatch.setattr(settings, "CACHE_DIR", REAL_CACHE_DIR)
-    profile = load_profile(settings.PROFILES_DIR / "infosys.json")
+    profile = load_profile(REAL_PROFILES_DIR / "infosys.json")
     run_id = new_run_id()
     exposures = identify_exposures(profile, run_id=run_id)
     shown = {"exposures": [(e.exposure_id, e.assumption_based) for e in exposures]}

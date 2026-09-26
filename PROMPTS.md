@@ -214,9 +214,7 @@ Done when: the grid matches the checks above and every non-NOT_STATED cell has v
 ## PROMPT 6 — LLM policy selection
 
 ```
-Implement selection.py per CLAUDE.md sections 5 (PolicySelection) and 7. Replace the rule-based recommendation
-(recommendation.py, RecommendationDecision, RuleTableRow, SpecialCase, DecidedBy RULES) — see PROGRESS.md for the
-removal list.
+Implement selection.py per CLAUDE.md sections 5 (PolicySelection) and 7. There is no rule-based policy ranking.
 
 - select_policy(run_context) -> PolicySelection: ONE LLM call (prompts/select_policy.md, temperature 0) with the company
   profile (facts with status/confidence), the exposures (with assumption_based), ONLY the user-selected/uploaded policies

@@ -4,12 +4,14 @@ Usage:
   python scripts/run_pipeline.py "<company>" [--si 1000000] [--policies POL-NIVA,POL-HDFC] [--upload a.pdf ...]
   python scripts/run_pipeline.py --profile data/profiles/infosys.json          # reuse a frozen profile + exposures
   python scripts/run_pipeline.py --run-id RUN-... [--reselect]                  # resume a run
+  python scripts/run_pipeline.py --run-id RUN-... --audit-only [--no-repair]     # audit a saved deck
 The compared set is --policies plus every --upload; with neither, all 4 bundled brochures (with only --upload,
 the bundled ones and the uploads). A resumed run keeps its profile, exposures and compared set (unless --policies /
 --upload are given) and reuses its saved selection unless --reselect is set or the compared set changed.
 Steps so far: company profile → exposures → compared policies (uploads extracted + annotated) → coverage cells →
-LLM policy selection (validated) → pitch (outputs/<run_id>/pitch_deck.json, printed slide by slide).
-Everything is saved in outputs/<run_id>/run_context.json.
+LLM policy selection (validated) → pitch (outputs/<run_id>/pitch_deck.json, printed slide by slide) → independent
+audit + targeted repair (outputs/<run_id>/audit_report.json / .md; the summary and every claim that isn't VERIFIED
+are printed). Everything is saved in outputs/<run_id>/run_context.json.
 """
 
 from __future__ import annotations
@@ -17,7 +19,16 @@ from __future__ import annotations
 import argparse
 
 from marsh import settings
-from marsh.pipeline import identify_run_exposures, match_run, pitch_run, prepare_policies, select_run, start_run
+from marsh.models import AuditStatus, ClaimState
+from marsh.pipeline import (
+    audit_run,
+    identify_run_exposures,
+    match_run,
+    pitch_run,
+    prepare_policies,
+    select_run,
+    start_run,
+)
 from marsh.run_context import load_run_context
 
 
@@ -31,8 +42,17 @@ def main() -> None:
     parser.add_argument("--run-id", help="resume an existing run")
     parser.add_argument("--reselect", action="store_true", help="make a new policy selection")
     parser.add_argument("--no-pitch", action="store_true", help="stop after the policy selection")
+    parser.add_argument("--no-audit", action="store_true", help="stop after the pitch")
+    parser.add_argument("--no-repair", action="store_true", help="audit without the targeted repair")
+    parser.add_argument("--audit-only", action="store_true", help="with --run-id: audit the run's saved deck")
     args = parser.parse_args()
 
+    if args.audit_only:
+        if not args.run_id:
+            parser.error("--audit-only needs --run-id")
+        ctx = audit_run(load_run_context(args.run_id), repair=not args.no_repair)
+        print_audit(ctx)
+        return
     if args.run_id:
         ctx = load_run_context(args.run_id)
         if not ctx.exposures:
@@ -73,6 +93,40 @@ def main() -> None:
         return
     ctx = pitch_run(ctx)
     print_deck(ctx.deck)
+    if args.no_audit:
+        return
+    ctx = audit_run(ctx, repair=not args.no_repair)
+    print_audit(ctx)
+
+
+def print_audit(ctx) -> None:
+    report = ctx.audit_report
+    s = report.summary
+    claims = {c.claim_id: c for slide in ctx.deck.slides for c in slide.all_claims()}
+    score = f"{s.confidence_score:.0%}" if s.confidence_score is not None else "n/a"
+    print(f"\n=== Audit {report.run_id}: {s.overall_flag.value}, confidence {score}; "
+          + ", ".join(f"{k.value} {v}" for k, v in sorted(s.counts.items(), key=lambda x: x[0].value)))
+    for failure in s.gate_failures:
+        print(f"  GATE FAILURE: {failure}")
+    for item in s.review_items:
+        print(f"  REVIEW: {item}")
+    for r in report.results:
+        claim = claims[r.claim_id]
+        if r.status == AuditStatus.VERIFIED and not r.repair_history:
+            continue
+        removed = " [REMOVED]" if claim.state == ClaimState.REMOVED else ""
+        print(f"\n  {r.claim_id} (slide {claim.slide_number}, {claim.claim_type.value}) {r.status.value}{removed}"
+              f"  LLM: {r.llm_status.value if r.llm_status else 'code'}")
+        print(f"    {claim.text}")
+        if r.required_qualifier:
+            print(f"    qualifier: {r.required_qualifier}")
+        print(f"    evidence: {', '.join(r.supporting_evidence_ids + r.supporting_fact_ids) or '-'}")
+        print(f"    why: {r.explanation}")
+        for a in r.repair_history:
+            print(f"    repair {a.attempt}: {a.status_before.value} -> "
+                  f"{a.status_after.value if a.status_after else 'not re-audited'}: {a.text_after or '(no true rewrite)'}"
+                  + (f" [{a.explanation}]" if a.explanation and not a.status_after else ""))
+    print(f"\nReport: outputs/{report.run_id}/audit_report.md")
 
 
 def print_deck(deck) -> None:

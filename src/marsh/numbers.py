@@ -398,18 +398,25 @@ def label_numbers(item: EvidenceItem) -> list[NormalisedNumber]:
     so the number check reads them too. Evidence-side parsing rules apply: the cell's recorded footnote markers
     are masked ("Air Ambulance 5", "Care OPD 9"). Spans point into the label. A grid row's label (repeated in its
     text) and a label cell (text = row label) are skipped. Trade-off: a label SI tier can satisfy a claim about the
-    cell's own amount ("₹25 lakh deductible" against a ₹25,000 cell); the audit's topic check must catch that."""
+    cell's own amount ("₹25 lakh deductible" against a ₹25,000 cell); the audit's topic check catches that
+    (audit.py reads the numbers per label with `label_number_segments`)."""
+    return [n for _, numbers in label_number_segments(item) for n in numbers]
+
+
+def label_number_segments(item: EvidenceItem) -> list[tuple[str, list[NormalisedNumber]]]:
+    """`label_numbers` per label segment: (the segment's text, its quantities). Only segments with numbers."""
     if item.item_type != ItemType.TABLE_CELL:
         return []
     markers = set(item.footnote_markers)
     labels = [item.column_label or ""]
     if item.row_label and item.row_label != item.text and not item.text.startswith(item.row_label):
         labels.insert(0, item.row_label)
-    numbers: list[NormalisedNumber] = []
+    segments = []
     for label in labels:
         for segment in label.split(" | "):
-            numbers += parse_numbers(_mask_label(segment, markers))
-    return numbers
+            if numbers := parse_numbers(_mask_label(segment, markers)):
+                segments.append((segment, numbers))
+    return segments
 
 
 def numbers_for_item(item: EvidenceItem) -> list[NormalisedNumber]:

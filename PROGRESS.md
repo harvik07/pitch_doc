@@ -444,26 +444,88 @@ Kept unchanged: extraction, annotation, evidence_store, numbers.py, grounding.py
   - Pitch: 35 claims, no build notes, no claim needed repair, nothing removed; all 7 selection claims are on slide 4.
 - Tests: 705 passing (mocked LLM): M2 model switch; P1 in selection and pitch; P2 no-evidence, duplicate, targeted repair of only the failing claims, removal + log, the LLM can't add key limitations; P3 caps vs slide limits; P4 readable qualifiers on the committed cells; P5 framing.
 
+### Prompt 8: independent audit + targeted repair (2026-09-26)
+- **Audit model:** one real call confirmed `gemini-2.5-pro` on `global` (10.5 s). `GEMINI_AUDIT_MODEL` stays gemini-2.5-pro, a different model from the generator (gemini-3.8-flash), as intended.
+- **`audit.py`** (`audit_claims`, `audit_deck`, `build_summary`, `export_report`, `audit_pitch_content`):
+  - **Independence:** the audit LLM gets each claim's id, slide (for a slide-3 cell also its table row and the row's other cell), type and text. It never gets `cited_evidence_ids`, basis facts, the selection's evidence IDs, or selection / generator quotes (a test asserts this). It finds its own supporting items in the claimed policy's full citable evidence. All 4 brochures are under FULL_CONTEXT_TOKEN_LIMIT; above it, keyword retrieval is used.
+  - **Batching:** one call per policy (`prompts/audit_claim.md`, temperature 0), plus one follow-up call for any claim it skipped. A still-missing verdict or an LLM error → NEEDS_REVIEW.
+  - **Code-only paths (no LLM):**
+    - NON_FACTUAL lines; one with a number or product name is reclassified as a policy fact and audited.
+    - Slide 2: approved WM wording verbatim → VERIFIED against its `EV-MARSH-…` chunk of marsh_profile.md, WM condition kept in the metadata; other wording → NEEDS_REVIEW; a non-Marsh claim → UNSUPPORTED plus a gate failure.
+    - Company claims (decision 3, fully deterministic): the basis facts exist; the claim's numbers are in those facts' values; a precise headcount / revenue figure → NEEDS_REVIEW, while bands ("over 200,000", "200,000+") are fine; the "Unverified" / "(Assumption)" labels; ASSUMPTION-based → LABELLED_ASSUMPTION.
+    - Run assumptions on slide 5, and the slide-3 "Not stated in the brochure" rows (checked against their cell).
+  - **Deterministic overrides, in the order you gave** (each can only lower the status, except the absence rule for "not stated" claims): 1 ownership · 2 verbatim quotes (heading + continuation rule) · 3 numbers on the supporting items only · 4 whole-name policy check · 5 topic anchor · 6 absolute language → NEEDS_REVIEW (decision 2) · 7 qualifiers · 8 absence claims · 11 pricing. Every check is recorded in `AuditResult.checks`, with the LLM's own verdict in `llm_status`.
+  - **Number check (3):** a row/column-label number counts only if the label shares a topic with the claim. This is how "₹25 lakh deductible" can't use the "Base SI = 25 Lakhs" column.
+  - **Topic anchor (5):** the topics come from the closed list `config/audit_topics.yaml` plus the exposures' names and keywords, with product names masked. At least one claim topic must be in the supporting items' text / labels / section, and the topic next to each claim number must be in the item that states that number. A **footnote's context includes the rows that link to it**, because a footnote qualifies its body text, which names the benefit (footnote (8)'s 30 days belong to hospital cash). Nested exposure terms go to the most specific exposure ("ambulance" inside "air ambulance" is not road ambulance).
+  - **Adjustment B:** no widening of the number / topic proximity to the same row or section was needed. No true claim failed because Docling split a topic from its number. The scope constant `ANCHOR_SCOPE` stays "item".
+  - **Qualifiers (7):**
+    - Variant / add-on / optional / SI-tier wording as in P4.
+    - The LLM's qualifier is kept if its numbers are in the evidence, parsed with the evidence rules (so identifiers such as "9MFY'26" are not numbers).
+    - Otherwise the best-matching restrictive sentence of a linked footnote the claim doesn't reflect. Footnote sentences are no longer cut at "a." / "b." enumerators.
+    - A qualifier already stated in the row's other cell isn't missing.
+  - **Adjustment A:** a VWQ policy claim with a renderable qualifier (≤ 200 characters, no raw backtick) gets it stored on the claim (`Claim.qualifier_text`) for the renderer, and counts as passing. A VWQ without a renderable qualifier is a review item. PASS is reachable.
+  - **Summary:** counts, confidence score and the overall flag from the claim-level gate rules:
+    - FAIL: any CONTRADICTED, a material UNSUPPORTED, a failed number check, a wrong policy reference, a non-Marsh claim on slide 2, or a DIRTY claim.
+    - REVIEW_REQUIRED: NEEDS_REVIEW, VWQ without a rendered qualifier, attested claims, or a failed repair.
+  - **Export:** `outputs/<run_id>/audit_report.json` (claims and evidence with text + display_text) and `audit_report.md` (summary, then gate failures, review items, repairs and one row per claim).
+- **`api.auditPitchContent(pitch_slides, policy_docs, *, company_profile=None, assumed_sum_insured=None, run_id=None)`** works standalone:
+  - Inputs: a PitchDeck, a deck dict or a list of slides (objects or dicts); documents by ID, path or PolicyDocument.
+  - Evidence and cells are resolved by sha256 (extracted or built if missing).
+  - A saved RunContext of the deck's run, if any, supplies the profile and the SI; without a profile, company claims are NEEDS_REVIEW.
+- **`repair.py`:**
+  - `repair_claim` makes one GEMINI_MODEL call (`prompts/repair_claim.md`) with only that claim, its audit result and its evidence (the auditor's items, a keyword search and their footnotes; for a company claim, the profile facts; for a slide-3 cell, its row and the row's other cell). It returns text only, so type, policy, slide and selection can't change.
+  - `repair_deck`: at most 2 attempts. A rewrite that is too long, repeats the sentence or moves to another exposure is a failed attempt. A null rewrite ("no true sentence") stops the repair of that claim.
+  - When the repair fails, a non-material claim is REMOVED. A material claim keeps its audit status (decision 1) and gets a "repair failed" review item: CONTRADICTED stays a gate failure until edited or removed, UNSUPPORTED until edited or attested.
+  - Every attempt goes to the decision log (`claim_repair_attempt`, `claim_repair_final`) and to `AuditResult.repair_history`.
+- **Selection hook:** `selection.check_claim` is now citation format only (evidence exists, is citable, belongs to the policy; verbatim quotes; a "not stated" claim needs none). `audit_selection_claims` runs `audit.audit_claims` on the reason claims, and an UNSUPPORTED / CONTRADICTED verdict is a check error that goes to the one repair retry. The number and policy-name checks on the selection's own citations are gone (the audit does them independently).
+- **Pipeline:** `pipeline.audit_run(ctx, repair=True)`. `run_pipeline.py` audits after the pitch (`--no-audit`, `--no-repair`), and `--run-id X --audit-only` audits a saved deck.
+- **Eval (`scripts/eval_audit.py` → `deliverables/audit_eval.md`):**
+  - Claims: the 16 golden facts are the true claims; the 6 planted false claims plus "₹25 lakh deductible" (HDFC) and "Care Supreme does not cover international treatment" are the false ones.
+  - A false claim counts as caught only if it is neither VERIFIED nor VWQ (decision 2).
+  - Run 1: 8/8 caught, 15/16 true. The miss was a parser mismatch on the qualifier's "9MFY'26", which is fixed.
+  - **Final run `RUN-20260926-161815-c8f9`: 8/8 false caught, 16/16 true (100%). Target met.**
+  - The unit tests show each deterministic check overriding an LLM that wrongly says VERIFIED.
+- **Live repair demo** (`eval_audit.py --repair-demo RUN-20260926-144912-81a2`, a copy with 2 planted §2 false claims):
+  - First run `RUN-20260926-154933-6a11` found a real problem. A slide-3 condition cell ("Coverage is available only within the insurer network.") was judged CONTRADICTED without its row, and the repair moved it to another benefit.
+  - The fixes: the row and its other cell go to the auditor and the repair; the off-topic guard; the sentence-split fix.
+  - Final run `RUN-20260926-155927-6b5e`:
+    - CL-028 "₹5,00,000" → CONTRADICTED → repaired to "₹2,50,000" → VERIFIED.
+    - CL-036 "30-day initial waiting period" → UNSUPPORTED → no true rewrite → kept UNSUPPORTED → gate FAIL plus a "repair failed" review item.
+- **Real deck `RUN-20260926-144912-81a2`** (saved selection reused, no reselect):
+  - The first audit, before the row fixes, had repaired CL-010 by copying its row's AYUSH condition into it. That repair was undone (decision log `audit_reset`) and the deck re-audited.
+  - **Final result: PASS, confidence 100%:** VERIFIED 24, VERIFIED_WITH_QUALIFIER 6 (all with rendered qualifiers), LABELLED_ASSUMPTION 4, NON_FACTUAL 1.
+  - CL-010 "In-patient care (including AYUSH) … 2 hours and more" → CONTRADICTED → repaired (AYUSH dropped) → VWQ with the AYUSH 24-hour qualifier.
+- CLAUDE.md updated:
+  - §5: `qualifier_text` and the new AuditResult fields.
+  - §6 step 11: decision 1.
+  - §7 item 6: the selection check calls the audit.
+  - §8: company numbers / precise figures, topic anchor, absolute language, absence claims, qualifiers stored on the claim, slide-3 cells in their row.
+  - §10: CONTRADICTED is a FAIL even for non-material claims; adjustment A; the repair-failed review item; when PASS applies.
+- Tests: 744 passing (mocked LLMs). New: `tests/test_audit.py` (each check, independence, batching, row context, summary flags, the standalone API and its exports) and `tests/test_repair.py` (only failing claims, attempt limit, keep / remove, null rewrite, too long, off topic, code lines not repaired). The selection and pipeline tests now route the selection check through the audit.
+
 ## Next
-- **For Prompt 8:** the live P2 repair path wasn't exercised in the real run (no claim failed); it's covered by mocked tests only.
-- **For Prompt 8:** slide 1 CL-002 says "over 200,000 employees" (from the frozen profile's MODEL_KNOWLEDGE facts, labelled "Unverified"). CLAUDE.md §6.2 says no specific numbers presented as fact; the audit / gate should treat it.
-- **For Prompt 8:** a selection claim with pre-pitch check errors still reaches slide 4 (by instruction: slide 4 = the selection's claims). The audit must mark it, and the gate FAIL, unless the advisor edits or overrides. (REASON claims are now capped at 5 by the schema.)
+- **For Prompt 9 (slide 4 layout, your note):** slide 4 must fit one slide, at most about 8 visible bullets. Company-framing claims (`metadata.framing_of`) render as sub-lines under their policy claim, not as separate bullets. Structural QA fails on overflow.
+- **For Prompt 9 (rendering):** a VERIFIED_WITH_QUALIFIER policy claim's `qualifier_text` is rendered as a footnote on the claim's own slide (adjustment A). Claims with state REMOVED, and UNSUPPORTED / CONTRADICTED ones, are not rendered.
+- **For Prompt 9 (gate):** add the run-level rules to the audit's claim-level summary: selection validation errors, selection `confidence=low`, advisor override, cells not available at the assumed SI, assumption-based exposures, DIRTY claims, and the WM conditions (see Decisions).
+- **For Prompt 10:** an advisor edit makes the claim DIRTY; re-audit it with `audit.audit_claims` and `apply_results`, then rebuild the report with `make_report`.
 - **For Prompt 7 (selection claims):** slide 4's reason comes from `reason_claims`. Several REASON claims mix a policy fact with a company framing ("…, which is important for a large, desk-based workforce"). The pitch should split them into a POLICY_* claim and a COMPANY_FACT claim, so each is audited against the right source.
 - **For Prompt 7 (Niva):** slides say "hospitalisation of 2 hours and more", never "day care". The brochure never uses the words "day care".
-- **For Prompt 8 (audit) — required deterministic checks (not built yet):**
-  - **Number check on supporting items only.** Run `number_check` against the claim's **supporting** evidence only. Against the whole brochure, three planted false claims pass, because their numbers occur elsewhere: Niva "₹5,00,000" (a SI tier "INR 5 Lac"), Niva "30-day initial waiting period" (footnote (8) "30 days/policy year"), and ABHI "100% HealthReturns every year" ("up to 100%"). `tests/test_grounding.py::test_the_whole_brochure_is_the_wrong_input` pins this.
-  - **Topic-anchor check.** The claim's benefit topic (e.g. "waiting period", "air ambulance", "maternity") must appear in a supporting item's text, row_label or section, or in the claim's exposure's taxonomy keywords (`config/exposure_taxonomy.yaml`). Otherwise the claim can't be VERIFIED. This catches "Niva 30-day waiting period" being supported by footnote (8)'s "30 days/policy year" hospital-cash limit.
-  - **Absolute-language check.** If a claim uses "guarantee(d)", "always", "every year", "unlimited" or "no limit", and the supporting evidence for that fact has "up to", "indicative", "subject to" or "T&C" (or lacks the absolute word), the claim is at best VERIFIED_WITH_QUALIFIER, with the hedge as the required qualifier. This catches ABHI "guarantees 100% HealthReturns".
-  - **Policy-reference check.** Use `grounding.policy_name_check` (whole-name `PRODUCT_ALIASES`).
 - **For Prompt 7 (Care wellness grid):** claims must use the brochure's own wording, e.g. "270" days → 30% renewal discount. Never write "270 or more" (or "at least"): the brochure doesn't say it.
 - **For Prompts 7 and 9 (E.4):**
   - Slides show money with `settings.CURRENCY_SYMBOL` ("₹") and Indian digit grouping (₹10,000, ₹1,00,000, ₹15 lakh).
   - Structural QA fails if any slide text has a backtick before a digit.
   - The slide font must render ₹.
   - The slide 3 Source column and the Streamlit "View evidence" panel use `display_text`, and the audit report JSON carries both "text" and "display_text" (md shows display_text) (E.2).
-- **For Prompts 5 and 8:** matching and audit read evidence only through `EvidenceStore.items_for_policy` / `keyword_search` (citable only), and must reject any cited evidence ID whose item is not citable.
+- **For Prompts 5 and 8 (done):** matching and audit read evidence only through `EvidenceStore.items_for_policy` / `keyword_search` (citable only), and the audit drops any cited evidence ID whose item is not citable.
 
 ## Decisions
+- **Audit (Prompt 8, your decisions):**
+  - After a failed repair, a material claim keeps its audit status: CONTRADICTED must be edited or removed, UNSUPPORTED edited or attested.
+  - Absolute language → NEEDS_REVIEW. A false eval claim counts as caught only if it is neither VERIFIED nor VWQ.
+  - Company claims are audited deterministically.
+  - A VWQ claim with a rendered qualifier passes (adjustment A).
+  - A headcount band such as "200,000+" is allowed as an Unverified company fact; a precise headcount or revenue figure is NEEDS_REVIEW.
+  - Slide 3 rows may restate a slide 4 selection claim.
 - Exposure IDs use the `EXP-` prefix (CLAUDE.md §5 updated from `EX-`).
 - The policy is selected by the LLM (`PolicySelection`, decided_by LLM | ADVISOR); an ADVISOR override requires `advisor_reason`. See the "Architecture change" and "Prompt 6" entries.
 - COVERED_VIA_ADDON accepts evidence with `benefit_tier` ADDON **or** OPTIONAL (CLAUDE.md §6.6 updated).
@@ -548,6 +610,10 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **PitchDraft / DraftCompanyBullet / DraftRow / DraftPolicyClaim / DraftSplit** (Gemini output for the pitch): slide-1 bullets (≤ 6, ≤ 125 chars, basis_fact_ids), slide-3 rows (≤ 6), supporting benefits (≤ 3), splits of the selection claims (no key limitations: code fills them); `DraftRow.source` and `PitchDraft.recommended_policy_name` are ignored (code injects them).
 - **Claim.metadata**: `dict[str, str]` (wm_id / based_on / condition on slide 2; selection_claim / selection_kind / selection_check_errors, framing_of (company framing → its SC-n), source="coverage cell" (code key limitations) on slide 4; match_id on slides 3/4).
 - **ClaimRepair / PitchRepairResponse** (Gemini output for `prompts/repair_pitch_claims.md`): `claim_id, text (null = drop), evidence_ids, basis_fact_ids` / `repairs`.
+- **CheckRecord** (one deterministic audit check): `name, result PASS|FAIL|NA, details, capped_at (the status it lowered the claim to)`. **RepairAttempt**: `attempt, text_before, text_after (None = no true rewrite), status_before, status_after, explanation`.
+- **AuditResult** additions: `llm_status, checks, supporting_fact_ids (company claims), repair_history`.
+- **AuditVerdict / AuditVerdictStatus / AuditResponse** (Gemini output for `prompts/audit_claim.md`): `claim_id, status (VERIFIED|VERIFIED_WITH_QUALIFIER|NEEDS_REVIEW|UNSUPPORTED|CONTRADICTED), supporting_evidence_ids, quotes [{evidence_id, quote}], required_qualifier, explanation` / `verdicts`. **ClaimRewrite** (Gemini output for `prompts/repair_claim.md`): `text (None = no true sentence)`.
+- **audit.AuditSources** (a dataclass, not persisted): the evidence store, coverage cells, company profile, assumed SI, run_id, taxonomy, topic index, the Marsh chunks, and the slide-3 row siblings.
 - **ExposurePick / ExposureSelectionResponse** (Gemini output): `exposure_id, rationale, basis_fact_ids` as plain strings (code rejects unknown ones) / `exposures`
 - **LimitationDraft / QuoteDraft / MatchDraft / MatchResponse** (Gemini output for matching): `type, description, evidence_ids` / `evidence_id, quote` / `exposure_id, coverage_status, limitations, benefit/limitation/exclusion_evidence_ids, quotes, reasoning` / `matches`
 - **CoverageMatrixCache** (`data/cache/matrix_<sha>_<SI>.json`): `policy_id, sha256, assumed_sum_insured, model, taxonomy_hash, evidence_hash, prompt_hash, drafts, repaired, cell_hashes (exposure → taxonomy-entry hash), rerun (targeted re-runs)`
@@ -555,6 +621,13 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **PolicyMatch.available_at_assumed_si**: `bool`, computed by `matching.si_availability`. **Limitation.quote / LimitationDraft.quote**: `str | None` (verified verbatim; required for OTHER_CONDITION). **CoverageMatrixCache.repaired**: exposure IDs replaced by the repair retry.
 
 ## Known issues
+- **The audit LLM's verdicts vary between runs at temperature 0.** For example, the Niva in-patient/AYUSH claim was NEEDS_REVIEW in one run and CONTRADICTED in another, and the eval's "₹25 lakh deductible" was CONTRADICTED or UNSUPPORTED. The deterministic checks bound this: they can't let a false claim through as VERIFIED, but a true claim can land in VWQ or NEEDS_REVIEW.
+- **The LLM's qualifiers are accepted when their numbers are in the evidence, so their wording can be loose.** One qualifier said "a base benefit specific to Platinum+ and Titanium+", which are all the variants.
+- **"Not stated" claims map to a coverage cell through the taxonomy keywords.** "Initial waiting period" maps to the pre-existing-disease waiting-period cell.
+- **An absence claim that names several exposures is judged per exposure.** An incidental covered exposure in the same sentence can make a correct exclusion claim CONTRADICTED.
+- **A footnote qualifier longer than 200 characters can't be rendered**, so it becomes a review item (e.g. HDFC's payout-ratio formula footnote).
+- **The topic list is closed and small** (`config/audit_topics.yaml`). A claim whose topic is neither in it nor in the taxonomy gets no topic-anchor check (NA).
+- **The eval's claims are all slide-4 claims.** The slide-3 row context is covered by unit tests only.
 - **Matching cells are LLM judgements within the validation rules.** The committed matrices are the reviewed run. A `--force` re-run may classify borderline cells differently (e.g. NIVA DAYCARE flipped between FULL, ADDON and LIMITS across the three runs); the checked cells stayed stable.
 - **Company profiles vary between runs** at temperature 0 (two Infosys runs gave 12 and 14 facts, and different business risks). Every fact is labelled either way; the run's profile is stored in the RunContext and decision log, so a pitch always uses one fixed profile.
 - **Gemini labels some industry-typical business risks MODEL_KNOWLEDGE.** They're shown as "Unverified" on slide 1 anyway (no web lookup in V1), and business risks never feed exposures or recommendation.

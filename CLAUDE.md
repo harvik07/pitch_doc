@@ -182,10 +182,10 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`
 - `reason_claims`: the LLM's atomic statements (kind REASON | LIMITATION | CONDITION), each about ONE policy with its evidence IDs and verbatim quotes, and the errors of its pre-pitch check. `reason`, `important_limitations`, `important_conditions`, `supporting_evidence_ids` and `supporting_quotes` are derived from them.
 - `reason`, `important_limitations` and `important_conditions` are LLM text: they reach the deck only as audited `Claim` objects (section 9).
 
-**Claim**: `claim_id, slide_number, text, claim_type, policy_id (nullable), cited_evidence_ids (generator's citation — logged, never trusted), basis_fact_ids, material: bool, qualifier_text (nullable), state (DRAFT|DIRTY|AUDITED|REMOVED), metadata (e.g. a WM claim's wm_id + condition for the gate; a slide-4 claim's source selection claim)`
+**Claim**: `claim_id, slide_number, text, claim_type, policy_id (nullable), cited_evidence_ids (generator's citation — logged, never trusted), basis_fact_ids, material: bool, qualifier_text (nullable: the "Unverified" label of a company fact; on a VERIFIED_WITH_QUALIFIER policy claim, the audit's required qualifier, rendered as a footnote on its slide), state (DRAFT|DIRTY|AUDITED|REMOVED), metadata (e.g. a WM claim's wm_id + condition for the gate; a slide-4 claim's source selection claim)`
 - `claim_type ∈ {POLICY_FACT, POLICY_BENEFIT, POLICY_LIMIT, POLICY_PRICING, POLICY_CONDITION, POLICY_EXCLUSION, COMPANY_FACT, MARSH_STATEMENT, ASSUMPTION, NON_FACTUAL}`
 
-**AuditResult**: `audit_id, claim_id, status, supporting_evidence_ids, quotes, number_check (PASS|FAIL|NA + details), quote_check (PASS|FAIL|NA), required_qualifier (nullable), explanation, repair_attempts, advisor_action (None|APPROVED|EDITED|REMOVED|ATTESTED), advisor_note`
+**AuditResult**: `audit_id, claim_id, status, supporting_evidence_ids, quotes, number_check (PASS|FAIL|NA + details), quote_check (PASS|FAIL|NA), required_qualifier (nullable), explanation, repair_attempts, advisor_action (None|APPROVED|EDITED|REMOVED|ATTESTED), advisor_note, llm_status (the audit LLM's verdict before the deterministic checks), checks (one record per deterministic check), supporting_fact_ids (company claims), repair_history`
 - `status ∈ {VERIFIED, VERIFIED_WITH_QUALIFIER, NEEDS_REVIEW, UNSUPPORTED, CONTRADICTED, LABELLED_ASSUMPTION, NON_FACTUAL, ADVISOR_ATTESTED}`
 
 **AuditReport**: `run_id, results: list[AuditResult], summary: {counts per status, confidence_score, overall_flag (PASS|REVIEW_REQUIRED|FAIL), gate_failures, review_items}`
@@ -209,7 +209,7 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`
 8. **Selection validation (deterministic)** — section 7. One repair retry with the errors fed back; errors still unresolved go to the advisor and the gate.
 9. **Pitch generation** — `generateMarketingPitch` → structured `PitchDeck`. Code injects slide 4's policy name, variant and required add-ons from `PolicySelection`; the selection reason becomes Claim objects (section 9). The LLM can't change the injected fields.
 10. **Independent audit** — `auditPitchContent` (section 8).
-11. **Targeted repair** — only failing claims, max 2 attempts each, can't touch other claims, slide structure or the selected policy. After 2 failures: remove the claim if `material=False`, else set it to `NEEDS_REVIEW`.
+11. **Targeted repair** — only failing claims, max 2 attempts each, can't touch other claims, slide structure or the selected policy. When the repair fails: remove the claim if `material=False`; a material claim keeps its audit status and gets a "repair failed" review item — CONTRADICTED must still be edited or removed (acknowledgement is never enough), UNSUPPORTED edited or attested with a written justification.
 12. **Advisor review** — approve / edit / remove / attest per claim; override the selected policy (with a logged reason); approve / reject the deck. An edited claim becomes `DIRTY` and is re-audited automatically.
 13. **Final gate** — section 10.
 14. **Render PPT** — fixed template, structural QA.
@@ -245,9 +245,10 @@ matters); never compare premiums; never use outside knowledge about insurers or 
 4. `relevant_exposure_ids` ⊆ the run's exposures.
 5. `selected_variant` is empty or one of the selected document's variants; each required add-on is named in the
    selected policy's evidence.
-6. Every reason / limitation / condition claim passes the pre-pitch check: its evidence belongs to the policy it is
-   about, each quote is verbatim, `number_check` passes on its cited items, and it names no other product. (Once
-   `audit.py` exists, this check calls the same audit function as the deck.)
+6. Every reason / limitation / condition claim passes the pre-pitch check: its own citation is well formed (its
+   evidence belongs to the policy it is about, each quote is verbatim), and the deck's audit function
+   (`audit.audit_claims`, section 8) finds it neither UNSUPPORTED nor CONTRADICTED. The auditor never sees the
+   selection's evidence IDs or quotes.
 A selection that fails gets **one** repair retry with the errors fed back. Errors still unresolved are shown to the
 advisor and block export (section 10) until the advisor overrides the selection.
 
@@ -274,14 +275,18 @@ No weighted scores and no rule-based ranking: code never counts coverage to pick
 Per claim:
 1. `NON_FACTUAL` → NON_FACTUAL (still checked: if it contains a number or policy name, reclassify it as factual).
 2. `ASSUMPTION` / company facts with ASSUMPTION status → LABELLED_ASSUMPTION, only if the slide renders an "Assumption" label. Otherwise NEEDS_REVIEW.
-3. `COMPANY_FACT` → must map to a `basis_fact_id` in the profile; status VERIFIED means "consistent with the generated profile" and it is always shown as "Unverified". If there's no mapping → UNSUPPORTED.
+3. `COMPANY_FACT` → must map to a `basis_fact_id` in the profile; status VERIFIED means "consistent with the generated profile" and it is always shown as "Unverified". If there's no mapping → UNSUPPORTED. Its numbers must be in those facts' values; a precise headcount or revenue figure → NEEDS_REVIEW (a band such as "200,000+" is fine). Deterministic, no LLM.
 4. `MARSH_STATEMENT` → audited against `data/marsh/marsh_profile.md` only (chunked into evidence items with `document_id="MARSH"`). Insurer statistics must never appear on the Why Marsh slide (code check: slide 2 claims must be MARSH_STATEMENT or NON_FACTUAL).
 5. Policy claims → candidate evidence = the **full evidence set of the claimed policy** if it's under `settings.FULL_CONTEXT_TOKEN_LIMIT` (all 4 brochures are), otherwise keyword retrieval over the section/row labels and text. The audit LLM returns status, supporting evidence IDs, verbatim quotes and required qualifier. Then **deterministic checks override the LLM**:
    - quote check: each quote is a normalised substring of its evidence text, else downgrade VERIFIED → NEEDS_REVIEW
    - evidence IDs belong to the claimed policy, else UNSUPPORTED (another policy's evidence can't support the claim)
    - number check (`numbers.py`): every number in the claim must equal a number in the supporting evidence (same unit). If a same-unit number exists but differs → **CONTRADICTED**. If no number is found → UNSUPPORTED.
    - policy reference check: the product name in the claim matches `policy_id`
-   - if supporting evidence has linked footnotes or `si_condition`/`variant`/`ADDON` tier, and the claim omits that qualifier → VERIFIED_WITH_QUALIFIER, and `required_qualifier` must be rendered on the slide as a footnote.
+   - topic anchor: the claim's topics (`config/audit_topics.yaml` + the exposures' names and keywords) must appear in the supporting evidence (a footnote includes the rows that link to it), and the topic next to each claim number must appear where the evidence states that number; a row/column-label number counts only if the label shares the claim's topic → else UNSUPPORTED
+   - absolute language ("guarantee", "always", "unlimited", "no limit") that the evidence doesn't use → NEEDS_REVIEW
+   - absence claims: "not stated in the <product> brochure" is VERIFIED only if the claimed exposure's coverage cell is NOT_STATED; "does not cover" / "excludes" needs an EXCLUDED cell with exclusion evidence (NOT_STATED → UNSUPPORTED, covered → CONTRADICTED)
+   - if supporting evidence has linked footnotes or `si_condition`/`variant`/`ADDON` tier, and the claim omits that qualifier → VERIFIED_WITH_QUALIFIER, and `required_qualifier` is stored on the claim (`qualifier_text`) and rendered on its slide as a footnote.
+   A slide-3 cell is audited in its table row (the row's exposure and its other cell).
 6. Pricing claims: allowed only with their full context (who / age / SI / discounts) as a qualifier. Cross-policy premium comparisons are always UNSUPPORTED.
 
 `numbers.py` must normalise: `₹`, `INR`, `Rs`, `Rs.`, backtick-as-rupee, `lac/lacs/lakh/lakhs/L`, `crore/crores/cr/Cr`, Indian grouping `1,00,000`, `%`, `days/months/years`, `X` multipliers (e.g. `10X`). Strip footnote markers glued to words (`Insured4`, `OPD9`, `Checkup(7)`) before parsing. Unit-test all of these with strings copied from the brochures.
@@ -305,9 +310,11 @@ Colours, fonts, positions and slide count are constants in `render_ppt.py`. The 
 
 ## 10. Final gate (`gate.py`, deterministic)
 
-**FAIL (no export)** if any: a material claim is UNSUPPORTED (not attested) or CONTRADICTED; a number check fails; a policy reference is wrong; a material policy statement is unmapped; the deck fails schema validation; a required section is missing; there is no policy selection; `selected_policy_id` is not in `compared_policy_ids`; the selection has unresolved validation errors (not overridden by the advisor); Why Marsh contains a non-Marsh claim; a claim is still DIRTY.
+**FAIL (no export)** if any: a claim is CONTRADICTED (acknowledgement is never enough: edit or remove it); a material claim is UNSUPPORTED (not attested); a number check fails; a policy reference is wrong; a material policy statement is unmapped; the deck fails schema validation; a required section is missing; there is no policy selection; `selected_policy_id` is not in `compared_policy_ids`; the selection has unresolved validation errors (not overridden by the advisor); Why Marsh contains a non-Marsh claim; a claim is still DIRTY.
 
-**REVIEW_REQUIRED (export only after the advisor acknowledges each item)** if any: assumption-based exposures; ADVISOR_ATTESTED claims; selection `confidence=low`; the advisor overrode the selection; the selection relies on cells not available at the assumed SI (a relevant exposure of the selected policy that is covered by status but `available_at_assumed_si=False`); NEEDS_REVIEW claims; VERIFIED_WITH_QUALIFIER claims.
+**REVIEW_REQUIRED (export only after the advisor acknowledges each item)** if any: assumption-based exposures; ADVISOR_ATTESTED claims; selection `confidence=low`; the advisor overrode the selection; the selection relies on cells not available at the assumed SI (a relevant exposure of the selected policy that is covered by status but `available_at_assumed_si=False`); NEEDS_REVIEW claims; VERIFIED_WITH_QUALIFIER claims without a renderable qualifier (a VWQ claim whose required qualifier is stored on it and rendered on its slide as a footnote counts as passing); a claim whose targeted repair failed (it keeps its audit status; see section 6 step 11).
+
+**PASS** if there is no FAIL condition and no review item (a clean deck, VWQ claims with rendered qualifiers included).
 
 **Advisor attestation**: an advisor may attest an UNSUPPORTED claim (e.g. a fact from the full policy wording) with a written justification. It's logged and shown on slide 5 as "Advisor-attested". CONTRADICTED claims **cannot** be attested — they must be edited or removed.
 

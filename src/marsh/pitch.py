@@ -45,7 +45,7 @@ from marsh import settings
 from marsh.decision_log import log_decision
 from marsh.evidence_store import EvidenceStore, load_evidence, to_display
 from marsh.exposures import load_taxonomy
-from marsh.grounding import format_indian, named_policies, normalise_text, number_check
+from marsh.grounding import format_indian, format_money, format_si_range, named_policies, normalise_text, number_check
 from marsh.llm import call_structured
 from marsh.matching import (
     COVERED,
@@ -82,7 +82,7 @@ from marsh.models import (
     SelectionClaimKind,
     save_json,
 )
-from marsh.numbers import SIRange, numbers_for_item, sum_insured_ranges
+from marsh.numbers import numbers_for_item, sum_insured_ranges
 from marsh.run_context import run_dir
 
 log = logging.getLogger(__name__)
@@ -284,18 +284,7 @@ def _source(evidence_ids: list[str], store: EvidenceStore, policy_id: str) -> st
 # --- Readable qualifiers (P4) -----------------------------------------------------------------------------------
 
 
-def _money(value: float) -> str:
-    return f"{settings.CURRENCY_SYMBOL}{format_indian(value)}"
-
-
-def format_si_range(r: SIRange) -> str:
-    if r.low == r.high:
-        return _money(r.low)
-    if r.high == float("inf"):
-        return f"{'above' if r.low_exclusive else 'from'} {_money(r.low)}"
-    if r.low == 0:
-        return f"{'below' if r.high_exclusive else 'up to'} {_money(r.high)}"
-    return f"{_money(r.low)} to {_money(r.high)}"
+_money = format_money
 
 
 def readable_qualifier(lim: Limitation, cell: PolicyMatch, store: EvidenceStore) -> str:

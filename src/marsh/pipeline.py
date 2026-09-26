@@ -25,7 +25,7 @@ from marsh.company import CompanyNameError, generate_company_profile, load_froze
 from marsh.decision_log import log_decision
 from marsh.exposures import identify_exposures
 from marsh.models import PolicyDocument, RunContext, ValidatedFile
-from marsh.run_context import new_run_context, save_run_context
+from marsh.run_context import new_run_context, run_dir, save_run_context
 from marsh.validation import validate_company_name, validate_files
 
 log = logging.getLogger(__name__)
@@ -199,6 +199,29 @@ def prepare_run(company_name: str | None, policy_docs: Any, *, profile_path: str
     documents = prepare_policies(policy_docs, ctx.run_id)
     ctx = match_run(ctx, [d.document_id for d in documents])
     return select_run(ctx)
+
+
+def audit_run(ctx: RunContext, *, repair: bool = True) -> RunContext:
+    """The independent audit of the run's deck, then the targeted repair of failing claims (CLAUDE.md section 6
+    steps 10–11). Saves the report in the RunContext, outputs/<run_id>/audit_report.json + .md and the updated deck."""
+    from marsh import audit
+    from marsh import repair as repair_step
+    from marsh.models import save_json
+    from marsh.pitch import PITCH_FILE
+
+    if ctx.deck is None:
+        raise ValueError("the run has no pitch deck to audit")
+    sources = audit.load_sources([d.document_id for d in ctx.selected_documents],
+                                 assumed_sum_insured=ctx.assumed_sum_insured, profile=ctx.company_profile,
+                                 run_id=ctx.run_id)
+    report = audit.audit_deck(ctx.deck.slides, sources, ctx.run_id)
+    if repair:
+        report = repair_step.repair_deck(ctx.deck.slides, report, sources, ctx.run_id)
+    ctx.audit_report = report
+    save_json(ctx.deck, run_dir(ctx.run_id) / PITCH_FILE)
+    save_run_context(ctx)
+    audit.export_report(report, audit.deck_claims(ctx.deck.slides), sources)
+    return ctx
 
 
 def pitch_run(ctx: RunContext) -> RunContext:

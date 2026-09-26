@@ -632,6 +632,11 @@ def is_not_stated_statement(text: str) -> bool:
     return bool(_NOT_STATED_PHRASE.search(text))
 
 
+def is_absence_statement(text: str) -> bool:
+    """"does not cover / provide / include", "excludes", "no coverage for", "not covered" …"""
+    return bool(_ABSENCE.search(text))
+
+
 def absence_errors(text: str, policy_id: str, cells: list[PolicyMatch], product_name: str,
                    taxonomy: ExposureTaxonomy | None = None) -> list[str]:
     """A claim that a policy does not cover / excludes X is valid only if the policy's cell for X is EXCLUDED with

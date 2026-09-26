@@ -10,12 +10,14 @@ import json
 
 import pytest
 
-from marsh import pipeline, selection, settings
+from marsh import audit, pipeline, selection, settings
 from marsh.company import build_profile, load_profile
 from marsh.decision_log import read_decisions
 from marsh.evidence_store import EvidenceStore, load_evidence
 from marsh.matching import build_matrix, match_id
+from marsh.grounding import normalise_text
 from marsh.models import (
+    AuditResponse,
     CompanyProfileResponse,
     CoverageStatus,
     DecidedBy,
@@ -95,6 +97,43 @@ class FakeLLM:
     def __call__(self, prompt_name, variables, response_model, model=None, run_id=None, **kwargs):
         self.calls.append((prompt_name, variables, kwargs))
         return self.replies.pop(0) if len(self.replies) > 1 else self.replies[0]
+
+
+AIR_5L = "Air ambulance cover up to ₹5,00,000 per hospitalisation"
+NAMES_HDFC = "HDFC ERGO Optima Secure+ pays for air ambulance up to ₹2,50,000"
+
+
+class CitingAuditor:
+    """Stand-in for the audit LLM (the deck's audit runs on every selection claim): VERIFIED with the evidence line
+    whose text the claim contains (or that contains the claim), a few fixed verdicts, otherwise UNSUPPORTED.
+    It only ever sees the claim texts, never the selection's evidence IDs or quotes."""
+
+    FIXED = {AIR_5L: ("EV-NIVA-2-015", NIVA_AIR), NAMES_HDFC: ("EV-NIVA-2-015", NIVA_AIR)}
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, prompt_name, variables, response_model, model=None, run_id=None, **kwargs):
+        self.calls.append(variables)
+        items = [(parts[0], parts[-1]) for parts in (line.split(" | ") for line in variables["evidence"].splitlines())]
+        verdicts = []
+        for line in variables["claims"].splitlines():
+            claim_id, _, _, text = [part.strip() for part in line.lstrip("- ").split(" | ", 3)]
+            hit = self.FIXED.get(text) or next(
+                ((eid, t) for eid, t in items if len(t) > 12 and (normalise_text(t) in normalise_text(text) or
+                                                                  normalise_text(text).rstrip(".") in normalise_text(t))),
+                None)
+            verdict = ({"status": "VERIFIED", "supporting_evidence_ids": [hit[0]],
+                        "quotes": [{"evidence_id": hit[0], "quote": hit[1]}]} if hit else {"status": "UNSUPPORTED"})
+            verdicts.append({"claim_id": claim_id, "explanation": "Stand-in auditor.", **verdict})
+        return AuditResponse.model_validate({"verdicts": verdicts})
+
+
+@pytest.fixture(autouse=True)
+def auditor(monkeypatch):
+    fake = CitingAuditor()
+    monkeypatch.setattr(audit, "call_structured", fake)
+    return fake
 
 
 def run(monkeypatch, store, matrices, compared, *replies, exposures=EXPOSURES, run_id=None):
@@ -178,10 +217,8 @@ def test_an_uploaded_policy_participates(monkeypatch, store, matrices):
     (claim("REASON", "Air: Up to INR 5,00,000", "POL-NIVA", "EV-HDFC-11-029"), "belongs to POL-HDFC"),
     (claim("REASON", NIVA_AIR, "POL-NIVA", "EV-NIVA-2-015", quote="Air Ambulance: up to INR 2,50,000 per trip"),
      "not found verbatim"),
-    (claim("REASON", "Air ambulance cover up to ₹5,00,000 per hospitalisation", "POL-NIVA", "EV-NIVA-2-015",
-           quote=NIVA_AIR), "number check FAIL_CONTRADICTED"),
-    (claim("REASON", "HDFC ERGO Optima Secure+ pays for air ambulance up to ₹2,50,000", "POL-NIVA", "EV-NIVA-2-015",
-           quote=NIVA_AIR), "names POL-HDFC"),
+    (claim("REASON", AIR_5L, "POL-NIVA", "EV-NIVA-2-015", quote=NIVA_AIR), "audit CONTRADICTED"),  # the audit
+    (claim("REASON", NAMES_HDFC, "POL-NIVA", "EV-NIVA-2-015", quote=NIVA_AIR), "names POL-HDFC"),
     (claim("REASON", NIVA_AIR, "POL-CARE", "EV-CARE-3-012"), "not a compared policy"),
 ])
 def test_bad_claims_are_rejected(monkeypatch, store, matrices, bad_claim, error):
@@ -191,9 +228,25 @@ def test_bad_claims_are_rejected(monkeypatch, store, matrices, bad_claim, error)
     assert any(error in e for e in result.validation_errors), result.validation_errors
 
 
+def test_the_selection_check_is_the_decks_audit(monkeypatch, store, matrices, auditor):
+    """check_claim is citation format only; the truth comes from audit.audit_claims, which never sees the
+    selection's evidence IDs or quotes."""
+    result, _ = run(monkeypatch, store, matrices, ["POL-NIVA", "POL-HDFC"],
+                    response(claims=[claim("REASON", NIVA_AIR, "POL-NIVA", "EV-NIVA-2-015")]))
+    assert result.validation_errors == [] and auditor.calls
+    sent = auditor.calls[0]["claims"]
+    assert NIVA_AIR in sent and "EV-NIVA-2-015" not in sent and "CL-S01" in sent
+    bad = SelectionClaim(kind="REASON", text=AIR_5L, policy_id="POL-NIVA", evidence_ids=["EV-NIVA-2-015"],
+                         quotes=[{"evidence_id": "EV-NIVA-2-015", "quote": NIVA_AIR}])
+    assert selection.check_claim(bad, ["POL-NIVA"], store) == []  # its citation is well formed …
+    errors = selection.audit_selection_claims([bad], ["POL-NIVA"], store, matrices)
+    assert errors[0] and errors[0][0].startswith("audit CONTRADICTED")  # … but the audit finds it false
+
+
 def test_absence_claims_need_an_excluded_cell(monkeypatch, store, matrices):
-    """P1: NIVA maternity is NOT_STATED, so "does not cover maternity" fails and goes to the repair retry;
-    "not stated in the <product> brochure" passes without evidence; a "not stated" claim on a covered cell fails."""
+    """P1 (now via the audit): NIVA maternity is NOT_STATED, so "does not cover maternity" fails and goes to the
+    repair retry; "not stated in the <product> brochure" passes without evidence; a "not stated" claim on a covered
+    cell fails."""
     compared = ["POL-NIVA", "POL-HDFC"]
     absent = claim("LIMITATION", "Niva Bupa ReAssure 2.0 does not cover maternity.", "POL-NIVA", "EV-NIVA-2-015",
                    quote=NIVA_AIR)
@@ -204,12 +257,14 @@ def test_absence_claims_need_an_excluded_cell(monkeypatch, store, matrices):
 
     ok = SelectionClaim(kind="LIMITATION", text="Maternity is not stated in the Niva Bupa ReAssure 2.0 brochure.",
                         policy_id="POL-NIVA")
-    assert selection.check_claim(ok, compared, store, matrices) == []
     wrong = ok.model_copy(update={"text": "Air ambulance is not stated in the Niva Bupa ReAssure 2.0 brochure."})
-    assert any("cell is" in e for e in selection.check_claim(wrong, compared, store, matrices))
     hdfc = SelectionClaim(kind="LIMITATION", text="HDFC ERGO Optima Secure+ does not cover air ambulance.",
                           policy_id="POL-HDFC")
-    assert any("does not cover" in e for e in selection.check_claim(hdfc, compared, store, matrices))
+    assert selection.check_claim(ok, compared, store) == []  # needs no citation
+    errors = selection.audit_selection_claims([ok, wrong, hdfc], compared, store, matrices)
+    assert errors[0] == []
+    assert "audit CONTRADICTED" in errors[1][0] and "is COVERED" in errors[1][0]
+    assert "audit CONTRADICTED" in errors[2][0]
 
 
 def test_a_selection_outside_the_compared_set_is_rejected(monkeypatch, store, matrices):

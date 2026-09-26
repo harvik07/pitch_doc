@@ -1,0 +1,21 @@
+# Policy terms for the audit's topic-anchor check (audit.py, CLAUDE.md section 8). Closed list.
+# Every exposure in exposure_taxonomy.yaml (its name and keywords) is a topic too; these add the policy mechanics
+# the taxonomy doesn't name. A term matches as a whole word, any case. A claim's topic must appear in the evidence
+# that supports it, and the topic next to each claim number must appear in the item that states that number.
+topics:
+  waiting_period: [waiting period, waiting periods, wait period, waiting]
+  deductible: [deductible, deductibles]
+  co_payment: [co-payment, copayment, co-pay, copay]
+  sub_limit: [sub-limit, sublimit, sub limit]
+  room: [room rent, room category, room, shared accommodation, accommodation]
+  sum_insured: [sum insured, base sum insured, si, bsi, cover amount, base cover]
+  premium: [premium, premiums, price, pricing]
+  discount: [discount, discounts]
+  payout_ratio: [claims payout ratio, payout ratio, claim settlement ratio, settlement ratio]
+  bonus: [bonus, no claim bonus, ncb]
+  renewal: [renewal, renew, renewable, renewability]
+  network: [network, cashless]
+  age: [age, ages, aged, entry age]
+  members: [member, members, individual, family]
+  second_opinion: [second opinion, second medical opinion, e-opinion]
+  tax: [tax, tax benefit, 80d]

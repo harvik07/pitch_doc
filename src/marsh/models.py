@@ -697,6 +697,24 @@ class NumberCheckOutcome(_Model):
         return NumberCheck(result=result, details=f"{self.status.value}: {self.details}" if self.details else "")
 
 
+class CheckRecord(_Model):
+    """One deterministic audit check on one claim (audit.py): its result and, if it lowered the status, to what."""
+    name: str
+    result: CheckResult
+    details: str = ""
+    capped_at: AuditStatus | None = None
+
+
+class RepairAttempt(_Model):
+    """One targeted repair of a failing claim (repair.py)."""
+    attempt: int = Field(ge=1)
+    text_before: str
+    text_after: str | None = None  # None: the repair found no true sentence to write
+    status_before: AuditStatus
+    status_after: AuditStatus | None = None
+    explanation: str = ""
+
+
 class AuditResult(_Model):
     audit_id: AuditId
     claim_id: ClaimId
@@ -710,6 +728,10 @@ class AuditResult(_Model):
     repair_attempts: int = Field(default=0, ge=0)
     advisor_action: AdvisorAction | None = None
     advisor_note: str | None = None
+    llm_status: AuditStatus | None = None  # the audit LLM's verdict before the deterministic checks (None: code only)
+    checks: list[CheckRecord] = Field(default_factory=list)
+    supporting_fact_ids: list[FactId] = Field(default_factory=list)  # company claims: the profile facts it maps to
+    repair_history: list[RepairAttempt] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _attestation_justified(self) -> AuditResult:
@@ -865,6 +887,34 @@ class ClaimRepair(_Model):
 class PitchRepairResponse(_Model):
     """Gemini output for prompts/repair_pitch_claims.md: only the failing claims."""
     repairs: list[ClaimRepair] = Field(default_factory=list)
+
+
+class AuditVerdictStatus(StrEnum):
+    """The statuses the audit LLM may return; the other AuditStatus values are decided by code."""
+    VERIFIED = "VERIFIED"
+    VERIFIED_WITH_QUALIFIER = "VERIFIED_WITH_QUALIFIER"
+    NEEDS_REVIEW = "NEEDS_REVIEW"
+    UNSUPPORTED = "UNSUPPORTED"
+    CONTRADICTED = "CONTRADICTED"
+
+
+class AuditVerdict(_Model):
+    """Gemini output for one statement (prompts/audit_claim.md). IDs are plain strings: code checks them."""
+    claim_id: str
+    status: AuditVerdictStatus
+    supporting_evidence_ids: list[str] = Field(default_factory=list)
+    quotes: list[QuoteDraft] = Field(default_factory=list)
+    required_qualifier: str | None = None
+    explanation: str = ""
+
+
+class AuditResponse(_Model):
+    verdicts: list[AuditVerdict] = Field(default_factory=list)
+
+
+class ClaimRewrite(_Model):
+    """Gemini output for prompts/repair_claim.md: the replacement sentence (null = no true sentence possible)."""
+    text: str | None = Field(default=None, max_length=300)
 
 
 class RecommendedPolicyBlock(_Model):

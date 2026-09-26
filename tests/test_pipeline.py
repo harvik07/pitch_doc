@@ -62,6 +62,7 @@ def test_without_a_profile_it_is_generated_once(monkeypatch):
 # --- The compared set: only the user's policies reach any LLM call ----------------------------------------------
 
 import json  # noqa: E402
+import re  # noqa: E402
 import shutil  # noqa: E402
 from pathlib import Path  # noqa: E402
 
@@ -89,6 +90,16 @@ class FakeGemini:
 
     @staticmethod
     def reply(prompt: str) -> dict:
+        if prompt.startswith("You are an independent auditor"):  # the audit of the selection's claims
+            known = {NIVA_AIR: ("EV-NIVA-2-015", NIVA_AIR),
+                     "In-patient care: Covered up to Sum Insured.": ("EV-NIVA-2-006", "Covered up to Sum Insured.")}
+            verdicts = []
+            for claim_id, text in re.findall(r"^- (CL-\S+) \| slide \d \| \w+ \| (.+)$", prompt, re.MULTILINE):
+                hit = known.get(text.strip())
+                verdicts.append({"claim_id": claim_id, "status": "VERIFIED" if hit else "UNSUPPORTED",
+                                 "explanation": "Stand-in auditor.", "supporting_evidence_ids": [hit[0]] if hit else [],
+                                 "quotes": [{"evidence_id": hit[0], "quote": hit[1]}] if hit else []})
+            return {"verdicts": verdicts}
         if prompt.startswith("You prepare a short company profile"):
             return {"company_recognised": True, "facts": [
                 fact("industry", "Placeholder industry"), fact("size", "Large enterprise"),
@@ -133,15 +144,22 @@ def llm_log(run_id: str) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
 
+def selection_prompt_of(prompts: list[str]) -> str:
+    return next(p for p in reversed(prompts) if p.startswith("You are an employee-benefits advisor"))
+
+
 def test_two_of_four_bundled_policies_never_leak(bundled_cache):
     ctx = prepare_run("Example Co", ["POL-NIVA", "POL-HDFC"])
     assert [d.document_id for d in ctx.selected_documents] == ["POL-NIVA", "POL-HDFC"]
     assert ctx.selection.compared_policy_ids == ["POL-NIVA", "POL-HDFC"] and ctx.selection.validation_errors == []
     logged = llm_log(ctx.run_id)
-    assert [e["prompt_name"] for e in logged] == ["company_profile", "identify_exposures", "select_policy"]
+    # the selection's claims are audited by the deck's audit (one call for the policy they are about)
+    assert [e["prompt_name"] for e in logged] == ["company_profile", "identify_exposures", "select_policy",
+                                                  "audit_claim"]
     for text in bundled_cache.prompts + [e["output"] for e in logged]:  # every LLM input and output
         assert not any(marker in text for marker in OTHER_POLICY_MARKERS)
-    assert "EV-NIVA-2-015" in bundled_cache.prompts[-1] and "EV-HDFC-" in bundled_cache.prompts[-1]
+    selection_prompt = selection_prompt_of(bundled_cache.prompts)
+    assert "EV-NIVA-2-015" in selection_prompt and "EV-HDFC-" in selection_prompt
     compared = [d for d in read_decisions(ctx.run_id) if d["event"] == "compared_policies"]
     assert compared[0]["payload"]["compared_policy_ids"] == ["POL-NIVA", "POL-HDFC"]
 
@@ -168,7 +186,7 @@ def test_bundled_plus_upload_are_both_compared(bundled_cache, tmp_path, monkeypa
     assert "annotate_evidence" in prompt_names and "match_policy" in prompt_names  # annotated + matrix built on upload
     assert any(p.name.startswith("matrix_") and settings.CACHE_DIR.joinpath(p.name).exists()
                for p in settings.CACHE_DIR.glob(f"matrix_{ctx.selected_documents[1].sha256}_*.json"))
-    selection_prompt = bundled_cache.prompts[-1]
+    selection_prompt = selection_prompt_of(bundled_cache.prompts)
     assert upload_id in selection_prompt and f"EV-{upload_id.removeprefix('POL-')}-1-" in selection_prompt
     assert "EV-HDFC-" not in selection_prompt  # bundled policies the user didn't pick stay out
     assert ctx.selection.compared_policy_ids == ["POL-NIVA", upload_id]
@@ -190,10 +208,10 @@ def test_a_saved_selection_is_reused_unless_reselect_or_the_compared_set_changes
     calls = len(bundled_cache.prompts)
     assert pipeline.select_run(ctx).selection == ctx.selection and len(bundled_cache.prompts) == calls
     pipeline.select_run(ctx, reselect=True)
-    assert len(bundled_cache.prompts) == calls + 1
+    assert len(bundled_cache.prompts) == calls + 2  # the selection call + the audit of its claims
     pipeline.match_run(ctx, ["POL-NIVA"])  # the compared set changed: the old selection doesn't apply
     pipeline.select_run(ctx)
-    assert len(bundled_cache.prompts) == calls + 2 and ctx.selection.compared_policy_ids == ["POL-NIVA"]
+    assert len(bundled_cache.prompts) == calls + 4 and ctx.selection.compared_policy_ids == ["POL-NIVA"]
     events = [d["event"] for d in read_decisions(ctx.run_id)]
     assert "policy_selection_reused" in events and events.count("policy_reselected") == 2
 
@@ -224,7 +242,8 @@ def test_frozen_exposures_are_reused_with_no_exposure_llm_call(bundled_cache, tm
     path = save_profile(PROFILE, tmp_path / "frozen.json", exposures=[FROZEN_EXPOSURE])
     ctx = prepare_run(None, ["POL-NIVA"], profile_path=path)
     assert ctx.exposures == [FROZEN_EXPOSURE]
-    assert [e["prompt_name"] for e in llm_log(ctx.run_id)] == ["select_policy"]  # no profile, no exposures call
+    # no profile and no exposures call: the selection, then the audit of its claims
+    assert [e["prompt_name"] for e in llm_log(ctx.run_id)] == ["select_policy", "audit_claim"]
     loaded = next(d for d in read_decisions(ctx.run_id) if d["event"] == "company_profile_loaded")
     assert loaded["payload"]["frozen_exposures"] == ["EXP-AMB-AIR"]
 

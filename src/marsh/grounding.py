@@ -21,7 +21,7 @@ import re
 from marsh import settings
 from marsh.evidence_store import classify_backticks
 from marsh.models import EvidenceItem, NormalisedNumber, NumberCheckOutcome, NumberCheckStatus, NumberUnit
-from marsh.numbers import label_numbers, mask_footnote_markers, numbers_for_item, parse_numbers
+from marsh.numbers import SIRange, label_numbers, mask_footnote_markers, numbers_for_item, parse_numbers
 
 CURRENCY_TOKEN = "inr"
 TOLERANCE = 0.005  # relative: 0.5%
@@ -167,14 +167,32 @@ def format_indian(value: float) -> str:
     return sign + grouped + ("" if fraction == "00" else "." + fraction.rstrip("0"))
 
 
-def number_check(claim_text: str, evidence_items: list[EvidenceItem]) -> NumberCheckOutcome:
+def format_money(value: float) -> str:
+    return f"{settings.CURRENCY_SYMBOL}{format_indian(value)}"
+
+
+def format_si_range(r: SIRange) -> str:
+    """A sum-insured range as slide text: "₹15,00,000", "from ₹15,00,000", "below ₹15,00,000", "₹5,00,000 to …"."""
+    if r.low == r.high:
+        return format_money(r.low)
+    if r.high == float("inf"):
+        return f"{'above' if r.low_exclusive else 'from'} {format_money(r.low)}"
+    if r.low == 0:
+        return f"{'below' if r.high_exclusive else 'up to'} {format_money(r.high)}"
+    return f"{format_money(r.low)} to {format_money(r.high)}"
+
+
+def number_check(claim_text: str, evidence_items: list[EvidenceItem], *,
+                 evidence_numbers: list[NormalisedNumber] | None = None) -> NumberCheckOutcome:
     """PASS if every claim number equals a same-unit evidence number; FAIL_CONTRADICTED if a claim number
     has same-unit numbers in the evidence but none equal; FAIL_MISSING if the evidence has no number of
-    that unit; NA if the claim has no numbers."""
+    that unit; NA if the claim has no numbers. `evidence_numbers` replaces the items' own numbers (the audit
+    passes the text numbers plus only the label numbers whose label shares the claim's topic)."""
     claim_numbers = parse_numbers(claim_text, strict=False)  # claims: nothing hidden (see parse_numbers)
     if not claim_numbers:
         return NumberCheckOutcome(status=NumberCheckStatus.NA)
-    evidence_numbers = [n for item in evidence_items for n in numbers_for_item(item) + label_numbers(item)]
+    if evidence_numbers is None:
+        evidence_numbers = [n for item in evidence_items for n in numbers_for_item(item) + label_numbers(item)]
     contradicted, missing, notes = [], [], []
     for number in claim_numbers:
         if any(numbers_equal(number, e) for e in evidence_numbers):

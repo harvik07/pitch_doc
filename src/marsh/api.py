@@ -1,6 +1,6 @@
 """Public API from the brief: generateCompanyProfile, generateMarketingPitch, auditPitchContent (CLAUDE.md section 1).
 
-Thin camelCase wrappers around the snake_case internals. auditPitchContent is implemented in Prompt 8.
+Thin camelCase wrappers around the snake_case internals.
 """
 
 from __future__ import annotations
@@ -8,7 +8,8 @@ from __future__ import annotations
 from typing import Any
 
 from marsh.company import CompanyNameError, generate_company_profile
-from marsh.models import CompanyProfile, PitchDeck, RunContext
+from marsh.audit import audit_pitch_content
+from marsh.models import AuditReport, CompanyProfile, PitchDeck, RunContext
 from marsh.pipeline import pitch_run, prepare_run, resolve_policy_docs, select_run
 from marsh.pitch import load_marsh_claims
 from marsh.run_context import new_run_id
@@ -41,3 +42,17 @@ def generateMarketingPitch(company_name: str | None = None, policy_docs: Any = N
     elif run_context.selection is None:
         run_context = select_run(run_context)
     return pitch_run(run_context).deck
+
+
+def auditPitchContent(pitch_slides: Any, policy_docs: Any, *,  # noqa: N802 (brief's name)
+                      company_profile: CompanyProfile | None = None, assumed_sum_insured: int | None = None,
+                      run_id: str | None = None) -> AuditReport:
+    """The structured audit report for a deck (brief 2.1 / 2.2, CLAUDE.md section 8). Works standalone:
+    `pitch_slides` is a PitchDeck, a deck dict or a list of slides (PitchSlide objects or dicts); `policy_docs`
+    are PolicyDocuments, PDF paths or document IDs, whose evidence and coverage cells are resolved by sha256 from the
+    cache (extracted / built if missing). Company claims are checked against `company_profile` (or the saved
+    RunContext of the deck's run, if there is one). Every claim gets a status, its supporting evidence and verbatim
+    quotes, and the summary gives the confidence score and the PASS / REVIEW_REQUIRED / FAIL flag. The report is
+    also written to outputs/<run_id>/audit_report.json and audit_report.md."""
+    return audit_pitch_content(pitch_slides, policy_docs, company_profile=company_profile,
+                               assumed_sum_insured=assumed_sum_insured, run_id=run_id)

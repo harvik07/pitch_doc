@@ -209,9 +209,63 @@ def test_fragments_are_not_citable_and_facts_are(store):
 
 def test_garbled_care_cells_are_not_citable(store):
     garbled = [i for i in store.items_for_policy("POL-CARE", citable_only=False)
-               if i.text.startswith(("tracking apps, devices etc.", "(COPD)/ Obesity/ Coronary Artery"))
-               or (i.item_type == ItemType.TABLE_CELL and i.text.startswith("For Hypertension"))]
+               if i.extraction_method != ExtractionMethod.PYMUPDF_SUPPLEMENT
+               and (i.text.startswith(("tracking apps, devices etc.", "(COPD)/ Obesity/ Coronary Artery"))
+                    or (i.item_type == ItemType.TABLE_CELL and i.text.startswith("For Hypertension")))]
     assert len(garbled) == 3 and not any(i.citable for i in garbled)
+
+
+def test_instant_cover_is_split_per_option(store):  # F1
+    care = store.items_for_policy("POL-CARE", citable_only=False)
+    footnote = {store.get(i).text.split(" ")[0]: i for c in care for i in c.linked_footnote_ids}
+    option1 = find(store, "POL-CARE", "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial wait "
+                                      "period of 30 days")
+    option2 = find(store, "POL-CARE", "For Diabetes/ Hypertension/ Hyperlipidimia/ Asthma/ Chronic Obstructive Pulmonary "
+                                      "Disease (COPD)/ Obesity/ Coronary Artery Disease with PTCA done prior to 1 year, "
+                                      "post initial wait period of 30 days")
+    for option, note, tier in [(option1, "5", BenefitTier.OPTIONAL), (option2, "6", BenefitTier.ADDON)]:
+        assert option.extraction_method == ExtractionMethod.PYMUPDF_SUPPLEMENT and option.citable
+        assert option.row_label == "Instant Cover 7" and option.benefit_tier == tier
+        assert option.linked_footnote_ids == [footnote["7"], footnote[note]]
+    combined = find(store, "POL-CARE", option1.text + " 5 " + option2.text + " 6", item_type=ItemType.TEXT)
+    assert not combined.citable
+
+
+def test_road_ambulance_tiers_replace_the_combined_cell(store):  # F2
+    combined = find(store, "POL-CARE", "For SI below `15 lac - up to `10,000 For SI `15 lac and above - up to SI")
+    tiers = [find(store, "POL-CARE", "For SI below `15 lac - up to `10,000"),
+             find(store, "POL-CARE", "For SI `15 lac and above - up to SI")]
+    assert not combined.citable and all(t.citable and t.si_condition for t in tiers)
+    assert [i.text for i in store.keyword_search("POL-CARE", "road ambulance SI lac", k=5)
+            if i.text.startswith("For SI")] == [t.text for t in tiers]
+
+
+@pytest.mark.parametrize("doc_id, phrase, footnote_lead", [
+    ("POL-NIVA", "30 Mins Cashless Claim Processing", "(9)"),
+    ("POL-NIVA", "10,000+ Network Hospitals", "(10)"),
+    ("POL-NIVA", "2 Crore+ Lives Covered", None),
+    ("POL-ABHI", "Cost for health emergencies", "$"),
+])
+def test_captions_are_single_citable_items(store, doc_id, phrase, footnote_lead):  # F3
+    item = find(store, doc_id, phrase)
+    assert item.citable
+    leads = [store.get(f).text.split(" ")[0] for f in item.linked_footnote_ids]
+    assert leads == ([footnote_lead] if footnote_lead else [])
+
+
+def test_healthreturns_uses_link_the_dollar_footnote(store):
+    uses = ["Renewal premiums (yes, you can be premium-free!)", "Diagnostic test costs",
+            "Cost for health emergencies", "Medical bills"]
+    for text in uses:
+        assert [store.get(f).text[:1] for f in find(store, "POL-ABHI", text).linked_footnote_ids] == ["$"], text
+
+
+@pytest.mark.parametrize("doc_id, fragment", [
+    ("POL-NIVA", "30 Mins Cashless Claim"), ("POL-NIVA", "(9) Processing"),
+    ("POL-NIVA", "Network (10) Hospitals 10,000+"), ("POL-ABHI", "Cost for health"), ("POL-ABHI", "emergencies"),
+])
+def test_caption_fragments_are_not_citable(store, doc_id, fragment):  # F3
+    assert not find(store, doc_id, fragment).citable
 
 
 def test_queries_never_return_non_citable_items(store):

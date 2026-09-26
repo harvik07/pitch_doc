@@ -157,6 +157,60 @@ def test_build_supplements_grid_and_lines(tmp_path):
     assert sources["EV-UPL-abc123-1-006"] == ["b) Second placeholder line that", "continues here."]
 
 
+def test_superscript_markers_are_not_text(tmp_path):
+    path = tmp_path / "sup.pdf"
+    doc = pymupdf.open()
+    page = doc.new_page(width=400, height=600)
+    page.insert_text((60, 100), "Placeholder benefit wait period of 30 days", fontsize=8)
+    page.insert_text((60 + pymupdf.get_text_length("Placeholder benefit wait period of 30 days", fontsize=8), 97),
+                     "5", fontsize=4)  # superscript footnote digit glued to the line
+    page.insert_text((60, 160), "Placeholder caption", fontsize=11)
+    page.insert_text((60, 173), "second line", fontsize=11)
+    page.insert_text((140, 168), "(9)", fontsize=5.5)  # a superscript on a line of its own
+    doc.save(path)
+    doc.close()
+    items = [item(1, "Placeholder Anchor Row", ItemType.TABLE_CELL, row_label="Placeholder Anchor Row",
+                  footnote_markers=["7"])]
+    specs = [SupplementSpec(document_id="POL-UPL-abc123", page=1, text_prefix="Placeholder Anchor Row", layout=layout,
+                            region=region, expect_items=1, reason="r")
+             for layout, region in [("paragraph", (50, 85, 300, 105)), ("paragraph", (50, 145, 300, 180))]]
+    sources: dict[str, list[str]] = {}
+    created = annotate.build_supplements(path, items, specs, sources)
+    assert [(c.text, c.footnote_markers) for c in created] == [
+        ("Placeholder benefit wait period of 30 days", ["7", "5"]),
+        ("Placeholder caption second line", ["7", "9"])]
+    assert sources[created[0].evidence_id] == ["Placeholder benefit wait period of 30 days^5"]
+
+
+def test_reannotation_keeps_labels_and_sends_only_new_items(fixture_doc, monkeypatch):
+    calls = []
+
+    def fake_llm(prompt_name, variables, response_model, model=None, run_id=None):
+        ids = [line.split('"id": "')[1].split('"')[0] for line in variables["items"].splitlines()]
+        calls.append(ids)
+        tier = BenefitTier.OPTIONAL if len(calls) == 1 else BenefitTier.ADDON
+        return AnnotationResponse(labels=[ItemLabel(evidence_id=i, benefit_tier=tier) for i in ids])
+
+    monkeypatch.setattr(annotate, "call_structured", fake_llm)
+    first = annotate.annotate_document(fixture_doc)
+    spec_file = settings.EVIDENCE_OVERRIDES_PATH
+    data = yaml.safe_load(spec_file.read_text(encoding="utf-8"))
+    data["supplements"].append({"document_id": first.document.document_id, "page": 1,
+                                "text_prefix": "Placeholder Benefit 1", "layout": "paragraph",
+                                "region": [50, 230, 300, 240], "expect_items": 1, "reason": "r"})
+    spec_file.write_text(yaml.safe_dump(data), encoding="utf-8")
+    second = annotate.annotate_document(fixture_doc)  # the spec change makes the cache stale
+
+    new_ids = {i.evidence_id for i in second.evidence} - {i.evidence_id for i in first.evidence}
+    assert len(calls) == 2 and set(calls[1]) == new_ids and len(new_ids) == 1
+    tiers = {i.evidence_id: i.benefit_tier for i in second.evidence}
+    assert all(tiers[i.evidence_id] == i.benefit_tier for i in first.evidence)  # reviewed labels kept
+    assert tiers[new_ids.pop()] == BenefitTier.ADDON
+    assert second.annotation.stats["carried_over"] == sum(i.citable for i in first.evidence)
+    annotate.annotate_document(fixture_doc, relabel=True)
+    assert len(calls[2]) == sum(i.citable for i in second.evidence)  # relabel sends everything again
+
+
 def test_supplement_count_must_match(tmp_path):
     pdf = make_pdf(tmp_path / "upload.pdf")
     items = [item(1, "Placeholder Benefit 1", ItemType.TABLE_CELL)]
@@ -227,9 +281,11 @@ def test_annotate_document_end_to_end(fixture_doc, monkeypatch):
     assert cached == annotated
     annotate.annotate_document(fixture_doc)  # cached: no second LLM call
     assert len(calls) == 1
-    again = annotate.annotate_document(fixture_doc, force=True)  # re-annotation starts from the raw items
+    again = annotate.annotate_document(fixture_doc, force=True)  # rebuilt from the raw items, labels carried over
+    assert len(calls) == 1 and again.evidence == annotated.evidence
+    relabelled = annotate.annotate_document(fixture_doc, relabel=True)  # every citable item goes to the LLM again
     assert len(calls) == 2
-    assert [i.evidence_id for i in again.evidence] == [i.evidence_id for i in annotated.evidence]
+    assert [i.evidence_id for i in relabelled.evidence] == [i.evidence_id for i in annotated.evidence]
 
 
 @pytest.mark.llm

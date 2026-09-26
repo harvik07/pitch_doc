@@ -114,7 +114,7 @@ def selector_matches(item: EvidenceItem, selector: ItemSelector) -> bool:
     if selector.row_label is not None and normalise_key(item.row_label or "") != normalise_key(selector.row_label):
         return False
     text, prefix = normalise_key(item.text), normalise_key(selector.text_prefix)
-    return text == prefix or (len(prefix) >= PREFIX_CHARS and text.startswith(prefix))
+    return text == prefix or (not selector.exact and len(prefix) >= PREFIX_CHARS and text.startswith(prefix))
 
 
 def resolve(items: Iterable[EvidenceItem], selector: ItemSelector) -> EvidenceItem:

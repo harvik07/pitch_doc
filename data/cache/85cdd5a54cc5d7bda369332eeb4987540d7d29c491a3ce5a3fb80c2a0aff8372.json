@@ -931,6 +931,27 @@
       "citable": true
     },
     {
+      "evidence_id": "EV-ABHI-1-048",
+      "document_id": "POL-ABHI",
+      "page": 1,
+      "section": "100% HealthReturns TM*",
+      "item_type": "bullet",
+      "text": "Cost for health emergencies",
+      "table_id": null,
+      "row_label": null,
+      "column_label": null,
+      "footnote_markers": [],
+      "linked_footnote_ids": [
+        "EV-ABHI-2-062"
+      ],
+      "benefit_tier": "BASE",
+      "variant": null,
+      "si_condition": null,
+      "numbers": [],
+      "extraction_method": "pymupdf_supplement",
+      "citable": true
+    },
+    {
       "evidence_id": "EV-ABHI-2-001",
       "document_id": "POL-ABHI",
       "page": 2,
@@ -2229,19 +2250,20 @@
   "annotation": {
     "version": "1",
     "model": "gemini-2.5-flash",
-    "supplements_hash": "4f53cda18c2baa0c",
+    "supplements_hash": "4b8fa2b2ef8bddaa",
     "stats": {
-      "items": 114,
-      "supplements": 0,
+      "items": 115,
+      "supplements": 1,
       "non_citable": 13,
       "deterministic_links": 11,
       "column_variants": 0,
-      "shown_to_llm": 101,
-      "labelled": 101,
+      "carried_over": 101,
+      "shown_to_llm": 1,
+      "labelled": 1,
       "unknown_ids": 0,
       "duplicates": 0,
       "variants_rejected": 0,
-      "llm_links_added": 0,
+      "llm_links_added": 1,
       "llm_links_rejected": 0,
       "llm_links_ignored": 0,
       "missing": 0

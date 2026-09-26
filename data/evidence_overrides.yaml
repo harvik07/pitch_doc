@@ -48,6 +48,55 @@ supplements:
     expect_items: 4
     reason: "Lines b), c), d) and the Note only survive inside the garbled cell EV-CARE-3-014 (made non-citable below); read them from the text layer."
 
+  # New specs go at the end so existing supplement IDs never move.
+  - document_id: POL-CARE
+    page: 3
+    text_prefix: "Instant Cover 7"
+    item_type: table_cell
+    evidence_id: EV-CARE-3-022
+    layout: paragraph
+    region: [150, 524, 375, 548]
+    expect_items: 1
+    reason: "Instant Cover option 1 (superscript 5: optional benefit under Care Supreme), one sentence per item."
+
+  - document_id: POL-CARE
+    page: 3
+    text_prefix: "Instant Cover 7"
+    item_type: table_cell
+    evidence_id: EV-CARE-3-022
+    layout: paragraph
+    region: [150, 546, 375, 587]
+    expect_items: 1
+    reason: "Instant Cover option 2 (superscript 6: Care Advanced add-on), one sentence per item."
+
+  - document_id: POL-NIVA
+    page: 2
+    text_prefix: "30 Mins Cashless Claim"
+    evidence_id: EV-NIVA-2-059
+    layout: paragraph
+    region: [55, 620, 150, 666]
+    expect_items: 1
+    reason: "Icon caption split by Docling into '30 Mins Cashless Claim' and '(9) Processing'; joined from the text layer."
+
+  - document_id: POL-NIVA
+    page: 2
+    text_prefix: "Network (10) Hospitals 10,000+"
+    evidence_id: EV-NIVA-2-058
+    layout: paragraph
+    region: [195, 620, 280, 666]
+    expect_items: 1
+    reason: "Icon caption that Docling scrambled into 'Network (10) Hospitals 10,000+'; read in order from the text layer."
+
+  - document_id: POL-ABHI
+    page: 1
+    text_prefix: "Cost for health"
+    item_type: bullet
+    evidence_id: EV-ABHI-1-016
+    layout: paragraph
+    region: [280, 1100, 370, 1140]
+    expect_items: 1
+    reason: "Bullet split by Docling into 'Cost for health' and 'emergencies'; joined from the text layer."
+
 overrides:
   # --- Niva: Safeguard and Safeguard+ are listed under "Optional Benefits"; footnote (4): optional, extra premium
   - {document_id: POL-NIVA, page: 2, text_prefix: "Safeguard", evidence_id: EV-NIVA-2-044,
@@ -86,7 +135,11 @@ overrides:
   - {document_id: POL-CARE, page: 3, text_prefix: "Instant Cover 7", evidence_id: EV-CARE-3-022,
      labels: {benefit_tier: OPTIONAL}, reason: "Footnote 7: optional benefit available on payment of additional premium."}
   - {document_id: POL-CARE, page: 3, text_prefix: "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial", item_type: text, evidence_id: EV-CARE-3-006,
-     labels: {benefit_tier: OPTIONAL}, reason: "Instant Cover value (the correctly ordered text; the table cell copy is garbled)."}
+     labels: {citable: false}, reason: "Holds both Instant Cover options (footnotes 5 and 6 differ); split into two text-layer supplements below."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial wait period of 30 days", exact: true, evidence_id: EV-CARE-3-034,
+     labels: {benefit_tier: OPTIONAL}, reason: "Instant Cover option 1; footnote 5: optional benefit under Care Supreme."}
+  - {document_id: POL-CARE, page: 3, text_prefix: "For Diabetes/ Hypertension/ Hyperlipidimia/ Asthma/ Chronic Obstructive", evidence_id: EV-CARE-3-035,
+     labels: {benefit_tier: ADDON}, reason: "Instant Cover option 2; footnote 6: under the Care Advanced add-on policy."}
   - {document_id: POL-CARE, page: 3, text_prefix: "Cumulative Bonus Super 5", evidence_id: EV-CARE-3-007,
      labels: {benefit_tier: OPTIONAL}, reason: "Optional Benefits table; footnote 5."}
   - {document_id: POL-CARE, page: 3, text_prefix: "Up to 100% of SI per year, max. up to 500% of Sum Insured", evidence_id: EV-CARE-3-008,
@@ -118,8 +171,8 @@ overrides:
 
   # --- Care: road ambulance depends on the sum insured (p2 table row; p1 headline, footnote 3)
   - {document_id: POL-CARE, page: 2, text_prefix: "For SI below `15 lac - up to `10,000 For SI `15 lac and above", item_type: table_cell, evidence_id: EV-CARE-2-044,
-     labels: {si_condition: "SI-tiered: SI below ₹15 lakh up to ₹10,000; SI ₹15 lakh and above up to SI"},
-     reason: "The cell states both SI tiers; the two supplement items carry one tier each."}
+     labels: {citable: false, si_condition: "SI-tiered: SI below ₹15 lakh up to ₹10,000; SI ₹15 lakh and above up to SI"},
+     reason: "The cell states both SI tiers; the two supplement items EV-CARE-2-055 / 2-056 carry one tier each."}
   - {document_id: POL-CARE, page: 2, text_prefix: "For SI below `15 lac - up to `10,000", evidence_id: EV-CARE-2-055,
      labels: {si_condition: "SI below ₹15 lakh"}, reason: "Road ambulance tier from the text layer."}
   - {document_id: POL-CARE, page: 2, text_prefix: "For SI `15 lac and above - up to SI", evidence_id: EV-CARE-2-056,
@@ -130,7 +183,7 @@ overrides:
   # --- Care: garbled table text (Docling reordered these cells); the correct text exists elsewhere
   - {document_id: POL-CARE, page: 3, text_prefix: "tracking apps, devices etc. b) Access to Digital Fitness Coaching", evidence_id: EV-CARE-3-014,
      labels: {citable: false}, reason: "Garbled: holds the renewal-discount grid with days and discounts out of order (rows re-read from the text layer)."}
-  - {document_id: POL-CARE, page: 3, text_prefix: "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial", item_type: table_cell, evidence_id: EV-CARE-3-023,
+  - {document_id: POL-CARE, page: 3, text_prefix: "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial wait period of 30 days 5 For", item_type: table_cell, evidence_id: EV-CARE-3-023,
      labels: {citable: false}, reason: "Garbled Instant Cover cell (words missing and out of order); the correct text is EV-CARE-3-006."}
   - {document_id: POL-CARE, page: 3, text_prefix: "(COPD)/ Obesity/ Coronary Artery 1 year, post initial wait period", evidence_id: EV-CARE-3-024,
      labels: {citable: false}, reason: "Displaced fragment of the garbled Instant Cover cell; the correct text is EV-CARE-3-006."}
@@ -140,6 +193,24 @@ overrides:
      labels: {citable: false}, reason: "OCR garbage from the decorative wheel on page 1 (3 tokens, so the rule missed it)."}
   - {document_id: POL-HDFC, page: 10, text_prefix: "1/2/3/4`/5` years", evidence_id: EV-HDFC-10-008,
      labels: {citable: true}, reason: "A real fact (tenure options, footnote ` for 4/5 years) that the < 3 words rule caught."}
+
+  # --- Captions Docling split or scrambled; the joined text-layer supplements replace these fragments
+  - {document_id: POL-NIVA, page: 2, text_prefix: "30 Mins Cashless Claim", evidence_id: EV-NIVA-2-059,
+     labels: {citable: false}, reason: "Fragment of '30 Mins Cashless Claim Processing' (supplement EV-NIVA-2-081)."}
+  - {document_id: POL-NIVA, page: 2, text_prefix: "Network (10) Hospitals 10,000+", evidence_id: EV-NIVA-2-058,
+     labels: {citable: false}, reason: "Scrambled word order; '10,000+ Network Hospitals' is supplement EV-NIVA-2-082."}
+  - {document_id: POL-ABHI, page: 1, text_prefix: "Cost for health", item_type: bullet, evidence_id: EV-ABHI-1-016,
+     labels: {citable: false}, reason: "Fragment of 'Cost for health emergencies' (supplement EV-ABHI-1-048)."}
+
+  # --- ABHI: the uses of HealthReturns are the list the "$" footnote qualifies ("...PAY YOUR $ :" introduces it)
+  - {document_id: POL-ABHI, page: 1, text_prefix: "Cost for health emergencies", evidence_id: EV-ABHI-1-048,
+     labels: {linked_footnote_ids: [EV-ABHI-2-061]}, reason: "Listed use of HealthReturns; footnote $ (Gemini had linked footnote *)."}
+  - {document_id: POL-ABHI, page: 1, text_prefix: "Renewal premiums (yes, you can be premium-free!)", evidence_id: EV-ABHI-1-014,
+     labels: {linked_footnote_ids: [EV-ABHI-2-061]}, reason: "Listed use of HealthReturns; footnote $."}
+  - {document_id: POL-ABHI, page: 1, text_prefix: "Diagnostic test costs", evidence_id: EV-ABHI-1-015,
+     labels: {linked_footnote_ids: [EV-ABHI-2-061]}, reason: "Listed use of HealthReturns; footnote $."}
+  - {document_id: POL-ABHI, page: 1, text_prefix: "Medical bills", evidence_id: EV-ABHI-1-018,
+     labels: {linked_footnote_ids: [EV-ABHI-2-061]}, reason: "Listed use of HealthReturns; footnote $."}
 
   # --- HDFC: add-ons page (p8) — each add-on's heading and description
   - {document_id: POL-HDFC, page: 8, text_prefix: "ABCD Chronic Care", evidence_id: EV-HDFC-8-006,

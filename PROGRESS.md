@@ -97,7 +97,28 @@ Prompt 2 plus additions A–E (the additions win where they conflict).
 - `settings`: `BUNDLED_POLICY_VARIANTS` (from CLAUDE.md §2), `CURRENCY_SYMBOL = "₹"`, and `LLM_TIMEOUT_MS` raised to 300 s (the HDFC annotation call took 96 s).
 - Tests: 227 passing (`pytest -q`), plus 1 real-Gemini annotation test (`pytest -m llm`, passing).
 
+### Prompt 2 follow-up: fixes F1–F3 (2026-09-26)
+- **F1:** Care Instant Cover is split into two text-layer supplements, and EV-CARE-3-006 is non-citable.
+  - EV-CARE-3-034: "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial wait period of 30 days". Links footnotes 7 and 5; tier OPTIONAL.
+  - EV-CARE-3-035: "For Diabetes/ … post initial wait period of 30 days". Links footnotes 7 and 6; tier ADDON (Care Advanced).
+  - Both keep the row label "Instant Cover 7".
+- **F2:** EV-CARE-2-044 (both road-ambulance SI tiers) is non-citable. EV-CARE-2-055 and 2-056 carry one tier each.
+- **F3:** each caption is now a single citable text-layer supplement, and its fragments are non-citable.
+  - EV-NIVA-2-081 "30 Mins Cashless Claim Processing" → footnote (9). Docling had split it into "30 Mins Cashless Claim" + "(9) Processing".
+  - EV-NIVA-2-082 "10,000+ Network Hospitals" → footnote (10). Docling had scrambled it into "Network (10) Hospitals 10,000+".
+  - EV-ABHI-1-048 "Cost for health emergencies". Docling had split it into "Cost for health" + "emergencies".
+  - "2 Crore+ Lives Covered" (EV-NIVA-2-077) was already one citable item.
+  - The four listed uses of HealthReturns link ABHI's `$` footnote ("…complete list under utilization of HealthReturns"), pinned by override. Gemini had linked "Cost for health emergencies" to the `*` footnote.
+- **Supplement builder changes:**
+  - It reads text-layer spans.
+  - A superscript footnote marker is recorded as a marker, not text. A superscript is a span flagged superscript (Care) or smaller than 0.7× the region's largest text (Niva). A superscript alone on a line attaches to the nearest text line.
+  - New `paragraph` layout (the whole region is one item).
+  - New `exact` selector option.
+  - The 11 earlier supplements rebuild byte-identically.
+- **Re-annotation is incremental:** unchanged items keep their previous Gemini labels, and only new or changed items are sent. `--relabel` sends everything. The 5 new items took 3 small calls; all 777 existing items kept identical labels (checked against the previous commit).
+
 ## Next
+- **For Prompt 7 (Care wellness grid):** claims must use the brochure's own wording, e.g. "270" days → 30% renewal discount. Never write "270 or more" (or "at least"): the brochure doesn't say it.
 - Prompt 3 (waiting for your go): `numbers.py` + `grounding.py`.
   - **E.3:** `numbers.py` parses a backtick before a digit as INR ("`15 lac" → 1,500,000 INR; "`10,000" → 10,000 INR), exactly like "₹".
   - **E.3:** `grounding.normalise_text` maps "`<digit>", "₹", "INR", "Rs" and "Rs." to one currency token, so a quote "₹500" matches evidence "`500". Use `evidence_store.classify_backticks` so HDFC's footnote-marker backticks are not read as currency.

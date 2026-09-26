@@ -2,7 +2,7 @@
 
 Order (deterministic steps first; the LLM only fills what they leave open):
 1. Supplements: curated items read from the PDF text layer (evidence_overrides.yaml `supplements`),
-   with IDs continuing their page's sequence.
+   with IDs continuing their page's sequence. Superscript footnote markers become markers, not text.
 2. Citable rule: text items and headings with fewer than 3 words and no row/column label are OCR or
    logo fragments; headings stay citable when they head citable content. Bullets, table cells and
    footnotes are always citable (HDFC's exclusion "maternity" and ABHI's "Asthma" are one-word bullets).
@@ -12,6 +12,7 @@ Order (deterministic steps first; the LLM only fills what they leave open):
    column label covers several variants gets variant=null (applies to all).
 5. One Gemini call per document labels tier / variant / SI condition and may add footnote links to
    items that have none. Code validates every label; nothing the LLM returns can change text.
+   On re-annotation, unchanged items keep their previous LLM labels and only new items are sent.
 Label overrides (evidence_overrides.yaml `overrides`) are applied at load time by evidence_store.
 """
 
@@ -20,6 +21,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import pymupdf
@@ -57,60 +59,117 @@ ROW_TOLERANCE = 2.0  # grid supplements: words whose vertical centres differ by 
 MAX_SI_CONDITION_CHARS = 200
 MAX_VARIANT_CHARS = 40
 _LIST_ITEM = re.compile(r"^\s*([•●▪]|[a-z]\)|\d{1,2}[.)]\s)")  # "c) Access to ..." starts a new item
+SUPERSCRIPT_FLAG = 1  # PyMuPDF span flag bit (Care sets it; Niva's superscripts are only smaller)
+SUPERSCRIPT_SIZE_RATIO = 0.7  # a span this much smaller than its line is a superscript
+_SUPERSCRIPT_MARKER = re.compile(r"\(?\d{1,2}\)?|[*#^~°@$!%+]{1,4}")
 
 
 # --- 1. Supplements ----------------------------------------------------------------------------------
 
 
-def _region_words(page: pymupdf.Page, region: tuple[float, float, float, float]) -> list[tuple]:
+@dataclass
+class _TextLine:
+    """One PyMuPDF text line inside a supplement region; superscript footnote markers are split off."""
+
+    bbox: tuple[float, float, float, float]  # top-left origin, as PyMuPDF reports it
+    text: str
+    markers: list[str]
+    raw: str  # as in the text layer, superscripts shown as ^(9)
+
+    @property
+    def centre(self) -> tuple[float, float]:
+        return (self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2
+
+
+def _is_superscript(span: dict, line_size: float) -> bool:
+    return bool(span["flags"] & SUPERSCRIPT_FLAG) or span["size"] <= SUPERSCRIPT_SIZE_RATIO * line_size
+
+
+def _region_lines(page: pymupdf.Page, region: tuple[float, float, float, float]) -> list[_TextLine]:
+    """Text lines whose spans lie in the region, top to bottom.
+
+    A superscript span that looks like a footnote marker ("5", "(9)", "*") is not text: it becomes a marker
+    (Care's "30 days" + superscript "5"). Other superscripts (the "st" of "1st") stay in the text.
+    """
     x0, y0, x1, y1 = region
-    return [w for w in page.get_text("words")
-            if x0 <= (w[0] + w[2]) / 2 <= x1 and y0 <= (w[1] + w[3]) / 2 <= y1]
+    grouped = []
+    for block in page.get_text("dict")["blocks"]:
+        for line in block.get("lines", []):
+            spans = [s for s in line["spans"] if s["text"].strip()
+                     and x0 <= (s["bbox"][0] + s["bbox"][2]) / 2 <= x1 and y0 <= (s["bbox"][1] + s["bbox"][3]) / 2 <= y1]
+            if spans:
+                grouped.append(spans)
+    # Superscripts are compared with the region's body text: Niva's "(9)" sits on a line of its own.
+    size = max((s["size"] for spans in grouped for s in spans), default=0.0)
+    lines: list[_TextLine] = []
+    orphans: list[tuple[float, list[str], str]] = []  # superscript-only lines: (centre y, markers, raw)
+    for spans in grouped:
+        text, raw, markers = [], [], []
+        for span in spans:
+            token = span["text"].strip()
+            if _is_superscript(span, size) and _SUPERSCRIPT_MARKER.fullmatch(token):
+                markers.append(token.strip("()"))
+                raw.append(f"^{token}")
+                continue
+            text.append(span["text"])
+            raw.append(span["text"])
+        box = (min(s["bbox"][0] for s in spans), min(s["bbox"][1] for s in spans),
+               max(s["bbox"][2] for s in spans), max(s["bbox"][3] for s in spans))
+        joined = " ".join("".join(text).split())
+        if joined:
+            lines.append(_TextLine(box, joined, markers, " ".join("".join(raw).split())))
+        elif markers:
+            orphans.append(((box[1] + box[3]) / 2, markers, " ".join(raw)))
+    for centre, markers, raw in orphans:  # a lone superscript belongs to the text line beside it
+        if lines:
+            host = min(lines, key=lambda ln: abs(ln.centre[1] - centre))
+            host.markers.extend(m for m in markers if m not in host.markers)
+            host.raw = f"{host.raw} {raw}"
+    return sorted(lines, key=lambda ln: (round(ln.bbox[1], 1), ln.bbox[0]))
 
 
-def _lines(words: list[tuple]) -> list[tuple[float, str]]:
-    """Text lines as (top y, text), words in reading order within each PyMuPDF line."""
-    lines: dict[tuple[int, int], list[tuple]] = {}
-    for w in words:
-        lines.setdefault((w[5], w[6]), []).append(w)
-    ordered = sorted(lines.values(), key=lambda ws: (min(w[1] for w in ws), min(w[0] for w in ws)))
-    return [(min(w[1] for w in ws), " ".join(w[4] for w in sorted(ws, key=lambda w: w[7]))) for ws in ordered]
+_Built = tuple[str, str | None, str | None, list[str], list[str]]  # text, row label, column label, markers, raw
 
 
-def _line_items(words: list[tuple]) -> list[tuple[str, None, list[str]]]:
-    paragraphs: list[list[str]] = []
-    for _, text in _lines(words):
-        if paragraphs and text[:1].islower() and not _LIST_ITEM.match(text):
-            paragraphs[-1].append(text)  # "aged above 12 years." continues the previous line; "c) ..." doesn't
+def _line_items(lines: list[_TextLine]) -> list[_Built]:
+    """One item per line; a line starting with a lowercase letter (not "c) ...") continues the previous one."""
+    groups: list[list[_TextLine]] = []
+    for line in lines:
+        if groups and line.text[:1].islower() and not _LIST_ITEM.match(line.text):
+            groups[-1].append(line)  # "aged above 12 years." continues the previous line
         else:
-            paragraphs.append([text])
-    return [(" ".join(p), None, p) for p in paragraphs]
+            groups.append([line])
+    return [_joined(group) for group in groups]
 
 
-def _grid_items(words: list[tuple], spec: SupplementSpec) -> list[tuple[str, str, list[str]]]:
-    rows: list[list[tuple]] = []
-    for w in sorted(words, key=lambda w: (w[1] + w[3]) / 2):
-        centre = (w[1] + w[3]) / 2
-        if rows and abs(centre - (rows[-1][0][1] + rows[-1][0][3]) / 2) < ROW_TOLERANCE:
-            rows[-1].append(w)
+def _joined(group: list[_TextLine]) -> _Built:
+    markers = list(dict.fromkeys(m for line in group for m in line.markers))
+    return " ".join(line.text for line in group), None, None, markers, [line.raw for line in group]
+
+
+def _grid_items(lines: list[_TextLine], spec: SupplementSpec) -> list[_Built]:
+    rows: list[list[_TextLine]] = []
+    for line in sorted(lines, key=lambda ln: ln.centre[1]):
+        if rows and abs(line.centre[1] - rows[-1][0].centre[1]) < ROW_TOLERANCE:
+            rows[-1].append(line)
         else:
-            rows.append([w])
+            rows.append([line])
 
-    def cells(row: list[tuple]) -> list[str]:
-        columns: list[list[tuple]] = [[] for _ in range(len(spec.column_splits) + 1)]
-        for w in row:
-            index = sum((w[0] + w[2]) / 2 >= split for split in spec.column_splits)
-            columns[index].append(w)
-        return [" ".join(w[4] for w in sorted(col, key=lambda w: w[0])) for col in columns]
+    def cells(row: list[_TextLine]) -> list[str]:
+        columns: list[list[_TextLine]] = [[] for _ in range(len(spec.column_splits) + 1)]
+        for line in row:
+            columns[sum(line.centre[0] >= split for split in spec.column_splits)].append(line)
+        return [" ".join(ln.text for ln in sorted(col, key=lambda ln: ln.bbox[0])) for col in columns]
 
     header = [cells(r) for r in rows[:spec.header_rows]]
     column_label = " | ".join(" ".join(h[i] for h in header).strip() for i in range(len(spec.column_splits) + 1))
-    items = []
+    items: list[_Built] = []
     for row in rows[spec.header_rows:]:
         row_cells = cells(row)
         if not all(row_cells):
             raise ValueError(f"supplement grid {spec.document_id} p{spec.page}: incomplete row {row_cells}")
-        items.append((" ".join(row_cells), column_label, [" | ".join(row_cells)]))
+        markers = list(dict.fromkeys(m for line in row for m in line.markers))
+        items.append((" ".join(row_cells), row_cells[0], column_label, markers, [" | ".join(row_cells)]))
     return items
 
 
@@ -123,16 +182,21 @@ def build_supplements(pdf_path: Path, items: list[EvidenceItem], specs: list[Sup
     with pymupdf.open(pdf_path) as pdf:
         for spec in specs:
             anchor = resolve(items, spec)
-            words = _region_words(pdf[spec.page - 1], spec.region)
-            built = _line_items(words) if spec.layout == "lines" else _grid_items(words, spec)
+            lines = _region_lines(pdf[spec.page - 1], spec.region)
+            if spec.layout == "grid":
+                built = _grid_items(lines, spec)
+            elif spec.layout == "paragraph":
+                built = [_joined(lines)] if lines else []
+            else:
+                built = _line_items(lines)
             if len(built) != spec.expect_items:
                 raise ValueError(f"supplement {spec.document_id} p{spec.page} ({spec.reason}): region yields "
                                  f"{len(built)} items, expected {spec.expect_items}")
-            for text, column_label, raw in built:
+            grid = spec.layout == "grid"
+            for text, row_label, column_label, markers, raw in built:
                 page_ids = [i.evidence_id for i in [*items, *created] if i.page == spec.page]
                 seq = max((int(i.rsplit("-", 1)[1]) for i in page_ids), default=0) + 1
                 evidence_id = f"EV-{spec.document_id.removeprefix('POL-')}-{spec.page}-{seq:03d}"
-                grid = spec.layout == "grid"
                 created.append(EvidenceItem(
                     evidence_id=evidence_id,
                     document_id=spec.document_id,
@@ -141,18 +205,14 @@ def build_supplements(pdf_path: Path, items: list[EvidenceItem], specs: list[Sup
                     item_type=ItemType.TABLE_CELL if grid else anchor.item_type,
                     text=text,
                     table_id=f"{anchor.table_id}-grid" if grid and anchor.table_id else anchor.table_id,
-                    row_label=_first_cell(raw) if grid else anchor.row_label,
+                    row_label=row_label if grid else anchor.row_label,
                     column_label=column_label if grid else anchor.column_label,
-                    footnote_markers=list(anchor.footnote_markers),
+                    footnote_markers=list(dict.fromkeys([*anchor.footnote_markers, *markers])),
                     extraction_method=ExtractionMethod.PYMUPDF_SUPPLEMENT,
                 ))
                 if sources is not None:
                     sources[evidence_id] = raw
     return created
-
-
-def _first_cell(raw: list[str]) -> str:
-    return raw[0].split(" | ")[0]
 
 
 def _with_supplements(items: list[EvidenceItem], supplements: list[EvidenceItem]) -> list[EvidenceItem]:
@@ -217,7 +277,7 @@ def assign_column_variants(items: list[EvidenceItem], variants: list[str]) -> se
 # --- 5. LLM labels --------------------------------------------------------------------------------------
 
 
-def _payload(items: list[EvidenceItem]) -> tuple[str, str]:
+def _payload(items: list[EvidenceItem], footnote_items: list[EvidenceItem]) -> tuple[str, str]:
     def row(item: EvidenceItem) -> dict:
         eid = item.evidence_id
         data = {"id": eid, "page": item.page, "type": item.item_type.value, "section": to_display(item.section, eid),
@@ -226,7 +286,7 @@ def _payload(items: list[EvidenceItem]) -> tuple[str, str]:
         return {k: v for k, v in data.items() if v not in (None, "")}
 
     footnotes = [json.dumps({"id": i.evidence_id, "text": to_display(i.text, i.evidence_id)}, ensure_ascii=False)
-                 for i in items if i.item_type == ItemType.FOOTNOTE]
+                 for i in footnote_items]
     lines = [json.dumps(row(item), ensure_ascii=False) for item in items]
     return "\n".join(footnotes) or "(none)", "\n".join(lines)
 
@@ -294,10 +354,36 @@ def _reset(item: EvidenceItem) -> EvidenceItem:
                                    "linked_footnote_ids": [], "citable": True})
 
 
-def annotate_document(path: str | Path, *, run_id: str | None = None, force: bool = False,
+def _carry_over_labels(items: list[EvidenceItem], previous: dict[str, EvidenceItem],
+                       decided_variants: set[str]) -> list[EvidenceItem]:
+    """Reuse the LLM labels of items that are unchanged since the last annotation; return the rest (to label)."""
+    footnote_ids = {i.evidence_id for i in items if i.item_type == ItemType.FOOTNOTE}
+    to_label = []
+    for item in items:
+        if not item.citable:
+            continue
+        before = previous.get(item.evidence_id)
+        if before is None or before.text != item.text or before.extraction_method != item.extraction_method:
+            to_label.append(item)
+            continue
+        item.benefit_tier = before.benefit_tier
+        item.si_condition = before.si_condition
+        if item.evidence_id not in decided_variants:
+            item.variant = before.variant
+        if not item.linked_footnote_ids:  # the LLM's gap-filling links
+            item.linked_footnote_ids = [f for f in before.linked_footnote_ids if f in footnote_ids]
+    return to_label
+
+
+def annotate_document(path: str | Path, *, run_id: str | None = None, force: bool = False, relabel: bool = False,
                       use_llm: bool = True, supplement_sources: dict[str, list[str]] | None = None,
                       ) -> ExtractedDocument:
-    """Annotate one policy PDF's cached evidence (extracting it first if needed) and save the cache."""
+    """Annotate one policy PDF's cached evidence (extracting it first if needed) and save the cache.
+
+    Runs when the cache has no current annotation, when the supplement specs changed, or when forced.
+    Unchanged items keep the LLM labels from the previous annotation (reviewed labels stay stable);
+    only new or changed items go to Gemini. `relabel=True` sends every citable item again.
+    """
     path = Path(path)
     document, _ = extract_document(path)
     cached = load_cached(document.sha256)
@@ -307,9 +393,12 @@ def annotate_document(path: str | Path, *, run_id: str | None = None, force: boo
     specs = specs_for(doc_id, load_overrides_file())
     spec_hash = supplements_hash(specs)
     info = cached.annotation
-    if (not force and info is not None and info.version == ANNOTATION_VERSION and info.supplements_hash == spec_hash
-            and (info.model is not None or not use_llm)):
+    if (not force and not relabel and info is not None and info.version == ANNOTATION_VERSION
+            and info.supplements_hash == spec_hash and (info.model is not None or not use_llm)):
         return cached
+    previous = ({i.evidence_id: i for i in cached.evidence}
+                if info is not None and info.model is not None and info.version == ANNOTATION_VERSION and not relabel
+                else {})
 
     items = [_reset(item) for item in cached.evidence if item.extraction_method != ExtractionMethod.PYMUPDF_SUPPLEMENT]
     texts_before = {item.evidence_id: item.text for item in items}
@@ -325,18 +414,21 @@ def annotate_document(path: str | Path, *, run_id: str | None = None, force: boo
     warnings: list[str] = []
     model = None
     if use_llm:
-        shown = [item for item in items if item.citable]
-        footnotes, lines = _payload(shown)
-        response = call_structured(ANNOTATE_PROMPT, {
-            "document_id": doc_id,
-            "document_name": cached.document.display_name,
-            "variants": ", ".join(variants) or "none named",
-            "footnotes": footnotes,
-            "items": lines,
-        }, AnnotationResponse, run_id=run_id)
-        llm_stats, warnings = merge_llm_labels(shown, response, variants, decided, items)
-        stats.update({"shown_to_llm": len(shown), **llm_stats})
-        model = settings.GEMINI_MODEL
+        shown = _carry_over_labels(items, previous, decided)
+        stats.update({"carried_over": sum(i.citable for i in items) - len(shown), "shown_to_llm": len(shown)})
+        if shown:
+            footnotes = [i for i in items if i.item_type == ItemType.FOOTNOTE and i.citable]
+            footnote_lines, lines = _payload(shown, footnotes)
+            response = call_structured(ANNOTATE_PROMPT, {
+                "document_id": doc_id,
+                "document_name": cached.document.display_name,
+                "variants": ", ".join(variants) or "none named",
+                "footnotes": footnote_lines,
+                "items": lines,
+            }, AnnotationResponse, run_id=run_id)
+            llm_stats, warnings = merge_llm_labels(shown, response, variants, decided, items)
+            stats.update(llm_stats)
+        model = settings.GEMINI_MODEL if shown or info is None or info.model is None else info.model
     for warning in warnings:
         log.warning("%s: %s", doc_id, warning)
 

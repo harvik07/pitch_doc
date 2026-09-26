@@ -23,7 +23,9 @@ from marsh.extraction import extract_document
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--force", action="store_true", help="ignore the cache and re-extract (then re-annotate)")
-    parser.add_argument("--force-annotation", action="store_true", help="re-annotate even if the cache is current")
+    parser.add_argument("--force-annotation", action="store_true",
+                        help="rebuild supplements and deterministic labels; unchanged items keep their LLM labels")
+    parser.add_argument("--relabel", action="store_true", help="send every citable item to Gemini again")
     parser.add_argument("--skip-annotation", action="store_true", help="extract only")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
@@ -39,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.skip_annotation:
             continue
         start = time.perf_counter()
-        annotated = annotate_document(path, force=args.force or args.force_annotation)
+        annotated = annotate_document(path, force=args.force or args.force_annotation, relabel=args.relabel)
         info = annotated.annotation
         tiers = Counter(item.benefit_tier.value for item in annotated.evidence)
         print(f"  annotated by {info.model}: {info.stats} tiers={dict(tiers)} "

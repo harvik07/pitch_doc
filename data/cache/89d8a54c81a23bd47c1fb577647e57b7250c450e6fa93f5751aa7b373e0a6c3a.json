@@ -2442,6 +2442,52 @@
       "numbers": [],
       "extraction_method": "docling",
       "citable": true
+    },
+    {
+      "evidence_id": "EV-NIVA-2-081",
+      "document_id": "POL-NIVA",
+      "page": 2,
+      "section": "Niva Bupa's Assurance",
+      "item_type": "text",
+      "text": "30 Mins Cashless Claim Processing",
+      "table_id": null,
+      "row_label": null,
+      "column_label": null,
+      "footnote_markers": [
+        "9"
+      ],
+      "linked_footnote_ids": [
+        "EV-NIVA-2-074"
+      ],
+      "benefit_tier": "BASE",
+      "variant": null,
+      "si_condition": null,
+      "numbers": [],
+      "extraction_method": "pymupdf_supplement",
+      "citable": true
+    },
+    {
+      "evidence_id": "EV-NIVA-2-082",
+      "document_id": "POL-NIVA",
+      "page": 2,
+      "section": "Niva Bupa's Assurance",
+      "item_type": "text",
+      "text": "10,000+ Network Hospitals",
+      "table_id": null,
+      "row_label": null,
+      "column_label": null,
+      "footnote_markers": [
+        "10"
+      ],
+      "linked_footnote_ids": [
+        "EV-NIVA-2-075"
+      ],
+      "benefit_tier": "BASE",
+      "variant": null,
+      "si_condition": null,
+      "numbers": [],
+      "extraction_method": "pymupdf_supplement",
+      "citable": true
     }
   ],
   "ocr_forced_pages": [
@@ -2451,21 +2497,22 @@
   "annotation": {
     "version": "1",
     "model": "gemini-2.5-flash",
-    "supplements_hash": "4f53cda18c2baa0c",
+    "supplements_hash": "1beb6fd0766211fc",
     "stats": {
-      "items": 123,
-      "supplements": 0,
+      "items": 125,
+      "supplements": 2,
       "non_citable": 28,
-      "deterministic_links": 17,
+      "deterministic_links": 19,
       "column_variants": 31,
-      "shown_to_llm": 95,
-      "labelled": 95,
+      "carried_over": 95,
+      "shown_to_llm": 2,
+      "labelled": 2,
       "unknown_ids": 0,
       "duplicates": 0,
       "variants_rejected": 0,
-      "llm_links_added": 13,
+      "llm_links_added": 0,
       "llm_links_rejected": 0,
-      "llm_links_ignored": 2,
+      "llm_links_ignored": 0,
       "missing": 0
     },
     "warnings": []

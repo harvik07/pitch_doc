@@ -2342,6 +2342,56 @@
       "citable": true
     },
     {
+      "evidence_id": "EV-CARE-3-034",
+      "document_id": "POL-CARE",
+      "page": 3,
+      "section": "Optional Benefits:",
+      "item_type": "table_cell",
+      "text": "For Hypertension or Diabetes or Hyperlipidemia or Asthma post initial wait period of 30 days",
+      "table_id": "T4",
+      "row_label": "Instant Cover 7",
+      "column_label": null,
+      "footnote_markers": [
+        "7",
+        "5"
+      ],
+      "linked_footnote_ids": [
+        "EV-CARE-4-015",
+        "EV-CARE-4-016"
+      ],
+      "benefit_tier": "OPTIONAL",
+      "variant": null,
+      "si_condition": null,
+      "numbers": [],
+      "extraction_method": "pymupdf_supplement",
+      "citable": true
+    },
+    {
+      "evidence_id": "EV-CARE-3-035",
+      "document_id": "POL-CARE",
+      "page": 3,
+      "section": "Optional Benefits:",
+      "item_type": "table_cell",
+      "text": "For Diabetes/ Hypertension/ Hyperlipidimia/ Asthma/ Chronic Obstructive Pulmonary Disease (COPD)/ Obesity/ Coronary Artery Disease with PTCA done prior to 1 year, post initial wait period of 30 days",
+      "table_id": "T4",
+      "row_label": "Instant Cover 7",
+      "column_label": null,
+      "footnote_markers": [
+        "7",
+        "6"
+      ],
+      "linked_footnote_ids": [
+        "EV-CARE-4-015",
+        "EV-CARE-4-018"
+      ],
+      "benefit_tier": "ADDON",
+      "variant": null,
+      "si_condition": null,
+      "numbers": [],
+      "extraction_method": "pymupdf_supplement",
+      "citable": true
+    },
+    {
       "evidence_id": "EV-CARE-4-001",
       "document_id": "POL-CARE",
       "page": 4,
@@ -3345,19 +3395,20 @@
   "annotation": {
     "version": "1",
     "model": "gemini-2.5-flash",
-    "supplements_hash": "c8dadcb194d0c8d4",
+    "supplements_hash": "bf4465675b5cc02e",
     "stats": {
-      "items": 163,
-      "supplements": 11,
+      "items": 165,
+      "supplements": 13,
       "non_citable": 8,
-      "deterministic_links": 57,
+      "deterministic_links": 61,
       "column_variants": 0,
-      "shown_to_llm": 155,
-      "labelled": 155,
+      "carried_over": 155,
+      "shown_to_llm": 2,
+      "labelled": 2,
       "unknown_ids": 0,
       "duplicates": 0,
       "variants_rejected": 0,
-      "llm_links_added": 5,
+      "llm_links_added": 0,
       "llm_links_rejected": 0,
       "llm_links_ignored": 0,
       "missing": 0

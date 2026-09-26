@@ -357,14 +357,15 @@ class ExtractedDocument(_Model):
 class ItemSelector(_Model):
     """Finds exactly one evidence item: document + page + normalised text prefix.
 
-    The item's normalised text must equal text_prefix when text_prefix is shorter than 40 characters,
-    or start with it otherwise. item_type / row_label narrow the match when texts repeat on a page.
-    evidence_id is only a hint: a mismatch is logged, never used to pick the item.
+    The item's normalised text must equal text_prefix when text_prefix is shorter than 40 characters
+    (or when `exact` is set), or start with it otherwise. item_type / row_label narrow the match when texts
+    repeat on a page. evidence_id is only a hint: a mismatch is logged, never used to pick the item.
     """
 
     document_id: DocumentId
     page: int = Field(ge=1)
     text_prefix: str = Field(min_length=1)
+    exact: bool = False
     item_type: ItemType | None = None
     row_label: str | None = None
     evidence_id: str | None = None
@@ -389,11 +390,13 @@ class SupplementSpec(ItemSelector):
     """New evidence items read from the PDF text layer inside `region` (selector = the anchor item).
 
     layout "lines": one item per text line; a line starting with a lowercase letter continues the previous one.
+    layout "paragraph": the whole region is one item, its lines joined top to bottom.
     layout "grid": rows by y, columns split at `column_splits`; the first `header_rows` rows give column labels.
-    Items inherit section / table / row labels / footnote markers from the anchor.
+    Superscript footnote markers in the text layer ("30 days" + superscript "5") become footnote markers,
+    not text. Items inherit section / table / row labels / footnote markers from the anchor.
     """
 
-    layout: Literal["lines", "grid"]
+    layout: Literal["lines", "paragraph", "grid"]
     region: tuple[float, float, float, float]  # x0, y0, x1, y1 in PDF points, top-left origin (PyMuPDF)
     column_splits: list[float] = Field(default_factory=list)
     header_rows: int = Field(default=0, ge=0)

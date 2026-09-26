@@ -517,6 +517,27 @@ class NumberCheck(_Model):
     details: str = ""
 
 
+class NumberCheckStatus(StrEnum):
+    PASS = "PASS"
+    FAIL_CONTRADICTED = "FAIL_CONTRADICTED"  # the evidence has a same-unit number, but not this one
+    FAIL_MISSING = "FAIL_MISSING"  # the evidence has no number of this unit at all
+    NA = "NA"  # the claim has no numbers
+
+
+class NumberCheckOutcome(_Model):
+    """grounding.number_check result; `to_number_check()` gives the AuditResult form (PASS | FAIL | NA)."""
+
+    status: NumberCheckStatus
+    details: str = ""
+    claim_numbers: list[NormalisedNumber] = Field(default_factory=list)
+    unmatched: list[NormalisedNumber] = Field(default_factory=list)
+
+    def to_number_check(self) -> NumberCheck:
+        result = {NumberCheckStatus.PASS: CheckResult.PASS,
+                  NumberCheckStatus.NA: CheckResult.NA}.get(self.status, CheckResult.FAIL)
+        return NumberCheck(result=result, details=f"{self.status.value}: {self.details}" if self.details else "")
+
+
 class AuditResult(_Model):
     audit_id: AuditId
     claim_id: ClaimId

@@ -117,12 +117,120 @@ Prompt 2 plus additions A–E (the additions win where they conflict).
   - The 11 earlier supplements rebuild byte-identically.
 - **Re-annotation is incremental:** unchanged items keep their previous Gemini labels, and only new or changed items are sent. `--relabel` sends everything. The 5 new items took 3 small calls; all 777 existing items kept identical labels (checked against the previous commit).
 
+### Prompt 3: numbers.py + grounding.py (2026-09-26)
+- **`numbers.parse_numbers(text)`** (no LLM) returns `NormalisedNumber`s with value, unit, raw text and span.
+  - Currency: ₹, INR, INR., Rs, Rs., Rupees, and a backtick before a digit ("`15 lac" → ₹15,00,000). Scales: lac/lacs/lakh/lakhs/L, crore/crores/cr/cr./Cr. Indian grouping (2,50,000).
+  - Also: %, days / months / years / hours (minutes stored as hours ÷ 60), multipliers (10X, "5 times"), and plain counts.
+  - Ranges and lists share units: "INR 5 lacs to INR 6 crores", "10/15/20 Lakhs", "₹5, 7.5 or 10 lakh", "1X / 2X / 3X", "10-20%", "ages 35 & 30".
+    - An amount written in full keeps its own value ("₹20,000 to ₹1 lakh" is not ₹20,000 lakh).
+    - A currency amount never takes a later % or unit ("₹25,000 and 65%").
+  - A leading word gives a unit: "Day 1" / "Day-1" → days, "year 6" / "aged 35" → years.
+  - Claim phrasings: "₹2.5-lakh", "₹1+ crore", "Rs.5,000", "₹500K" / "10k", "30 per cent", "10×" / "10-fold", "36 mos", "2A2C" (2 adults + 2 children). "N day care" is a count, not days.
+  - "2 Crore+ Lives" is a count (a lakh/crore scale followed by lives / hospitals / members / …, with no currency).
+  - **Not numbers:**
+    - footnote markers glued to words ("Sum Insured4", "Care OPD9", "Checkup(7)", "Renewal1", "E-consultation2", "Physician2");
+    - UIN / CIN / IRDAI registration / phone / PIN numbers;
+    - calendar years;
+    - "24x7";
+    - list enumerators ("1. Max. 4 …");
+    - labels ("Zone 1", "List 1", "Reg. No. 146");
+    - dates ("1st March 2026");
+    - the "2.0" of "ReAssure 2.0" (the digits of any `PRODUCT_ALIASES` name);
+    - identifier and address fragments ("NB/SS/CA/2025-26/182", "Mumbai - 400 059", "043", "6th Floor", "UID: 19110", "form NL 37") and label lists ("List 1, 2, 3, 4").
+  - **Evidence and claims are parsed differently (`strict`).**
+    - Evidence (`strict=True`, the default) applies every skip rule, because a spurious evidence number could let a false claim pass.
+    - Claims (`number_check` uses `strict=False`) keep every number except labels ("Zone 1"), product names ("ReAssure 2.0"), "24x7" and calendar years after a date word ("in 2025"). An extra claim number can only make the check fail (advisor review); a hidden one could let a changed number pass.
+    - This closes the class of false PASSes all three probe rounds found: changed numbers hidden behind a skip rule ("max.6", "7.5L-25L", "500000 rupees", "walk 2000 steps", "8th year may vary", "no 30%").
+  - The evidence skip rules are also narrow:
+    - a label word must sit right before a bare number ("No. 146", "Number - 148", "Zone 1"), never before a ₹ amount or a number with a unit, and "no" counts only as "No";
+    - a "/" hides a number only after a month name or an ALL-CAPS code ("May/26"), never "Lakh/8" or "day/₹5,800";
+    - an enumerator is only at the text start, after ";" or ":", or the next number of a list begun with "1." (so "capped at 6. Each …" keeps its 6);
+    - a phone run needs 3+ digit groups and ≥ 8 digits ("10-15-25%" and "10 15 20 25 50" are lists), or a "+91" prefix;
+    - a hyphen hides a number only after a word, not after a quantity ("Sector-43", but "7.5L-25L", "1X-10X");
+    - a month-date needs the month name right after the ordinal ("1st March", but not "8th year may");
+    - a bare 19xx/20xx is a calendar year unless a ₹ list gives it a unit ("₹500, 1000 or 2050").
+- **`numbers.numbers_for_item(item)`:**
+  - Masks the item's recorded footnote references ("Air Ambulance 5", "… 30 days 5 For …") before parsing, and a footnote's own leading label ("(8) Minimum 48 hrs …", "9 Care OPD is …").
+  - Gives bare numbers the unit their table header declares: "[`]", "[₹]", "(in `)", "(INR)", "… Amount" → ₹; "(in Lakhs)" → ₹ lakhs; "(in Crores)" → ₹ crores; "No. of days …" → days. The user's rule covered "[`]"/"[₹]"; the other header forms are the same rule applied to the headers the brochures use.
+  - Grid rows ("270 30%" under "No. of days in a year | Renewal Discount") take each column's unit: 270 days, 30%.
+  - `EvidenceItem.numbers` is filled by `load_evidence` at load time (not stored in the cache), so it always matches `numbers.py`.
+- **`numbers.label_numbers(item)`:** the quantities in a table cell's row and column labels (e.g. EV-HDFC-11-017, row "Pre-Hospitalisation (60 days)", text "Up to sum insured"). A cell's citable unit includes its row and column, so `number_check` reads them too.
+  - A grid row's label, which repeats the text's first number, is skipped.
+  - Rupee amounts in labels are skipped too. They are Sum-Insured tiers ("Base SI <25 Lakhs", "10 L") and must not satisfy a claim about the cell's own amount; otherwise "₹25 lakh deductible" would pass against the ₹25,000 cell.
+- **`grounding.normalise_text`**, in this order:
+  - "�" removed;
+  - rupee backticks → ₹ and HDFC's footnote-marker backticks dropped (via `classify_backticks`);
+  - "™" = "TM";
+  - curly quotes and dashes unified;
+  - casefold;
+  - ₹ / INR / INR. / Rs / Rs. / rupees → one token "inr";
+  - footnote markers removed ("(7)", "OPD9", "Benefit*", "Cover %");
+  - whitespace collapsed;
+  - OCR-spaced names collapsed, only those in `settings.OCR_SPACED_NAMES` ("T itanium+", "Platinum +", "Optima Secure +").
+- **`grounding.quote_in_evidence(quote, item)`:** the normalised quote is a substring of the normalised text that doesn't cut a word or a number ("6 months" is not found in "36 months", nor "1,700 cr." in "21,700 cr."). For an item, the text with its recorded markers masked is accepted too. Glued "Rs2,50,000" / "INR2,50,000" and the extraction's spaced ordinals ("31 st") normalise like the plain forms.
+- **`grounding.number_check(claim, items)`** → `NumberCheckOutcome`:
+  - **PASS** — every claim number equals a same-unit evidence number within 0.5%.
+  - **FAIL_CONTRADICTED** — a same-unit number exists, but none equal.
+  - **FAIL_MISSING** — no number of that unit.
+  - **NA** — the claim has no numbers.
+  - Years compare with months (×12) and days with hours (×24). Months and days are never converted.
+  - `details` names the numbers, e.g. "claim ₹5,00,000 ('₹5,00,000'); evidence has ₹2,50,000".
+  - `.to_number_check()` gives the audit's PASS / FAIL / NA form.
+- **`settings.PRODUCT_ALIASES`** (for Prompt 8's policy-reference check) holds only spellings that occur in that policy's own evidence (a test checks this, and that no alias occurs in another policy's evidence):
+  - NIVA: "ReAssure 2.0"
+  - HDFC: "Optima Secure+", "OptimaSecure+", "Optima Secure +", "Optima Secure"
+  - CARE: "Care Supreme", "carē supreme"
+  - ABHI: "Activ One"
+  - OCR garbles ("ReAssufe2.0", "ΘptimaSecure+") are left out. Care OPD / Care Advanced are add-on policies, not the product.
+- **Verification (3 workflow rounds, 8 agents; each finding has a regression test):**
+  - Round 1 (5 agents):
+    - 4 agents checked the parsed numbers of every citable item (584 items), and 1 agent ran 371 adversarial claim and quote probes against the committed cache.
+    - Fixed:
+      - footnote labels read as quantities (a high-severity false PASS: "Care OPD covers 9 consultations" passed on "9 Care OPD is …");
+      - list-unit bleed (₹20,000 → ₹20,000 lakh; ₹25,000 → 25000%);
+      - unparsed "₹2.5-lakh", "Rs.5,00,000", "₹1+ crore", "per cent", "×", "K";
+      - comma lists;
+      - quotes matching inside a number;
+      - identifier and address fragments;
+      - table-label numbers.
+  - Round 2 (2 agents, about 670 probes against the new rules). Fixed these false PASSes:
+    - quotes starting inside a number ("50,000" in "2,50,000", "5%" in "7.5%");
+    - the first slash-ID rule hiding "day/₹5,800";
+    - sentence-final numbers dropped as enumerators ("from Day 30.");
+    - label words swallowing "tier ₹6,000" and "Level 2 - 40%";
+    - phone runs swallowing "10-15-25%";
+    - calendar years inside ₹ lists;
+    - SI-tier label amounts satisfying a scaled-up claim.
+  - Round 3 (1 agent, 233 probes): 9 false-PASS patterns, all from claim-side skip rules. They are fixed by the strict / permissive split above, plus:
+    - currency after the number ("500000 rupees", "22,616/-");
+    - a "(n)" in a quote is dropped as a marker only if the evidence has that "(n)" ("Pre-Hospitalisation (90)" no longer matches "(60 days)");
+    - a quote can't start or end inside "10-20%".
+  - The probes were not re-run after round 3's fixes. Each round-3 pattern has a regression test (`test_claim_numbers_are_never_hidden`).
+  - Evidence numbers before vs after all fixes: only removed spurious numbers, 2A2C → 2 + 2, and HDFC p7's six "Deductible Amount" cells COUNT → ₹.
+- **Tests:**
+  - `tests/test_numbers.py`:
+    - the brochure strings the user listed, each checked to occur in the committed evidence;
+    - every format Prompt 3 names;
+    - glued markers and identifiers;
+    - header units, grid rows, masked markers;
+    - footnote labels and the sweep's claim phrasings.
+  - `tests/test_grounding.py`:
+    - normalisation;
+    - quote check;
+    - number-check statuses;
+    - golden number checks from CLAUDE.md §2, run against the committed cache (the test names a page and a short locator; the text comes from the cache);
+    - the planted Niva ₹5,00,000 and HDFC 99% claims → CONTRADICTED;
+    - "30% for 240 days" vs EV-CARE-3-025 → CONTRADICTED;
+    - PRODUCT_ALIASES / OCR_SPACED_NAMES occur in the evidence;
+    - sweep regressions, quotes that cut a number, table-label numbers.
+
 ## Next
+- **For Prompt 8 (audit):**
+  - Run `number_check` against the claim's **supporting** evidence only. Against the whole brochure, three planted false claims pass, because their numbers occur elsewhere: Niva "₹5,00,000" (a SI tier "INR 5 Lac"), Niva "30-day initial waiting period" (footnote (8) "30 days/policy year"), and ABHI "100% HealthReturns every year" ("up to 100%"). `tests/test_grounding.py::test_the_whole_brochure_is_the_wrong_input` pins this.
+  - The audit LLM must judge that the supporting item is about the claim's subject, and the "30-day waiting period" and "guarantees 100%" claims must fail on the LLM verdict, not on numbers.
+  - Use `settings.PRODUCT_ALIASES` for the policy-reference check.
 - **For Prompt 7 (Care wellness grid):** claims must use the brochure's own wording, e.g. "270" days → 30% renewal discount. Never write "270 or more" (or "at least"): the brochure doesn't say it.
-- Prompt 3 (waiting for your go): `numbers.py` + `grounding.py`.
-  - **E.3:** `numbers.py` parses a backtick before a digit as INR ("`15 lac" → 1,500,000 INR; "`10,000" → 10,000 INR), exactly like "₹".
-  - **E.3:** `grounding.normalise_text` maps "`<digit>", "₹", "INR", "Rs" and "Rs." to one currency token, so a quote "₹500" matches evidence "`500". Use `evidence_store.classify_backticks` so HDFC's footnote-marker backticks are not read as currency.
-  - The number check should also read the row/column labels: the Care grid row "270 30%" has its units ("No. of days in a year", "Renewal Discount") only in the column label.
+- Prompt 4 (waiting for your go): company profile + exposures.
 - **For Prompts 7 and 9 (E.4):**
   - Slides show money with `settings.CURRENCY_SYMBOL` ("₹") and Indian digit grouping (₹10,000, ₹1,00,000, ₹15 lakh).
   - Structural QA fails if any slide text has a backtick before a digit.
@@ -201,7 +309,7 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **ItemSelector**: `document_id, page, text_prefix, item_type?, row_label?, evidence_id? (hint)`
 - **LabelChanges**: `benefit_tier?, variant?, si_condition?, linked_footnote_ids?, citable?`. Only the fields given are applied; there is no text field.
 - **OverrideEntry**: `ItemSelector + labels: LabelChanges + reason`
-- **SupplementSpec**: `ItemSelector (the anchor) + layout (lines|grid), region, column_splits, header_rows, expect_items, reason`
+- **SupplementSpec**: `ItemSelector (the anchor) + layout (lines|paragraph|grid), region, column_splits, header_rows, expect_items, reason`
 - **EvidenceOverridesFile**: `supplements, overrides` (the YAML file)
 - **ItemLabel / AnnotationResponse** (Gemini output): `evidence_id, benefit_tier, variant, si_condition, linked_footnote_ids` / `labels`
 - **ValidationIssue**: `code: IssueCode, message (friendly), severity: error|info, file_name`
@@ -209,6 +317,8 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **ValidatedFile**: `file_name, sha256, size_bytes, page_count, path (if given a path), cached, content (upload bytes, never serialised)`
 - **FileValidation**: `files, errors, infos`, plus an `.ok` property (≥1 file and no errors)
 - **ExtractedDocument** (cache file format): `extraction_version, document: PolicyDocument, evidence: list[EvidenceItem], ocr_forced_pages, docling_version`
+- **NumberCheckStatus**: `PASS | FAIL_CONTRADICTED | FAIL_MISSING | NA` (the result of `grounding.number_check`)
+- **NumberCheckOutcome**: `status, details, claim_numbers, unmatched`, plus `.to_number_check()` → `NumberCheck` (PASS / FAIL / NA)
 
 ## Known issues
 - google-genai installed as 2.25.0 (a newer major version than the 1.67 used to plan). The API used is unchanged: `response_json_schema`, `HttpOptions.timeout` in ms, `errors.ClientError/ServerError(code, response_json)`, and the SDK does no retries by default.
@@ -219,7 +329,14 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **Care p3 table:** Docling's table garbles two rows (Wellness Benefit, Instant Cover). The correctly ordered picture text is kept alongside the cells. The renewal-discount grid ("No. of days in a year … 270 … 30% …") sits inside one cell, and its day↔discount pairing is lost.
 - **Evidence IDs follow extraction order.** Changing the rules and bumping `EXTRACTION_VERSION` can renumber them, so re-check `data/evidence_overrides.yaml` (Prompt 2) after any re-extraction.
 - **The committed caches come from docling 2.130.0 + RapidOCR 3.9.2 (torch, CPU).** Other versions may extract slightly differently; extraction only reruns if the cache is missing or its version is stale.
-- `EvidenceItem.numbers` stays empty until `numbers.py` (Prompt 3).
+- **Number words are not parsed** ("two years", "thirty days", "zero waiting period", "double sum insured", "first year"). A claim written in words gets no number check, so the audit LLM must judge it.
+- **Ordinals are read as durations:** "from the 31st day" → 31 days and "in the 3rd policy year" → 3 years. A paraphrase such as "after a 30-day wait" gets CONTRADICTED against "31st day"; the literal wording passes.
+- **Not parsed across an "=":** HDFC p3's illustration "+10 =20 Lakhs" reads its 10 as a count.
+- **Units not modelled:** weeks ("4 weeks" is a count), glued units ("Day45", "48mths", "60d" parse as counts in claims and are skipped in evidence).
+- **Day/hour equivalence spans items:** "covered for 2 days" passes against Niva "2 hours" + "48 hrs" (48 hours = 2 days) when both items are cited.
+- **Number check = a bag of numbers per evidence set.** A claim number that equals any same-unit number in the supporting items passes, even when it belongs to a different benefit in the same item ("2A6C" passes against "6 persons | 2A2C"). The audit LLM's supporting-item choice and verdict are the guard; the number check is a necessary condition, not a sufficient one.
+- **Label amounts are ignored.** A claim about a table's SI tier ("for SI below ₹25 lakh") gets FAIL_MISSING on that number unless the tier also appears in item text. This is a safe failure (review), never a false PASS.
+- **Units come only from the item's own text and labels.** HDFC p5's check-up amounts sit under labels with no unit, so they parse as counts; a ₹ claim about them gets FAIL_MISSING (never a false PASS).
 - A few items at the very top of a page inherit the previous page's last heading as their section (e.g. HDFC p8 "Note:", Care p3 "Care OPD 9" → "Plan Details:").
 - **Annotation labels are LLM output**, so a re-run of `extract_policies.py --force-annotation` may label some items differently. The committed caches hold the reviewed run, and every label the golden facts rely on is pinned by an override.
 - **HDFC's `~~` footnote piece also holds unmarked sentences** (home health care cashless in select cities; daily cash > 48 hours; preventive check-ups at renewal; e-opinion via network). Gemini linked the matching items to it correctly, but the footnote's first sentence is about the one-time deductible option.

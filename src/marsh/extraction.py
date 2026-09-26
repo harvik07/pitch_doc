@@ -388,6 +388,12 @@ def footnote_marker(text: str) -> str | None:
     return _canonical_marker(m.group(1)) if m else None
 
 
+def footnote_marker_span(text: str) -> tuple[int, int] | None:
+    """Where a footnote's own leading label ("(8)", "9", "$") sits in its text."""
+    m = _LEADING_MARKER.match(text) or _LEADING_DIGIT.match(text)
+    return m.span(1) if m else None
+
+
 def _spaced_number_is_reference(text: str, m: re.Match) -> bool:
     before = text[:m.start()].split()
     after = text[m.end():].split()
@@ -396,11 +402,17 @@ def _spaced_number_is_reference(text: str, m: re.Match) -> bool:
     return word_before not in _NOT_REF_BEFORE and word_after not in _UNIT_AFTER
 
 
-def _body_markers(text: str, known: set[str]) -> list[str]:
-    found = [(m.start(1), m.group(1)) for rx in (_PAREN_REF, _GLUED_DIGIT_REF) for m in rx.finditer(text)]
-    found += [(m.start(1), m.group(1)) for m in _SPACED_DIGIT_REF.finditer(text)
+def marker_spans(text: str, known: set[str]) -> list[tuple[int, int, str]]:
+    """(start, end, marker) of every footnote reference in body text, for markers the document has.
+
+    The span covers the marker as written ("(7)", the "9" of "Care OPD 9", "**"), so number parsing
+    can mask exactly what extraction recorded.
+    """
+    found = [(m.start(), m.end(), m.group(1)) for m in _PAREN_REF.finditer(text)]
+    found += [(m.start(1), m.end(1), m.group(1)) for m in _GLUED_DIGIT_REF.finditer(text)]
+    found += [(m.start(1), m.end(1), m.group(1)) for m in _SPACED_DIGIT_REF.finditer(text)
               if _spaced_number_is_reference(text, m)]
-    found += [(m.start(), "`") for m in _BACKTICK_REF.finditer(text)]
+    found += [(m.start(), m.end(), "`") for m in _BACKTICK_REF.finditer(text)]
     for m in _SYMBOL_REF.finditer(text):
         spaced, marker = m.group(1), m.group(2)
         before = text[m.start() - 1]
@@ -410,8 +422,12 @@ def _body_markers(text: str, known: set[str]) -> list[str]:
             continue  # VIP+, ABCD++, LIMITLESS + ONE are names
         if marker == "!" and not spaced:
             continue  # "Tadaa!" is punctuation; the "!" footnote reference is spaced ("Crores !")
-        found.append((m.start(2), marker))
-    return [marker for marker in dict.fromkeys(marker for _, marker in sorted(found)) if marker in known]
+        found.append((m.start(2), m.end(2), marker))
+    return sorted(span for span in found if span[2] in known)
+
+
+def _body_markers(text: str, known: set[str]) -> list[str]:
+    return list(dict.fromkeys(marker for _, _, marker in marker_spans(text, known)))
 
 
 def _sections(blocks: list[_Block], heights: dict[int, float]) -> list[str]:

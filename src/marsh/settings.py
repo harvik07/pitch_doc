@@ -51,6 +51,18 @@ BUNDLED_POLICY_VARIANTS = {
 }
 CURRENCY_SYMBOL = "₹"  # display only; evidence text keeps the PDF's characters (Care/HDFC render ₹ as a backtick)
 
+# Accepted product-name spellings per policy (for Prompt 8's policy-name check). Only names that appear in
+# the evidence; OCR garbles ("ReAssufe2.0", "ΘptimaSecure+") are left out. Matching ignores case, so
+# "ACTIV ONE" is covered by "Activ One". Care OPD / Care Advanced are add-on policies, not product names.
+PRODUCT_ALIASES = {
+    "POL-NIVA": ["ReAssure 2.0"],
+    "POL-HDFC": ["Optima Secure+", "OptimaSecure+", "Optima Secure +", "Optima Secure"],
+    "POL-CARE": ["Care Supreme", "carē supreme"],
+    "POL-ABHI": ["Activ One"],
+}
+# OCR/PDF spacing breaks inside names, collapsed by grounding.normalise_text (and nowhere else).
+OCR_SPACED_NAMES = {"T itanium+": "Titanium+", "Platinum +": "Platinum+", "Optima Secure +": "Optima Secure+"}
+
 # --- Limits ----------------------------------------------------------------------------------------
 MAX_FILE_MB = 25
 MAX_REPAIR_ATTEMPTS = 2

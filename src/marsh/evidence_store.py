@@ -2,6 +2,7 @@
 
 - `load_evidence(document_ids | shas)` reads the annotated cache files and applies
   data/evidence_overrides.yaml at load time. Every override must resolve to exactly one item.
+  Each item's `numbers` is filled at load time by numbers.numbers_for_item.
 - Queries default to citable items only: matching and audit never see OCR fragments or garbled text.
 - `display_text(item)` is what a person reads: the rupee sign the Care/HDFC PDFs render as a backtick
   is shown as ₹. Evidence text itself is never changed (the quote check depends on it).
@@ -259,4 +260,9 @@ def load_evidence(keys: Iterable[str], *, overrides: EvidenceOverridesFile | Non
         overridden.update(apply_overrides(group, [e for e in overrides.overrides if e.document_id == doc_id]))
     if any(item.text != texts_before[item.evidence_id] for group in items.values() for item in group):
         raise AssertionError("evidence text changed while applying overrides")
+    from marsh.numbers import numbers_for_item  # numbers imports extraction; keep this module light to import
+
+    for group in items.values():
+        for item in group:
+            item.numbers = numbers_for_item(item)  # computed at load, so they always match numbers.py
     return EvidenceStore(documents, items, overridden)

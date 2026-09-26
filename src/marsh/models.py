@@ -691,7 +691,7 @@ class PolicySelection(_Model):
 
 class Claim(_Model):
     claim_id: ClaimId
-    slide_number: int = Field(ge=1, le=5)
+    slide_number: int = Field(ge=1, le=4)
     text: str = Field(min_length=1)
     claim_type: ClaimType
     policy_id: PolicyId | None = None
@@ -800,7 +800,6 @@ class GateResult(_Model):
     failures: list[GateItem] = Field(default_factory=list)
     review_items: list[GateItem] = Field(default_factory=list)
     unacknowledged: list[str] = Field(default_factory=list)  # review item ids not yet acknowledged
-    removed_wm_claims: list[str] = Field(default_factory=list)  # WM claims whose condition isn't met (claim ids)
     export_allowed: bool = False
 
 
@@ -811,13 +810,14 @@ SLIDE_TITLES: tuple[str, ...] = (
     "Why Choose Marsh",
     "Policy Benefits Mapped to Exposures",
     "Recommended Policy",
-    "Key Terms, Sources & Assumptions",
 )
+LEGACY_SLIDE5_TITLE = "Key Terms, Sources & Assumptions"  # decks made before the 4-slide layout
 SLIDE_COUNT = len(SLIDE_TITLES)
 DISCLAIMER = "Summary based on insurer brochures; the policy wording prevails in case of conflict."
 SLIDE1_MAX_BULLETS = 6
 SLIDE1_MAX_BULLET_CHARS = 140
-SLIDE2_MAX_BULLETS = 4
+SLIDE2_MAX_POINTS = 4  # documented Marsh capabilities on slide 2
+SLIDE2_MAX_BULLETS = 1 + 2 * SLIDE2_MAX_POINTS  # headline + (capability, why it matters) per point
 SLIDE3_MAX_ROWS = 6
 SLIDE4_MAX_SUPPORTING_BENEFITS = 3
 SLIDE4_MAX_KEY_LIMITATIONS = 3  # = the selection's LIMITATION cap
@@ -891,7 +891,7 @@ class PitchSlide(_Model):
 
 
 class DraftCompanyBullet(_Model):
-    text: str = Field(min_length=1, max_length=125)  # code may append " (Assumption)"; slide 1 allows 140
+    text: str = Field(min_length=1, max_length=125)  # code may append the "*" marker; slide 1 allows 140
     basis_fact_ids: list[str] = Field(min_length=1)
 
 
@@ -966,6 +966,23 @@ class ClaimRewrite(_Model):
     text: str | None = Field(default=None, max_length=300)
 
 
+class WhyMarshPoint(_Model):
+    """One slide-2 point: a documented Marsh capability (record ms_id of marsh_profile.md) and why it matters to this
+    client (tied to company facts / exposures, never a new Marsh fact)."""
+    ms_id: str
+    marsh_text: str = Field(min_length=1, max_length=220)
+    why_it_matters: str = Field(min_length=1, max_length=220)
+    basis_fact_ids: list[str] = Field(default_factory=list)
+    exposure_ids: list[str] = Field(default_factory=list)
+
+
+class WhyMarshDraft(_Model):
+    """Gemini output for prompts/generate_why_marsh.md."""
+    headline: str = Field(min_length=1, max_length=120)
+    points: list[WhyMarshPoint] = Field(min_length=1, max_length=SLIDE2_MAX_POINTS)
+    shortfall_note: str = ""  # set when the profile has too few relevant capabilities
+
+
 class RecommendedPolicyBlock(_Model):
     """Slide-4 fields injected by code from the PolicySelection; the LLM never sets them. The selection reason is
     not here: it is rendered as audited Claim objects."""
@@ -975,6 +992,7 @@ class RecommendedPolicyBlock(_Model):
     variant: str | None = None
     required_addons: list[str] = Field(default_factory=list)
     decided_by: DecidedBy
+    assumed_sum_insured: int | None = None  # shown on slide 4 as an assumption ("*")
 
 
 class PitchDeck(_Model):
@@ -982,7 +1000,7 @@ class PitchDeck(_Model):
     company_name: str
     slides: list[PitchSlide]
     recommended: RecommendedPolicyBlock
-    sources: list[str] = Field(default_factory=list)  # code, slide 5
+    sources: list[str] = Field(default_factory=list)  # code: client-facing source labels
     disclaimer: str = DISCLAIMER
 
     def all_claims(self) -> list[Claim]:
@@ -994,8 +1012,19 @@ class PitchDeck(_Model):
                 return claim
         raise KeyError(claim_id)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_legacy_slide5(cls, data):
+        """A deck saved before the 4-slide layout: its slide 5 (assumptions, sources, disclaimer) is now rendered
+        from code on slides 1, 3 and 4, so it is dropped on load."""
+        if isinstance(data, dict):
+            slides = data.get("slides") or []
+            if len(slides) == 5 and isinstance(slides[4], dict) and slides[4].get("title") == LEGACY_SLIDE5_TITLE:
+                data = {**data, "slides": slides[:4]}
+        return data
+
     @model_validator(mode="after")
-    def _five_slides(self) -> PitchDeck:
+    def _four_slides(self) -> PitchDeck:
         numbers = [s.slide_number for s in self.slides]
         if numbers != list(range(1, SLIDE_COUNT + 1)):
             raise ValueError(f"deck must have exactly slides 1..{SLIDE_COUNT} in order, got {numbers}")

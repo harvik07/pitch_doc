@@ -7,6 +7,10 @@
 - The SDK's keyless mode is never used: without settings.TAVILY_API_KEY there is no search.
 - Results are cached at data/cache/web/<slug>.json, so a re-run sees the same sources (reproducible audits).
 - Page text is untrusted: it is only ever data for the profile prompt and the quote check.
+- `clean_title(title, url)`: Tavily sometimes returns several page titles glued together ("Infosys -
+  WikipediaInfosys | Company Overview & News - Forbes…") or a bare file name ("annual-report-2025.pdf"); each
+  result keeps only its own, readable title (applied when fetched and when shown).
+- `source_label(source)`: the client-facing footnote "<title> — <site> — Retrieved <date>".
 """
 
 from __future__ import annotations
@@ -39,6 +43,39 @@ _SOURCES = TypeAdapter(list[WebSource])
 class WebSearchResult:
     sources: list[WebSource] = field(default_factory=list)
     note: str = ""  # why there are no sources; empty when search ran and returned some
+
+
+_GLUED = re.compile(r"(?<=[a-z0-9)])(?=[A-Z][a-z]+(?:[ .,|:-]|$))")
+_FILE_NAME = re.compile(r"^[\w.-]+\.(?:pdf|html?|aspx?|php|docx?)$", re.IGNORECASE)
+
+
+def site_name(url: str) -> str:
+    """"www.infosys.com/…" → "infosys.com"; "en.wikipedia.org/…" → "wikipedia.org"."""
+    host = re.sub(r"^https?://", "", url.strip()).split("/")[0].lower()
+    host = re.sub(r"^(?:www\d*|en|m)\.", "", host)
+    return host
+
+
+def clean_title(title: str, url: str = "") -> str:
+    """One readable title per result (see the module docstring)."""
+    title = " ".join((title or "").split())
+    if _FILE_NAME.match(title):  # a file name: "annual-report-2025.pdf" → "Annual report 2025"
+        stem = re.sub(r"\.[a-z]+$", "", title, flags=re.IGNORECASE).replace("-", " ").replace("_", " ").strip()
+        title = stem[:1].upper() + stem[1:]
+    if len(title) > 60:  # several titles glued together ("…WikipediaInfosys | …"): keep the first
+        for m in _GLUED.finditer(title):
+            head = title[:m.start()].strip()
+            if len(head.split()) >= 2 and len(head) >= 10:
+                title = head
+                break
+    title = re.sub(r"\s*[|–—-]\s*$", "", title)
+    return title or site_name(url)
+
+
+def source_label(source: WebSource) -> str:
+    """The client-facing footnote for a web source: "<title> — <site> — Retrieved <date>"."""
+    when = f"{source.retrieved_at:%d %B %Y}".lstrip("0")
+    return f"{clean_title(source.title, source.url)} — {site_name(source.url)} — Retrieved {when}"
 
 
 def _slug(company_name: str) -> str:
@@ -81,7 +118,8 @@ def _fetch(company_name: str) -> tuple[list[WebSource], list[dict]]:
                 continue
             seen.add(url)
             sources.append(WebSource(source_id=f"WEB-{len(sources) + 1:03d}", url=url,
-                                     title=str(r.get("title") or "").strip(), retrieved_at=datetime.now().astimezone(),
+                                     title=clean_title(str(r.get("title") or ""), url),
+                                     retrieved_at=datetime.now().astimezone(),
                                      content=text))
     return sources, calls
 

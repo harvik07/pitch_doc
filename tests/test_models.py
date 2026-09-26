@@ -29,6 +29,8 @@ from marsh.models import (
     ClaimRewrite,
     GateItem,
     GateResult,
+    WhyMarshDraft,
+    WhyMarshPoint,
     RepairAttempt,
     PitchRepairResponse,
     AdvisorAction,
@@ -212,9 +214,6 @@ def make_slides() -> list[PitchSlide]:
                    supporting_benefits=[claim(4, 4, ClaimType.POLICY_BENEFIT, NIVA_AIR, policy_id="POL-NIVA")],
                    key_limitations=[claim(5, 4, ClaimType.POLICY_LIMIT, "Air ambulance is limited to INR 2,50,000 "
                                           "per Hospitalisation", policy_id="POL-NIVA", material=True)]),
-        PitchSlide(slide_number=5, title=SLIDE_TITLES[4],
-                   bullets=[claim(6, 5, ClaimType.ASSUMPTION, "Assumed sum insured: INR 10 lakh (Assumption)")],
-                   footnotes=["Placeholder qualifier footnote"]),
     ]
 
 
@@ -359,7 +358,10 @@ ALL_MODELS = [
     lambda: ClaimRewrite(text=None),
     lambda: GateResult(status=OverallFlag.REVIEW_REQUIRED, failures=[],
                        review_items=[GateItem(item_id="CL-010:NEEDS_REVIEW", message="Placeholder.")],
-                       unacknowledged=["CL-010:NEEDS_REVIEW"], removed_wm_claims=["CL-008"]),
+                       unacknowledged=["CL-010:NEEDS_REVIEW"]),
+    lambda: WhyMarshDraft(headline="Placeholder headline", points=[WhyMarshPoint(
+        ms_id="MS-021", marsh_text="Placeholder.", why_it_matters="Placeholder.", basis_fact_ids=["CF-001"])]),
+    lambda: WhyMarshPoint(ms_id="MS-021", marsh_text="Placeholder.", why_it_matters="Placeholder."),
     lambda: GateItem(item_id="SELECTION:LOW_CONFIDENCE", message="Placeholder."),
     lambda: make_slides()[2].table_rows[0],
     lambda: make_run_context().advisor_actions[0],
@@ -508,18 +510,26 @@ def _deck_data() -> dict:
 
 def test_deck_helpers():
     deck = make_deck()
-    assert [c.claim_id for c in deck.all_claims()] == [f"CL-{n:03d}" for n in range(1, 7)]
+    assert [c.claim_id for c in deck.all_claims()] == [f"CL-{n:03d}" for n in range(1, 6)]
     assert deck.get_claim("CL-003").policy_id == "POL-NIVA"
     assert deck.disclaimer.startswith("Summary based on insurer brochures")
     with pytest.raises(KeyError):
         deck.get_claim("CL-999")
 
 
-def test_deck_needs_exactly_five_slides():
+def test_deck_needs_exactly_four_slides():
     data = _deck_data()
-    data["slides"] = data["slides"][:4]
+    data["slides"] = data["slides"][:3]
     with pytest.raises(ValidationError, match="exactly slides"):
         PitchDeck.model_validate(data)
+
+
+def test_a_legacy_five_slide_deck_loads_as_four():
+    data = _deck_data()
+    data["slides"].append({"slide_number": 5, "title": "Key Terms, Sources & Assumptions", "bullets": [
+        {"claim_id": "CL-006", "slide_number": 5, "text": "Assumed sum insured (Assumption)",
+         "claim_type": "ASSUMPTION"}]})
+    assert len(PitchDeck.model_validate(data).slides) == 4
 
 
 def test_slide_title_is_fixed():
@@ -538,7 +548,7 @@ def test_slide1_bullet_length_limit():
 
 @pytest.mark.parametrize("slide, field, count, message", [
     (1, "bullets", 7, "at most 6"),
-    (2, "bullets", 5, "at most 4"),
+    (2, "bullets", 10, "at most 9"),
     (4, "supporting_benefits", 4, "at most 3"),
     (4, "key_limitations", 4, "at most 3"),
 ])

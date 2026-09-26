@@ -26,7 +26,7 @@ from marsh.models import (
     OverallFlag,
     PitchSlide,
 )
-from marsh.pitch import load_marsh_claims
+from marsh.marsh_profile import load_profile
 
 REAL_CACHE_DIR = settings.CACHE_DIR
 NIVA_AIR = "Air Ambulance: up to INR 2,50,000 per Hospitalisation"  # golden fact, EV-NIVA-2-015
@@ -268,20 +268,52 @@ def test_code_not_stated_rows_need_no_llm(monkeypatch, sources):
 # --- 9 slide 2, 10 company claims, 11 pricing, NON_FACTUAL -----------------------------------------------------
 
 
+def marsh_verdict(ms_id, quote=None):
+    """The audit LLM's verdict for a Marsh statement: the record's evidence item, quoting its fact."""
+    record = load_profile().record(ms_id)
+    item = next(i for i in audit.marsh_evidence() if i.row_label == ms_id)
+    return verified(item.evidence_id, quote=quote or record.fact)
+
+
 def test_slide2(monkeypatch, sources):
-    approved = load_marsh_claims()[0]
-    claims = [claim(approved["text"], None, ClaimType.MARSH_STATEMENT, n=1, slide=2, material=False),
-              claim("Marsh is the world's leading broker.", None, ClaimType.MARSH_STATEMENT, n=2, slide=2),
+    profile = load_profile()
+    ms021, ms026 = profile.record("MS-021"), profile.record("MS-026")
+    without = ms026.fact.replace("generally ", "")
+    invented = "Marsh is the world's leading broker."
+    claims = [claim(ms021.fact, None, ClaimType.MARSH_STATEMENT, n=1, slide=2),
+              claim(invented, None, ClaimType.MARSH_STATEMENT, n=2, slide=2),
               claim("98% health claims payout ratio.", "POL-HDFC", ClaimType.POLICY_FACT, n=3, slide=2),
-              claim("Marsh prepares this pitch.", None, ClaimType.NON_FACTUAL, n=4, slide=2)]
-    results, auditor = run(monkeypatch, sources, claims)
-    assert results["CL-001"].status == AuditStatus.VERIFIED and auditor.calls == []
-    assert results["CL-001"].supporting_evidence_ids[0].startswith("EV-MARSH-4-")
-    assert results["CL-002"].status == AuditStatus.NEEDS_REVIEW  # not approved wording
+              claim("A risk partner for your workforce", None, ClaimType.NON_FACTUAL, n=4, slide=2, material=False),
+              claim(without, None, ClaimType.MARSH_STATEMENT, n=5, slide=2),
+              claim(ms021.fact, None, ClaimType.MARSH_STATEMENT, n=6, slide=2),
+              claim("Its placeholder industry makes this relevant.", None, ClaimType.NON_FACTUAL, n=7, slide=2,
+                    material=False, basis_fact_ids=["CF-001"]),
+              claim("Its 500 offices make this relevant.", None, ClaimType.NON_FACTUAL, n=8, slide=2,
+                    material=False, basis_fact_ids=["CF-001"])]
+    verdicts = {ms021.fact: marsh_verdict("MS-021"), without: marsh_verdict("MS-026", quote="as an independent "
+                                                                                           "insurance intermediary"),
+                invented: verified("EV-NIVA-2-015", quote=NIVA_AIR)}
+    results, auditor = run(monkeypatch, sources, claims, verdicts)
+    assert [c["variables"]["policy_id"] for c in auditor.calls] == ["MARSH"]  # one batch against the profile
+    assert "EV-NIVA" not in auditor.calls[0]["variables"]["evidence"]
+    assert results["CL-001"].status == AuditStatus.VERIFIED
+    assert results["CL-001"].supporting_evidence_ids[0].startswith("EV-MARSH-2-")
+    assert results["CL-002"].status == AuditStatus.UNSUPPORTED  # a policy's evidence can't support Marsh
     assert results["CL-003"].status == AuditStatus.UNSUPPORTED  # an insurer statistic on slide 2
-    assert results["CL-004"].status == AuditStatus.NON_FACTUAL
+    assert results["CL-004"].status == AuditStatus.NON_FACTUAL  # the headline
+    assert results["CL-005"].status == AuditStatus.NEEDS_REVIEW  # drops "generally" (its source's condition)
+    assert check(results["CL-005"], "condition").result.value == "FAIL"
+    assert results["CL-007"].status == AuditStatus.NON_FACTUAL  # why it matters: rests on a company fact
+    assert results["CL-008"].status == AuditStatus.NEEDS_REVIEW  # a number that isn't in its company fact
     summary = audit.build_summary(list(results.values()), claims)
     assert any("non-Marsh claim on slide 2" in f for f in summary.gate_failures)
+
+
+def test_a_marsh_statement_needs_a_verbatim_quote(monkeypatch, sources):
+    fact = load_profile().record("MS-021").fact
+    results, _ = run(monkeypatch, sources, [claim(fact, None, ClaimType.MARSH_STATEMENT, slide=2)],
+                     {fact: marsh_verdict("MS-021", quote="Marsh invents a quote here")})
+    assert results["CL-001"].status == AuditStatus.NEEDS_REVIEW
 
 
 def company(text, basis, n=1, slide=1, claim_type=ClaimType.COMPANY_FACT, label="web"):
@@ -296,12 +328,12 @@ def test_company_claims_are_deterministic(monkeypatch, sources):
               company("The company employs over 300,000 people.", ["CF-003"], 3),
               company("It is a very large enterprise.", ["CF-099"], 4),
               company("It is a very large enterprise.", ["CF-002"], 5, label=None),
-              company("Staff are mostly desk-based. (Assumption)", ["CF-006"], 6, claim_type=ClaimType.ASSUMPTION,
+              company("Staff are mostly desk-based.*", ["CF-006"], 6, claim_type=ClaimType.ASSUMPTION,
                       label=None),
               company("Staff are mostly desk-based.", ["CF-006"], 7, claim_type=ClaimType.ASSUMPTION, label=None),
-              company("Client concentration is a key business risk. (Assumption)", ["CF-004"], 8, slide=4,
+              company("Client concentration is a key business risk.*", ["CF-004"], 8, slide=4,
                       claim_type=ClaimType.ASSUMPTION, label=None),
-              company("It is a very large enterprise. (Assumption)", ["CF-002"], 9, claim_type=ClaimType.ASSUMPTION,
+              company("It is a very large enterprise.*", ["CF-002"], 9, claim_type=ClaimType.ASSUMPTION,
                       label=None),
               company("It is a very large enterprise.", ["CF-002"], 10)]  # "Web-sourced" on a model-knowledge fact
     results, auditor = run(monkeypatch, sources, claims)
@@ -315,7 +347,7 @@ def test_company_claims_are_deterministic(monkeypatch, sources):
     assert status["CL-004"] == AuditStatus.UNSUPPORTED
     assert status["CL-005"] == AuditStatus.NEEDS_REVIEW  # neither label
     assert status["CL-006"] == AuditStatus.LABELLED_ASSUMPTION
-    assert status["CL-007"] == AuditStatus.NEEDS_REVIEW  # no "(Assumption)" label
+    assert status["CL-007"] == AuditStatus.NEEDS_REVIEW  # no "*" assumption marker
     assert status["CL-008"] == AuditStatus.NEEDS_REVIEW  # business risk outside slide 1
     assert status["CL-009"] == AuditStatus.LABELLED_ASSUMPTION  # MODEL_KNOWLEDGE is shown as an assumption
     assert status["CL-010"] == AuditStatus.NEEDS_REVIEW and "not web-sourced" in results["CL-010"].explanation
@@ -337,7 +369,7 @@ def test_web_sourced_company_claims_are_re_checked_against_the_pages(monkeypatch
 
 def test_the_audit_report_shows_fact_labels_never_raw_statuses(monkeypatch, sources):
     claims = [company("The company employs over 200,000 people.", ["CF-003"], 1),
-              company("It is a very large enterprise. (Assumption)", ["CF-002"], 2, claim_type=ClaimType.ASSUMPTION,
+              company("It is a very large enterprise.*", ["CF-002"], 2, claim_type=ClaimType.ASSUMPTION,
                       label=None)]
     slide = PitchSlide(slide_number=1, title="Company Overview", bullets=claims)
     run_sources = audit.AuditSources(store=sources.store, cells=sources.cells, profile=PROFILE,
@@ -382,8 +414,8 @@ def test_pricing(monkeypatch, sources):
 
 
 def test_non_factual(monkeypatch, sources):
-    claims = [claim("Company details are placeholders.", None, ClaimType.NON_FACTUAL, slide=5, material=False),
-              claim(f"{NIVA_AIR} in Niva Bupa ReAssure 2.0.", None, ClaimType.NON_FACTUAL, n=2, slide=5)]
+    claims = [claim("Company details are placeholders.", None, ClaimType.NON_FACTUAL, slide=4, material=False),
+              claim(f"{NIVA_AIR} in Niva Bupa ReAssure 2.0.", None, ClaimType.NON_FACTUAL, n=2, slide=4)]
     results, auditor = run(monkeypatch, sources, claims,
                            {f"{NIVA_AIR} in Niva Bupa ReAssure 2.0.": verified("EV-NIVA-2-015", quote=NIVA_AIR)})
     assert results["CL-001"].status == AuditStatus.NON_FACTUAL
@@ -391,11 +423,13 @@ def test_non_factual(monkeypatch, sources):
 
 
 def test_run_assumptions(monkeypatch, sources):
-    claims = [claim("Assumed base sum insured: ₹10,00,000 (Assumption)", None, ClaimType.ASSUMPTION, slide=5),
-              claim("Assumed base sum insured: ₹10,00,000", None, ClaimType.ASSUMPTION, n=2, slide=5)]
+    claims = [claim("Assumed base sum insured: ₹10,00,000*", None, ClaimType.ASSUMPTION),
+              claim("Assumed base sum insured: ₹10,00,000", None, ClaimType.ASSUMPTION, n=2),
+              claim("Assumed base sum insured: ₹10,00,000 (Assumption)", None, ClaimType.ASSUMPTION, n=3)]
     results, _ = run(monkeypatch, sources, claims)
     assert results["CL-001"].status == AuditStatus.LABELLED_ASSUMPTION
     assert results["CL-002"].status == AuditStatus.NEEDS_REVIEW
+    assert results["CL-003"].status == AuditStatus.NEEDS_REVIEW  # the old text label is no longer the marker
 
 
 # --- Summary, deck, standalone API ----------------------------------------------------------------------------

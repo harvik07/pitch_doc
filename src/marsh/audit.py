@@ -8,18 +8,23 @@ Per claim (`audit_claims`; policy claims are batched, one audit LLM call per pol
 - Code only, no LLM:
   - NON_FACTUAL stays NON_FACTUAL unless it has a number or a product name; then it is audited as a policy fact
     of that product (or NEEDS_REVIEW when no single product is named).
-  - Slide 2 (check 9): only MARSH_STATEMENT / NON_FACTUAL (anything else → UNSUPPORTED, a gate failure). A Marsh
-    statement must be an approved WM claim of marsh_profile.md word for word: VERIFIED against its chunk
-    (document "MARSH"), its WM condition stays in the claim's metadata for the gate; any other wording → NEEDS_REVIEW.
+  - Slide 2 (check 9): only MARSH_STATEMENT / NON_FACTUAL (anything else → UNSUPPORTED, a gate failure). A
+    non-factual "why it matters" line with basis_fact_ids may only restate its company facts (else NEEDS_REVIEW);
+    a headline with a number or product name → NEEDS_REVIEW.
   - COMPANY_FACT and ASSUMPTION claims resting on company facts (check 10): the claim's basis facts must exist in
     the profile (else UNSUPPORTED; no profile → NEEDS_REVIEW); its numbers must be in those facts' values; a
     precise headcount or revenue figure → NEEDS_REVIEW (bands such as "over 200,000" / "200,000+" are fine). Users
     see two labels only: a claim labelled "Web-sourced" (qualifier_text) must rest only on WEB_SOURCED facts whose
     sources and quotes pass company.web_source_problems again (else NEEDS_REVIEW), and is then VERIFIED; any other
-    company claim must carry the "(Assumption)" label (else NEEDS_REVIEW) and is then LABELLED_ASSUMPTION.
-  - Run assumptions without basis facts (slide 5): LABELLED_ASSUMPTION with the "(Assumption)" label, else
+    company claim must carry the assumption marker "*" (the slide shows the legend; else NEEDS_REVIEW) and is then
+    LABELLED_ASSUMPTION. Provenance (web-sourced / model knowledge / assumption) stays in the claim data.
+  - Run assumptions without basis facts (code-made): LABELLED_ASSUMPTION with the "*" marker, else
     NEEDS_REVIEW; a sum-insured amount must be the run's assumed SI.
   - Slide-3 "Not stated in the brochure" rows: check 8 on their coverage cell.
+- Marsh statements (slide 2): the audit LLM gets the Marsh profile's documented capabilities (document "MARSH",
+  data/marsh/marsh_profile.md) and finds the record that supports the claim; then ownership (only a Marsh profile
+  record can support it), verbatim quotes, numbers, no insurer product, absolute language and the words a source
+  condition says to keep (e.g. "generally") override it.
 - Policy claims: GEMINI_AUDIT_MODEL (prompts/audit_claim.md, temperature 0) gets each claim's id, slide, type and
   text, and the policy's full citable evidence (keyword retrieval at or above FULL_CONTEXT_TOKEN_LIMIT). It returns
   status, supporting evidence IDs, verbatim quotes, a required qualifier and an explanation. Then deterministic
@@ -89,6 +94,7 @@ from marsh.grounding import (
     normalise_text,
     number_check,
     numbers_equal,
+    quote_in_evidence,
 )
 from marsh.llm import LLMError, call_structured, load_prompt
 from marsh.matching import (
@@ -119,7 +125,6 @@ from marsh.models import (
     CoverageStatus,
     EvidenceItem,
     ExposureTaxonomy,
-    ExtractionMethod,
     FactField,
     FactStatus,
     ItemType,
@@ -133,7 +138,8 @@ from marsh.models import (
     fact_display_label,
 )
 from marsh.numbers import label_number_segments, numbers_for_item, parse_numbers, sum_insured_ranges
-from marsh.pitch import ASSUMPTION_LABEL, NOT_STATED_TEXT, load_marsh_claims
+from marsh.marsh_profile import MARSH_DOCUMENT, load_profile, marsh_evidence, required_words
+from marsh.pitch import ASSUMPTION_MARKER, NOT_STATED_TEXT
 from marsh.run_context import RUN_CONTEXT_FILE, load_run_context, new_run_id, run_dir
 
 log = logging.getLogger(__name__)
@@ -145,7 +151,6 @@ AUDIT_MAX_OUTPUT_TOKENS = 32_768  # thinking + one verdict per claim; stops a ru
 REPORT_JSON = "audit_report.json"
 REPORT_MD = "audit_report.md"
 TOPICS_PATH = settings.CONFIG_DIR / "audit_topics.yaml"
-MARSH_DOCUMENT = "MARSH"
 MAX_QUALIFIER_CHARS = 200  # a qualifier longer than this can't be rendered as a slide footnote
 MAX_BIND_DISTANCE = 60  # characters between a claim number and the topic term it is bound to
 ANCHOR_SCOPE = "item"  # where a number's topic must appear: item | row | section (widening is logged in PROGRESS.md)
@@ -255,7 +260,6 @@ class AuditSources:
     taxonomy: ExposureTaxonomy | None = None
     topics: TopicIndex | None = None
     _marsh: list[EvidenceItem] | None = field(default=None, repr=False)
-    _approved: list[dict[str, str]] | None = field(default=None, repr=False)
     _referrers: dict[str, list[EvidenceItem]] | None = field(default=None, repr=False)
     siblings: dict[str, list[Claim]] = field(default_factory=dict)  # slide-3 claim_id → the other cell of its row
     _cache: AuditCache | None = field(default=None, repr=False)
@@ -270,12 +274,6 @@ class AuditSources:
         if self._marsh is None:
             self._marsh = marsh_evidence()
         return self._marsh
-
-    @property
-    def approved_marsh_claims(self) -> list[dict[str, str]]:
-        if self._approved is None:
-            self._approved = load_marsh_claims()
-        return self._approved
 
     @property
     def cache(self) -> AuditCache | None:
@@ -299,6 +297,10 @@ class AuditSources:
         if evidence_id.startswith(f"EV-{MARSH_DOCUMENT}-"):
             return next(i for i in self.marsh_items if i.evidence_id == evidence_id)
         return self.store.get(evidence_id)
+
+    def items_of(self, document_id: str) -> list[EvidenceItem]:
+        """The citable evidence of a policy, or the Marsh capability records for "MARSH"."""
+        return self.marsh_items if document_id == MARSH_DOCUMENT else self.store.items_for_policy(document_id)
 
     def document_name(self, document_id: str) -> str:
         if document_id == MARSH_DOCUMENT:
@@ -330,12 +332,18 @@ class AuditCache:
         self.path.write_text(json.dumps(self.entries, indent=1, ensure_ascii=False), encoding="utf-8")
 
 
+def audit_document(claim: Claim) -> str:
+    """What a claim is audited against: its policy, or the Marsh profile for a Marsh statement."""
+    return MARSH_DOCUMENT if claim.claim_type == ClaimType.MARSH_STATEMENT else claim.policy_id
+
+
 def cache_key(claim: Claim, sources: AuditSources) -> str:
     """What an LLM-audited claim's result depends on (see the module docstring)."""
-    cells = sources.cells.get(claim.policy_id, [])
-    return _hash([AUDIT_VERSION, normalise_text(claim.text), claim.claim_type.value, claim.policy_id,
+    document = audit_document(claim)
+    cells = sources.cells.get(document, [])
+    return _hash([AUDIT_VERSION, normalise_text(claim.text), claim.claim_type.value, document,
                   claim_location(claim, sources), claim.metadata.get("match_id"),
-                  evidence_hash(sources.store.items_for_policy(claim.policy_id)),
+                  evidence_hash(sources.items_of(document)),
                   [[m.match_id, m.coverage_status.value, m.benefit_evidence_ids, m.exclusion_evidence_ids,
                     m.limitation_evidence_ids] for m in cells],
                   settings.GEMINI_AUDIT_MODEL, _hash(load_prompt(PROMPT))])
@@ -350,26 +358,6 @@ def load_sources(policy_ids: list[str], *, assumed_sum_insured: int | None = Non
     cells = {p: build_coverage_matrix(p, si, run_id, store=store, taxonomy=taxonomy) for p in policy_ids}
     return AuditSources(store=store, cells=cells, profile=profile, assumed_sum_insured=si, run_id=run_id,
                         taxonomy=taxonomy)
-
-
-def marsh_evidence(path: str | Path | None = None) -> list[EvidenceItem]:
-    """marsh_profile.md as evidence items (document "MARSH"): one item per table row (MS-… facts and WM-… approved
-    claims; text = the row's cells, verbatim), page = the section number."""
-    path = Path(path or settings.MARSH_PROFILE_PATH)
-    section_no, section, seq, items = 0, "", 0, []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        heading = re.match(r"^##\s+(\d+)\.\s+(.+)$", line)
-        if heading:
-            section_no, section, seq = int(heading.group(1)), heading.group(2).strip(), 0
-            continue
-        row = re.match(r"^\|\s*((?:MS|WM)-\d+)\s*\|(.+)\|\s*$", line)
-        if row and section_no:
-            seq += 1
-            items.append(EvidenceItem(
-                evidence_id=f"EV-{MARSH_DOCUMENT}-{section_no}-{seq:03d}", document_id=MARSH_DOCUMENT,
-                page=section_no, section=section, item_type=ItemType.TABLE_CELL, row_label=row.group(1),
-                text=row.group(2).strip(), extraction_method=ExtractionMethod.MARKDOWN))
-    return items
 
 
 # --- Result building ------------------------------------------------------------------------------------------
@@ -426,30 +414,35 @@ class _State:
 # --- Code-only claims -----------------------------------------------------------------------------------------
 
 
-def _audit_marsh(claim: Claim, sources: AuditSources) -> AuditResult | None:
-    """Slide 2 (check 9) and any MARSH_STATEMENT. None: a NON_FACTUAL line on slide 2, audited as such."""
-    state = _State(claim, AuditStatus.VERIFIED)
+def _audit_slide2_type(claim: Claim) -> AuditResult | None:
+    """Check 9: slide 2 holds only Marsh statements and non-factual lines (headline, why-it-matters links)."""
     if claim.slide_number == 2 and claim.claim_type not in (ClaimType.MARSH_STATEMENT, ClaimType.NON_FACTUAL):
+        state = _State(claim, AuditStatus.VERIFIED)
         state.cap("slide2", AuditStatus.UNSUPPORTED, f"slide 2 allows only Marsh statements, not a "
                                                       f"{claim.claim_type.value} claim")
         return state.result()
-    if claim.claim_type == ClaimType.NON_FACTUAL:
-        return None
-    if claim.slide_number == 2:
-        state.ok("slide2")
-    wanted = normalise_text(claim.text).strip(" .")
-    approved = next((w for w in sources.approved_marsh_claims
-                     if normalise_text(w["text"]).strip(" .") == wanted), None)
-    if approved is None:
-        state.cap("marsh", AuditStatus.NEEDS_REVIEW, "not an approved Marsh claim (marsh_profile.md section 4); "
-                                                      "only the approved wording may be used")
-        return state.result()
-    rows = {i.row_label: i for i in sources.marsh_items}
-    supporting = [rows[k].evidence_id for k in [approved["wm_id"], *re.findall(r"MS-\d+", approved["based_on"])]
-                  if k in rows]
-    state.ok("marsh", f"{approved['wm_id']} verbatim; condition kept for the gate: {approved['condition']}")
-    return state.result(explanation=f"Approved Marsh claim {approved['wm_id']} (based on {approved['based_on']}).",
-                        supporting=supporting, quotes=[approved["text"]], quote_check=CheckResult.PASS)
+    return None
+
+
+def _audit_link(claim: Claim, sources: AuditSources) -> AuditResult:
+    """A non-factual line resting on company facts (slide 2's "why it matters"): the facts must exist, its numbers
+    must be theirs, and it may name no product. Never a Marsh fact: it stays NON_FACTUAL."""
+    state = _State(claim, AuditStatus.NON_FACTUAL)
+    facts = {f.fact_id: f for f in sources.profile.facts} if sources.profile else {}
+    basis = [b for b in claim.basis_fact_ids if b in facts]
+    if not sources.profile or len(basis) != len(claim.basis_fact_ids):
+        state.status = AuditStatus.VERIFIED
+        state.cap("link", AuditStatus.NEEDS_REVIEW, "its company facts are not in the profile")
+        return state.result(facts=basis)
+    numbers = [n for b in basis for n in parse_numbers(facts[b].value, strict=False)]
+    outcome = number_check(claim.text, [], evidence_numbers=numbers)
+    if outcome.status not in (NumberCheckStatus.PASS, NumberCheckStatus.NA) or named_policies(claim.text):
+        state.status = AuditStatus.VERIFIED
+        state.cap("link", AuditStatus.NEEDS_REVIEW, "a linking line may only restate its company facts "
+                                                    "(no other number, no product name)")
+        return state.result(facts=basis, number_check=outcome.to_number_check())
+    state.ok("link", f"rests on {', '.join(basis)}")
+    return state.result(explanation="Why it matters for the client, based on its company facts.", facts=basis)
 
 
 def _audit_non_factual(claim: Claim, sources: AuditSources) -> AuditResult | Claim:
@@ -462,8 +455,8 @@ def _audit_non_factual(claim: Claim, sources: AuditSources) -> AuditResult | Cla
         return state.result(explanation="Non-factual statement.")
     if claim.slide_number == 2:
         state.status = AuditStatus.VERIFIED
-        state.cap("slide2", AuditStatus.UNSUPPORTED, "a line with a number or product name on slide 2 is not a "
-                                                      "Marsh statement")
+        state.cap("slide2", AuditStatus.NEEDS_REVIEW, "a headline with a number or product name states a fact; "
+                                                      "slide 2 facts must be documented Marsh statements")
         return state.result()
     policy = claim.policy_id or (next(iter(named)) if len(named) == 1 else None)
     if policy is None or policy not in sources.store.documents:
@@ -524,11 +517,11 @@ def _audit_company(claim: Claim, sources: AuditSources) -> AuditResult:
     web_labelled = (claim.qualifier_text or "") == WEB_SOURCED_LABEL
     if web_labelled:
         _check_web_facts(state, [facts[b] for b in basis], sources.profile)
-    elif ASSUMPTION_LABEL.strip().lower() in claim.text.lower():
-        state.ok("label", "'(Assumption)' label shown")
+    elif claim.text.rstrip().endswith(ASSUMPTION_MARKER):
+        state.ok("label", "assumption marker '*' shown (the slide carries the legend)")
     else:
-        state.cap("label", AuditStatus.NEEDS_REVIEW, "a company claim must be labelled 'Web-sourced' or "
-                                                     "'(Assumption)'")
+        state.cap("label", AuditStatus.NEEDS_REVIEW, "a company claim must be web-sourced or marked '*' "
+                                                     "(assumption)")
     if state.status == AuditStatus.VERIFIED and not web_labelled:
         state.status = AuditStatus.LABELLED_ASSUMPTION
     explanation = ""
@@ -554,10 +547,10 @@ def _check_web_facts(state: _State, basis: list[CompanyFact], profile: CompanyPr
 
 
 def _audit_run_assumption(claim: Claim, sources: AuditSources) -> AuditResult:
-    """A run assumption without basis facts (slide 5, code-made)."""
+    """A run assumption without basis facts (code-made)."""
     state = _State(claim, AuditStatus.VERIFIED)
-    if ASSUMPTION_LABEL.strip().lower() not in claim.text.lower():
-        state.cap("label", AuditStatus.NEEDS_REVIEW, "an assumption must carry the '(Assumption)' label")
+    if not claim.text.rstrip().endswith(ASSUMPTION_MARKER):
+        state.cap("label", AuditStatus.NEEDS_REVIEW, "an assumption must carry the '*' marker")
     if sources.assumed_sum_insured and "sum insured" in claim.text.lower():
         amounts = [n for n in parse_numbers(claim.text, strict=False) if n.unit.value == "INR"]
         if any(abs(n.value - sources.assumed_sum_insured) > 0.5 for n in amounts):
@@ -565,7 +558,7 @@ def _audit_run_assumption(claim: Claim, sources: AuditSources) -> AuditResult:
                                                            f"{format_money(sources.assumed_sum_insured)}")
     if state.status == AuditStatus.VERIFIED:
         state.status = AuditStatus.LABELLED_ASSUMPTION
-        state.ok("label", "(Assumption) label shown")
+        state.ok("label", "assumption marker '*' shown")
     return state.result(explanation="Labelled assumption." if state.status == AuditStatus.LABELLED_ASSUMPTION else "")
 
 
@@ -970,6 +963,50 @@ def _check_policy_claim(claim: Claim, verdict: AuditVerdict, sources: AuditSourc
                         quote_check=quote_check)
 
 
+def _check_marsh_claim(claim: Claim, verdict: AuditVerdict, sources: AuditSources) -> AuditResult:
+    """A slide-2 Marsh statement against the Marsh profile's capability records (the audit LLM found its own
+    record; the generator's marsh_claim_id is not used): ownership (only Marsh profile records can support it),
+    verbatim quotes, numbers, no insurer product, absolute language, and the words a source condition says to keep."""
+    llm_status = AuditStatus(verdict.status.value)
+    state = _State(claim, llm_status, llm_status)
+    by_id = {i.evidence_id: i for i in sources.marsh_items}
+    items = [by_id[e] for e in dict.fromkeys(verdict.supporting_evidence_ids) if e in by_id]
+    foreign = [e for e in verdict.supporting_evidence_ids if e not in by_id]
+    if foreign:
+        state.cap("ownership", AuditStatus.UNSUPPORTED, f"{', '.join(foreign)} are not Marsh profile records; only "
+                                                         f"the Marsh profile can support a Marsh capability")
+    elif llm_status in (AuditStatus.VERIFIED, AuditStatus.VERIFIED_WITH_QUALIFIER) and not items:
+        state.cap("ownership", AuditStatus.UNSUPPORTED, "no Marsh profile record supports it")
+    else:
+        state.ok("ownership", ", ".join(i.row_label or i.evidence_id for i in items))
+    good = [q for q in verdict.quotes if q.evidence_id in by_id and quote_in_evidence(q.quote, by_id[q.evidence_id])]
+    bad = [q for q in verdict.quotes if q not in good]
+    quote_check = CheckResult.NA if not items else (CheckResult.PASS if good and not bad else CheckResult.FAIL)
+    if quote_check == CheckResult.FAIL and state.status in (AuditStatus.VERIFIED, AuditStatus.VERIFIED_WITH_QUALIFIER):
+        state.cap("quotes", AuditStatus.NEEDS_REVIEW, "no verbatim quote from the Marsh profile record")
+    outcome = number_check(claim.text, items)
+    if outcome.status == NumberCheckStatus.FAIL_CONTRADICTED:
+        state.cap("numbers", AuditStatus.CONTRADICTED, f"different number: {outcome.details}")
+    elif outcome.status == NumberCheckStatus.FAIL_MISSING:
+        state.cap("numbers", AuditStatus.UNSUPPORTED, f"number not in the Marsh profile: {outcome.details}")
+    if named_policies(claim.text):
+        state.cap("policy_name", AuditStatus.UNSUPPORTED, "a Marsh statement names an insurance product")
+    evidence_text = normalise_text(" ".join(i.text for i in items))
+    absolute = [m.group(0).lower() for m in _ABSOLUTE.finditer(claim.text)]
+    if [t for t in absolute if not any(k.search(t) and re.search(p, evidence_text) for k, p in _ABSOLUTE_KEY)]:
+        state.cap("absolute", AuditStatus.NEEDS_REVIEW, "absolute wording the Marsh profile doesn't use")
+    profile = load_profile()
+    for item in items:
+        record = profile.record(item.row_label or "")
+        for word in (required_words(record, profile) if record else []):
+            if not re.search(rf"\b{re.escape(word)}\b", claim.text, re.IGNORECASE):
+                state.cap("condition", AuditStatus.NEEDS_REVIEW, f"the source's condition keeps the word {word!r} "
+                                                                  f"({record.ms_id})")
+    return state.result(explanation=verdict.explanation, supporting=[i.evidence_id for i in items],
+                        quotes=[q.quote for q in good], number_check=outcome.to_number_check(),
+                        quote_check=quote_check)
+
+
 # --- Audit LLM ------------------------------------------------------------------------------------------------
 
 
@@ -1016,6 +1053,11 @@ def set_rows(slides: list[PitchSlide], sources: AuditSources) -> None:
 def prompt_variables(policy_id: str, claims: list[Claim], sources: AuditSources) -> dict[str, str]:
     """The audit prompt's inputs: the claims' id / slide (and slide-3 table row) / type / text only (never their
     citations) and the policy's citable evidence."""
+    claim_lines = "\n".join(f"- {c.claim_id} | {claim_location(c, sources)} | {c.claim_type.value} | "
+                            f"{_one_line(c.text)}" for c in claims)
+    if policy_id == MARSH_DOCUMENT:
+        return {"policy_name": "Marsh — documented capabilities (Marsh profile)", "policy_id": MARSH_DOCUMENT,
+                "variants": "none", "evidence": _evidence_lines(sources.marsh_items), "claims": claim_lines}
     store = sources.store
     doc = store.document(policy_id)
     items = store.items_for_policy(policy_id)
@@ -1054,10 +1096,12 @@ def _llm_verdicts(policy_id: str, claims: list[Claim], sources: AuditSources) ->
 
 def _route(claim: Claim, sources: AuditSources) -> AuditResult | Claim:
     """A code-only result, or the claim (with its policy) for the audit LLM."""
-    if claim.slide_number == 2 or claim.claim_type == ClaimType.MARSH_STATEMENT:
-        result = _audit_marsh(claim, sources)
-        if result is not None:
-            return result
+    if (result := _audit_slide2_type(claim)) is not None:
+        return result
+    if claim.claim_type == ClaimType.MARSH_STATEMENT:
+        return claim  # audited against the Marsh profile's capability records (document "MARSH")
+    if claim.claim_type == ClaimType.NON_FACTUAL and claim.basis_fact_ids:
+        return _audit_link(claim, sources)
     if claim.claim_type == ClaimType.NON_FACTUAL:
         routed = _audit_non_factual(claim, sources)
         if isinstance(routed, AuditResult):
@@ -1099,7 +1143,7 @@ def audit_claims(claims: list[Claim], sources: AuditSources) -> dict[str, AuditR
             results[claim.claim_id] = hit
             sources.cache_hits += 1
         else:
-            batches.setdefault(routed.policy_id, []).append(routed)
+            batches.setdefault(audit_document(routed), []).append(routed)
     for policy_id, batch in batches.items():
         try:
             verdicts = _llm_verdicts(policy_id, batch, sources)
@@ -1110,7 +1154,8 @@ def audit_claims(claims: list[Claim], sources: AuditSources) -> dict[str, AuditR
         for claim in batch:
             verdict = verdicts.get(claim.claim_id)
             if verdict is not None:
-                results[claim.claim_id] = _check_policy_claim(claim, verdict, sources)
+                check = _check_marsh_claim if policy_id == MARSH_DOCUMENT else _check_policy_claim
+                results[claim.claim_id] = check(claim, verdict, sources)
                 if cache is not None:
                     cache.put(keys[claim.claim_id], results[claim.claim_id])
             else:

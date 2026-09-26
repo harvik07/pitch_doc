@@ -231,3 +231,67 @@ def pitch_run(ctx: RunContext) -> RunContext:
     generate_pitch(ctx)
     save_run_context(ctx)
     return ctx
+
+
+# --- Advisor edits and targeted refresh of a frozen run ---------------------------------------------------------------
+
+
+def edit_claim(ctx: RunContext, claim_id: str, text: str, note: str) -> None:
+    """An advisor edit (CLAUDE.md section 6 step 12): the claim gets the new text and becomes DIRTY (re-audited by the
+    next audit, never rewritten by the targeted repair). Logged and recorded in advisor_actions."""
+    from datetime import datetime
+
+    from marsh.models import AdvisorActionRecord, AdvisorActionType, ClaimState
+
+    claim = ctx.deck.get_claim(claim_id)
+    before = claim.text
+    claim.text = text
+    claim.state = ClaimState.DIRTY
+    claim.metadata = {**claim.metadata, "advisor_edited": "true"}
+    ctx.advisor_actions.append(AdvisorActionRecord(timestamp=datetime.now().astimezone(),
+                                                   action=AdvisorActionType.CLAIM_EDITED, target_id=claim_id, note=note))
+    log_decision(ctx.run_id, "claim_edited", {"claim_id": claim_id, "before": before, "after": text, "note": note},
+                 actor="advisor")
+
+
+def migrate_deck_labels(ctx: RunContext) -> list[str]:
+    """A deck made before the "*" marker and the provenance rule: company claims get "*" instead of "(Assumption)",
+    and a slide-1 bullet mixing web-sourced and assumed facts is split (pitch.split_by_provenance). Logged."""
+    from marsh.models import SLIDE1_MAX_BULLETS
+    from marsh.pitch import ASSUMPTION_MARKER, LEGACY_ASSUMPTION_LABEL, split_by_provenance
+
+    changes: list[str] = []
+    for claim in ctx.deck.all_claims():
+        if claim.policy_id is None and claim.basis_fact_ids and claim.text.rstrip().endswith(
+                LEGACY_ASSUMPTION_LABEL.strip()):
+            before = claim.text
+            claim.text = claim.text.rstrip().removesuffix(LEGACY_ASSUMPTION_LABEL.strip()).rstrip() + ASSUMPTION_MARKER
+            changes.append(f"{claim.claim_id}: {before!r} → {claim.text!r}")
+    facts = {f.fact_id: f for f in ctx.company_profile.facts}
+    slide1 = ctx.deck.slides[0]
+    notes: list[str] = []
+    highest = max(int(c.claim_id[3:]) for c in ctx.deck.all_claims() if c.claim_id[3:].isdigit())
+    split = split_by_provenance(list(slide1.bullets), facts, SLIDE1_MAX_BULLETS, notes)
+    old_ids = {c.claim_id for c in slide1.bullets}
+    for claim in split:
+        if claim.claim_id == "CL-000" or claim.claim_id not in old_ids:
+            highest += 1
+            claim.claim_id = f"CL-{highest:03d}"
+    if notes:
+        slide1.bullets[:] = split
+        changes += notes
+    if changes:
+        log_decision(ctx.run_id, "deck_labels_migrated", {"changes": changes})
+    return changes
+
+
+def refresh_run(ctx: RunContext, *, regenerate_slide2: bool = True) -> RunContext:
+    """Bring a frozen run's deck to the current layout without regenerating it: label migration, slide 2 only
+    regenerated (optional), then the audit (the audit cache re-uses every unchanged claim) and the targeted repair."""
+    from marsh import pitch
+
+    migrate_deck_labels(ctx)
+    if regenerate_slide2:
+        pitch.regenerate_slide2(ctx)
+    save_run_context(ctx)
+    return audit_run(ctx)

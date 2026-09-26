@@ -11,7 +11,7 @@ from marsh.company import CompanyNameError, generate_company_profile
 from marsh.audit import audit_pitch_content
 from marsh.models import AuditReport, CompanyProfile, PitchDeck, RunContext
 from marsh.pipeline import pitch_run, prepare_run, resolve_policy_docs, select_run
-from marsh.pitch import load_marsh_claims
+from marsh.marsh_profile import load_profile
 from marsh.run_context import new_run_id
 from marsh.validation import validate_company_name
 
@@ -34,7 +34,7 @@ def generateMarketingPitch(company_name: str | None = None, policy_docs: Any = N
     and selection are used (a selection is made first if the run has none). Otherwise the upstream steps run:
     profile → exposures → evidence → coverage cells → LLM policy selection. Invalid inputs raise CompanyNameError /
     pipeline.PolicyDocsError before any LLM call; a missing marsh_profile.md raises pitch.MarshProfileError."""
-    load_marsh_claims()  # fail before any LLM call
+    load_profile()  # a missing Marsh profile fails before any LLM call
     if run_context is None:
         check = validate_company_name(company_name)
         if not check.ok:

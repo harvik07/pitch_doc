@@ -1,7 +1,7 @@
 """A hand-built, approved (audited, clean) run for the gate and renderer tests.
 
 Policy facts are CLAUDE.md section 2 golden facts (Niva air ambulance, shared accommodation); the Marsh claims are
-the approved WM claims of marsh_profile.md.
+documented Marsh capabilities quoted verbatim from marsh_profile.md (MS-021, MS-011).
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from marsh.models import (
     PolicySelection,
     RecommendedPolicyBlock,
 )
-from marsh.pitch import load_marsh_claims
+from marsh.marsh_profile import load_profile
 from marsh.run_context import new_run_context
 
 RUN = "RUN-20260926-000000-0009"
@@ -61,48 +61,49 @@ def result(c: Claim, status=AuditStatus.VERIFIED, evidence=("EV-NIVA-2-015",), *
 
 
 def approved_run():
-    """A RunContext with a 5-slide deck, every claim audited and passing (gate: PASS)."""
-    wm = load_marsh_claims()
-    s1 = [claim(1, 1, "Placeholder industry services company. (Assumption)", ClaimType.ASSUMPTION, None,
+    """A RunContext with a 4-slide deck, every claim audited and passing (gate: PASS)."""
+    profile = load_profile()
+    s1 = [claim(1, 1, "Placeholder industry services company.*", ClaimType.ASSUMPTION, None,
                 basis_fact_ids=["CF-001"], material=False),
-          claim(2, 1, "A very large enterprise. (Assumption)", ClaimType.ASSUMPTION, None, basis_fact_ids=["CF-002"],
+          claim(2, 1, "A very large enterprise.*", ClaimType.ASSUMPTION, None, basis_fact_ids=["CF-002"],
                 material=False)]
-    s2 = [claim(3 + i, 2, w["text"], ClaimType.MARSH_STATEMENT, None, material=False,
-                metadata={"wm_id": w["wm_id"], "based_on": w["based_on"], "condition": w["condition"]})
-          for i, w in enumerate(wm[:4])]
+    s2 = [claim(3, 2, "A risk partner aligned to your workforce", ClaimType.NON_FACTUAL, None, material=False,
+                metadata={"role": "headline"})]
+    for n, ms_id in enumerate(("MS-021", "MS-011"), start=1):  # facts verbatim from marsh_profile.md
+        record = profile.record(ms_id)
+        s2.append(claim(2 + 2 * n, 2, record.fact, ClaimType.MARSH_STATEMENT, None,
+                        metadata={"marsh_claim_id": ms_id, "source_id": record.source_id, "point": str(n)}))
+        s2.append(claim(3 + 2 * n, 2, "Its placeholder industry makes this relevant.", ClaimType.NON_FACTUAL, None,
+                        material=False, basis_fact_ids=["CF-001"], metadata={"link_of": ms_id, "point": str(n)}))
     row = BenefitRow(exposure_id="EXP-AMB-AIR", exposure_name="Air ambulance",
-                     benefit=claim(7, 3, AIR, ClaimType.POLICY_BENEFIT, metadata={"match_id": "MATCH-NIVA-AMB-AIR"}),
+                     benefit=claim(8, 3, AIR, ClaimType.POLICY_BENEFIT, metadata={"match_id": "MATCH-NIVA-AMB-AIR"}),
                      source=f"{NIVA}, p. 2")
-    reason = claim(8, 4, AIR, ClaimType.POLICY_BENEFIT, metadata={"selection_claim": "SC-1"})
-    framing = claim(9, 4, "Frequent international travel makes this relevant. (Assumption)", ClaimType.ASSUMPTION,
+    reason = claim(9, 4, AIR, ClaimType.POLICY_BENEFIT, metadata={"selection_claim": "SC-1"})
+    framing = claim(10, 4, "Frequent international travel makes this relevant.*", ClaimType.ASSUMPTION,
                     None, basis_fact_ids=["CF-005"], material=False, metadata={"framing_of": "SC-1"})
-    supporting = claim(10, 4, "Road ambulance is covered up to the sum insured.", ClaimType.POLICY_BENEFIT)
-    limitation = claim(11, 4, SHARED, ClaimType.POLICY_LIMIT, qualifier_text=SHARED_QUALIFIER)
-    s5 = [claim(12, 5, "Assumed base sum insured: ₹10,00,000 (Assumption)", ClaimType.ASSUMPTION, None,
-                material=False),
-          claim(13, 5, "Company details marked (Assumption) are not verified against a web source.",
-                ClaimType.NON_FACTUAL, None, material=False)]
+    supporting = claim(11, 4, "Road ambulance is covered up to the sum insured.", ClaimType.POLICY_BENEFIT)
+    limitation = claim(12, 4, SHARED, ClaimType.POLICY_LIMIT, qualifier_text=SHARED_QUALIFIER)
     slides = [
         PitchSlide(slide_number=1, title=SLIDE_TITLES[0], bullets=s1),
         PitchSlide(slide_number=2, title=SLIDE_TITLES[1], bullets=s2),
         PitchSlide(slide_number=3, title=SLIDE_TITLES[2], table_rows=[row]),
         PitchSlide(slide_number=4, title=SLIDE_TITLES[3], bullets=[reason, framing], supporting_benefits=[supporting],
                    key_limitations=[limitation]),
-        PitchSlide(slide_number=5, title=SLIDE_TITLES[4], bullets=s5, footnotes=["Air ambulance: per hospitalisation"]),
     ]
     deck = PitchDeck(run_id=RUN, company_name="Example Co", slides=slides,
                      recommended=RecommendedPolicyBlock(policy_id="POL-NIVA", policy_name=NIVA, variant="Titanium+",
-                                                        decided_by="LLM"),
-                     sources=[f"{NIVA} — Niva Bupa Product Brochure.pdf, p. 2",
-                              "Marsh: data/marsh/marsh_profile.md (from docs/Marsh_Internship_Case_Study.pdf)"])
+                                                        decided_by="LLM", assumed_sum_insured=1_000_000),
+                     sources=[f"{NIVA} Product Brochure, p. 2"])
     results = [result(c, AuditStatus.LABELLED_ASSUMPTION, (), supporting_fact_ids=c.basis_fact_ids) for c in s1]
-    results += [result(c, evidence=("EV-MARSH-4-001",)) for c in s2]
+    results += [result(s2[0], AuditStatus.NON_FACTUAL, ())]
+    results += [result(c, evidence=("EV-MARSH-2-011" if c.metadata["marsh_claim_id"] == "MS-021" else "EV-MARSH-2-001",))
+                if c.claim_type == ClaimType.MARSH_STATEMENT else
+                result(c, AuditStatus.NON_FACTUAL, (), supporting_fact_ids=["CF-001"]) for c in s2[1:]]
     results += [result(row.benefit), result(reason), result(framing, AuditStatus.LABELLED_ASSUMPTION, (),
                                                                   supporting_fact_ids=["CF-005"]),
                 result(supporting, evidence=("EV-NIVA-2-014",)),
                 result(limitation, AuditStatus.VERIFIED_WITH_QUALIFIER, ("EV-NIVA-2-031",),
-                       required_qualifier=SHARED_QUALIFIER),
-                result(s5[0], AuditStatus.LABELLED_ASSUMPTION, ()), result(s5[1], AuditStatus.NON_FACTUAL, ())]
+                       required_qualifier=SHARED_QUALIFIER)]
     report = AuditReport(run_id=RUN, results=results, summary=AuditSummary(overall_flag=OverallFlag.PASS))
     selection = PolicySelection(selection_id="SEL-001", compared_policy_ids=["POL-NIVA"], selected_policy_id="POL-NIVA",
                                 selected_variant="Titanium+", confidence="medium", relevant_exposure_ids=["EXP-AMB-AIR"])

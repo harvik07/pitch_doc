@@ -25,7 +25,7 @@ Rules:
 - Name no other product. Never compare premiums. No "guaranteed", "always" or "unlimited" unless the evidence
   uses that word.
 - For a company sentence: no exact headcount or revenue figure (use a band such as "over 200,000"), and keep any
-  "(Assumption)" label.
+  "*" assumption marker at the end.
 - One sentence, at most {{max_chars}} characters.
 
 Return JSON only, matching the schema.

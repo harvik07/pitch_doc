@@ -131,7 +131,8 @@ src/marsh/
   exposures.py                 closed-taxonomy exposure identification
   matching.py                  exposure × policy coverage matrix + validation
   selection.py                 LLM policy selection + deterministic selection validation
-  pitch.py                     structured pitch generation
+  pitch.py                     structured pitch generation (slide 2: generate_why_marsh)
+  marsh_profile.py             parse marsh_profile.md: MARSH_STATEMENT records, sources + conditions, evidence items
   audit.py                     independent claim audit + summary
   repair.py                    targeted repair (max 2 attempts/claim)
   gate.py                      final deterministic gate
@@ -143,9 +144,10 @@ prompts/                       one .md file per LLM prompt (no prompts hard-code
 config/exposure_taxonomy.yaml  closed exposure list
 data/policies/                 the 4 brochures
 data/marsh/marsh_profile.md    Marsh description supplied by the user (ONLY source for "Why Marsh")
+assets/brand/marsh_logo.png    the official Marsh logo (supplied by the user; never a text or drawn logo)
 data/cache/                    evidence JSON by sha256; web/<company>.json web search results
 data/evidence_overrides.yaml   manual corrections to annotations
-scripts/                       extract_policies.py, dump_evidence.py, run_pipeline.py, eval_audit.py
+scripts/                       extract_policies.py, dump_evidence.py, run_pipeline.py, eval_audit.py, refresh_deck.py
 tests/
 outputs/<run_id>/              pitch.pptx, audit_report.json, audit_report.md, decision_log.jsonl, run_context.json, llm_calls.jsonl
 deliverables/                  final sample deck, audit report, write-up
@@ -160,7 +162,7 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`
 
 **CompanyFact**: `fact_id, field (industry|size|headcount_band|geography|workforce_profile|business_risk|other), value, status (WEB_SOURCED | MODEL_KNOWLEDGE | ASSUMPTION), confidence (low|medium|high), rationale, source_ids (WEB-), quotes`
 - `WEB_SOURCED` is set by code, never trusted from the LLM: the fact cites fetched web sources, every quote (≥ 4 words) is a normalised substring of a cited source's text (`grounding.quote_in_evidence`), and every number in the value is in its quotes (a lower-bound band such as "over 300,000" / "300,000+" may round a larger quoted figure down). A fact that fails → `MODEL_KNOWLEDGE` for a recognised company, `ASSUMPTION` otherwise. Without web search: `MODEL_KNOWLEDGE` for a recognised company; `ASSUMPTION` when reliable information is unavailable.
-- **Users see two labels only** (`models.fact_display_label`): a verified `WEB_SOURCED` fact is **"Web-sourced"**; `MODEL_KNOWLEDGE` and `ASSUMPTION` are both **"Assumption"**. The words `MODEL_KNOWLEDGE` and "Unverified" never appear in the UI, the deck or the audit report; raw statuses stay in internal files (`run_context.json`, `decision_log.jsonl`, `llm_calls.jsonl`). Internally, `Exposure.assumption_based` and the gate still count only `ASSUMPTION` facts as assumptions.
+- **Users see two kinds only.** On a slide: a verified `WEB_SOURCED` fact is shown plain, with its web page as a source footnote on that slide; a `MODEL_KNOWLEDGE` or `ASSUMPTION` fact gets an asterisk right after the value ("*", `pitch.ASSUMPTION_MARKER`) and the slide gets the legend "* Assumption" (one) or "* Assumptions are marked with an asterisk" (several). In the UI and the audit report (`models.fact_display_label`): **"Web-sourced"** or **"Assumption"**. The words `MODEL_KNOWLEDGE` and "Unverified" never appear in the UI, the deck or the audit report; raw statuses stay in internal files (`run_context.json`, `decision_log.jsonl`, `llm_calls.jsonl`) and in the claim data (`qualifier_text`, `basis_fact_ids`). Internally, `Exposure.assumption_based` and the gate still count only `ASSUMPTION` facts as assumptions.
 
 **WebSource**: `source_id (WEB-###), url, title, retrieved_at, content (page text as Tavily returned it, truncated to settings.WEB_SOURCE_MAX_CHARS)`. Page text is untrusted data: prompts say so, and only code decides what it supports.
 
@@ -187,7 +189,8 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`
 - `reason_claims`: the LLM's atomic statements (kind REASON | LIMITATION | CONDITION), each about ONE policy with its evidence IDs and verbatim quotes, and the errors of its pre-pitch check. `reason`, `important_limitations`, `important_conditions`, `supporting_evidence_ids` and `supporting_quotes` are derived from them.
 - `reason`, `important_limitations` and `important_conditions` are LLM text: they reach the deck only as audited `Claim` objects (section 9).
 
-**Claim**: `claim_id, slide_number, text, claim_type, policy_id (nullable), cited_evidence_ids (generator's citation — logged, never trusted), basis_fact_ids, material: bool, qualifier_text (nullable: the "Web-sourced" label of a company fact resting only on WEB_SOURCED facts; on a VERIFIED_WITH_QUALIFIER policy claim, the audit's required qualifier, rendered as a footnote on its slide), state (DRAFT|DIRTY|AUDITED|REMOVED), metadata (e.g. a WM claim's wm_id + condition for the gate; a slide-4 claim's source selection claim)`
+**Claim**: `claim_id, slide_number, text, claim_type, policy_id (nullable), cited_evidence_ids (generator's citation — logged, never trusted), basis_fact_ids, material: bool, qualifier_text (nullable: "Web-sourced" on a company claim resting only on WEB_SOURCED facts — internal provenance, never shown as text; on a VERIFIED_WITH_QUALIFIER policy claim, the audit's required qualifier, rendered as a numbered footnote on its slide), state (DRAFT|DIRTY|AUDITED|REMOVED), metadata (e.g. a slide-2 Marsh statement's marsh_claim_id + source_id, a slide-2 link line's link_of, the headline's role; a slide-4 claim's source selection claim; advisor_edited)`
+- A company claim that isn't web-sourced ends with the "*" marker in its text. **One claim never mixes provenance**: a slide-1 bullet resting on web-sourced and assumed facts is split into one bullet per fact (`pitch.split_by_provenance`, logged).
 - `claim_type ∈ {POLICY_FACT, POLICY_BENEFIT, POLICY_LIMIT, POLICY_PRICING, POLICY_CONDITION, POLICY_EXCLUSION, COMPANY_FACT, MARSH_STATEMENT, ASSUMPTION, NON_FACTUAL}`
 
 **AuditResult**: `audit_id, claim_id, status, supporting_evidence_ids, quotes, number_check (PASS|FAIL|NA + details), quote_check (PASS|FAIL|NA), required_qualifier (nullable), explanation, repair_attempts, advisor_action (None|APPROVED|EDITED|REMOVED|ATTESTED), advisor_note, llm_status (the audit LLM's verdict before the deterministic checks), checks (one record per deterministic check), supporting_fact_ids (company claims), repair_history`
@@ -196,7 +199,7 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`
 **AuditReport**: `run_id, results: list[AuditResult], summary: {counts per status, confidence_score, overall_flag (PASS|REVIEW_REQUIRED|FAIL), gate_failures, review_items}`
 - `confidence_score = (VERIFIED + VERIFIED_WITH_QUALIFIER) / (all factual claims excluding NON_FACTUAL and LABELLED_ASSUMPTION)`, rounded to 2 dp. Show it as a percentage.
 
-**PitchSlide / PitchDeck**: fixed 5 slides (section 9). Bullets are `Claim` objects: **one bullet = one claim**. There's no free text on slides outside claims, except fixed template labels and code-generated fields.
+**PitchSlide / PitchDeck**: fixed 4 slides (section 9); a deck saved with the old slide 5 loads as 4 slides. `RecommendedPolicyBlock.assumed_sum_insured` is shown on slide 4. Bullets are `Claim` objects: **one bullet = one claim**. There's no free text on slides outside claims, except fixed template labels and code-generated fields.
 
 **RunContext**: `run_id, created_at, company_name, assumed_sum_insured, company_profile, selected_documents, evidence_index_paths, exposures, matches, selection, deck, audit_report, advisor_actions, final_status`
 
@@ -206,13 +209,13 @@ All IDs are strings with prefixes: `CF-`, `EV-`, `EXP-`, `MATCH-`, `SEL-`, `CL-`
 
 1. **Validate inputs** — company name non-empty (trimmed, 2–120 chars); ≥1 document; each file must be a PDF, non-empty, not corrupt, not encrypted, ≤ 25 MB. Duplicates are detected by SHA-256 and reuse the cached extraction.
 2. **Company profile** — `generateCompanyProfile`. Web search first (`web_search.py`, Tavily; a few fixed queries; cached), then one LLM call with the sources, then the deterministic source / quote check (section 5). Returns industry, size, key business risks, and facts with status. If the model doesn't know the company, return `ASSUMPTION` facts with low confidence (only verified `WEB_SOURCED` facts keep their status). Never refuse, never invent specific numbers (revenue, headcount) presented as fact. Generated once per run (or loaded from a frozen profile) and stored in the RunContext.
-3. **Exposure identification** — the LLM selects **only** from `config/exposure_taxonomy.yaml` (closed list of employee-health exposures). Business risks stay on slide 1 only. Every exposure needs ≥1 valid `basis_fact_id`. Code rejects unknown exposure IDs and unknown fact IDs.
+3. **Exposure identification** — the LLM selects **only** from `config/exposure_taxonomy.yaml` (closed list of employee-health exposures). Business risks stay on slide 1 (and may ground slide 2's "why it matters" lines); they never frame a policy claim. Every exposure needs ≥1 valid `basis_fact_id`. Code rejects unknown exposure IDs and unknown fact IDs.
 4. **Evidence for the selected/uploaded policies** — Docling with OCR → EvidenceItems → annotation (tier, variant, SI condition, footnote links) → apply `data/evidence_overrides.yaml` → cache. Pre-extract the 4 bundled brochures via `scripts/extract_policies.py`. Uploads are extracted live. Only the policies the user selected or uploaded go further.
 5. **Coverage matrix (evidence input)** — build the coverage matrix `policy × taxonomy exposure` **once per (policy sha256, assumed_sum_insured)** and cache it. It's company-independent; the company only selects which rows matter. One LLM call per policy with that policy's full evidence set (small docs) and the whole taxonomy. The LLM must return verbatim `quotes`.
 6. **Match validation (deterministic)** — every cited evidence ID exists and belongs to that policy; every quote is a normalised substring of a cited evidence item's text; `EXCLUDED` requires exclusion evidence; `COVERED_*` requires benefit evidence; `COVERED_VIA_ADDON` requires evidence with `benefit_tier` `ADDON` or `OPTIONAL`, else downgrade; it must also carry an `ADDON_REQUIRED` or `OPTIONAL_EXTRA_PREMIUM` limitation (else a validation error). `FULLY_COVERED` with any material limitation → downgraded to `COVERED_WITH_LIMITATIONS` (logged). `COVERED_WITH_LIMITATIONS` with zero limitations from the LLM → validation error. An `OTHER_CONDITION` needs its own verbatim quote and can't be a benefit-defining window; otherwise it's dropped (and a cell whose limitations were all dropped this way becomes `FULLY_COVERED`). Failed cells get **one** repair retry with the validation errors fed back; a cell still failing becomes `NOT_STATED` with `validated=False` and the errors are logged. Only validated matches are given to the policy selection.
 7. **LLM policy selection** — section 7. Exactly one of the compared policies, with cited evidence and verbatim quotes.
 8. **Selection validation (deterministic)** — section 7. One repair retry with the errors fed back; errors still unresolved go to the advisor and the gate.
-9. **Pitch generation** — `generateMarketingPitch` → structured `PitchDeck`. Code injects slide 4's policy name, variant and required add-ons from `PolicySelection`; the selection reason becomes Claim objects (section 9). The LLM can't change the injected fields.
+9. **Pitch generation** — `generateMarketingPitch` → structured `PitchDeck`. Slide 2 is its own LLM call (`prompts/generate_why_marsh.md`, section 9) over the documented capabilities of `marsh_profile.md`, checked by code, one retry, then invalid points are dropped. Code injects slide 4's policy name, variant and required add-ons from `PolicySelection`; the selection reason becomes Claim objects (section 9). The LLM can't change the injected fields.
 10. **Independent audit** — `auditPitchContent` (section 8).
 11. **Targeted repair** — only failing claims, max 2 attempts each, can't touch other claims, slide structure or the selected policy. When the repair fails: remove the claim if `material=False`; a material claim keeps its audit status and gets a "repair failed" review item — CONTRADICTED must still be edited or removed (acknowledgement is never enough), UNSUPPORTED edited or attested with a written justification.
 12. **Advisor review** — approve / edit / remove / attest per claim; override the selected policy (with a logged reason); approve / reject the deck. An edited claim becomes `DIRTY` and is re-audited automatically.
@@ -279,9 +282,9 @@ No weighted scores and no rule-based ranking: code never counts coverage to pick
 
 Per claim:
 1. `NON_FACTUAL` → NON_FACTUAL (still checked: if it contains a number or policy name, reclassify it as factual).
-2. Company claims resting on any `MODEL_KNOWLEDGE` or `ASSUMPTION` fact are `ASSUMPTION` claims → LABELLED_ASSUMPTION, only if the slide renders the "(Assumption)" label. Otherwise NEEDS_REVIEW.
+2. Company claims resting on any `MODEL_KNOWLEDGE` or `ASSUMPTION` fact, and run assumptions (the assumed sum insured), are `ASSUMPTION` claims → LABELLED_ASSUMPTION, only if the claim carries the "*" marker (the renderer then puts the legend on that slide, and structural QA fails a "*" without a legend). Otherwise NEEDS_REVIEW. Web-sourced claims never carry "*".
 3. `COMPANY_FACT` (every basis fact `WEB_SOURCED`, `qualifier_text="Web-sourced"`) → must map to a `basis_fact_id` in the profile, and the source / quote check (section 5) is re-run against `CompanyProfile.sources` — the stored status is not trusted; a failure, or a "Web-sourced" label on a fact that isn't `WEB_SOURCED` → NEEDS_REVIEW. VERIFIED means "consistent with the web-sourced facts". If there's no mapping → UNSUPPORTED. Its numbers must be in those facts' values; a precise headcount or revenue figure → NEEDS_REVIEW (a band such as "200,000+" is fine). Deterministic, no LLM.
-4. `MARSH_STATEMENT` → audited against `data/marsh/marsh_profile.md` only (chunked into evidence items with `document_id="MARSH"`). Insurer statistics must never appear on the Why Marsh slide (code check: slide 2 claims must be MARSH_STATEMENT or NON_FACTUAL).
+4. `MARSH_STATEMENT` → audited (audit LLM, then deterministic checks) against the `MARSH_STATEMENT` records of `data/marsh/marsh_profile.md` only (`marsh_profile.marsh_evidence()`: one evidence item per record, `document_id="MARSH"`, `EV-MARSH-2-nnn`; `CONTEXT_ONLY` records are never evidence). The generator's `marsh_claim_id` isn't used: the auditor finds the record. Checks: only Marsh records support it (else UNSUPPORTED), verbatim quote (else NEEDS_REVIEW), numbers, no insurer product, absolute language, and the words its source's condition says to keep (e.g. "generally") (else NEEDS_REVIEW). Slide 2 may use any documented capability. Insurer statistics must never appear on the Why Marsh slide (code check: slide 2 claims must be MARSH_STATEMENT or NON_FACTUAL). Slide 2's headline is NON_FACTUAL (a number in it → NEEDS_REVIEW); each "why it matters" line is NON_FACTUAL with `basis_fact_ids`: its facts must exist, its numbers must be theirs and it names no product (else NEEDS_REVIEW) — it is never a Marsh fact.
 5. Policy claims → candidate evidence = the **full evidence set of the claimed policy** if it's under `settings.FULL_CONTEXT_TOKEN_LIMIT` (all 4 brochures are), otherwise keyword retrieval over the section/row labels and text. The audit LLM returns status, supporting evidence IDs, verbatim quotes and required qualifier. Then **deterministic checks override the LLM**:
    - quote check: each quote is a normalised substring of its evidence text, else downgrade VERIFIED → NEEDS_REVIEW
    - evidence IDs belong to the claimed policy, else UNSUPPORTED (another policy's evidence can't support the claim)
@@ -298,30 +301,38 @@ Per claim:
 
 ---
 
-## 9. Deck structure (fixed, 5 slides, rendered by code)
+## 9. Deck structure (fixed, 4 slides, rendered by code)
 
 | # | Title | Content | Limits |
 |---|---|---|---|
-| 1 | Company Overview | company name; industry; size; key business risks; relevant employee-health exposures; each company fact labelled "Web-sourced" or "(Assumption)" | ≤ 6 bullets, ≤ 140 chars each |
-| 2 | Why Choose Marsh | 3–4 points from `marsh_profile.md` only | ≤ 4 bullets |
+| 1 | Company Overview | company name; industry; size; key business risks; the employee-health exposures considered (assumption-based ones "*"); one fact per bullet, never mixing provenance: web-sourced facts plain with their web source footnoted, model-knowledge / assumed facts "*" | ≤ 6 bullets, ≤ 140 chars each |
+| 2 | Why Choose Marsh | a short headline value proposition (NON_FACTUAL), then 3–4 points: each a documented Marsh capability from `marsh_profile.md` (MARSH_STATEMENT, audited, its source footnoted) + why it matters to this client (NON_FACTUAL link line with `basis_fact_ids`, tied to the client's risks / exposures, never a new Marsh fact). No invented selling points: if the profile has too little, the slide says less (the shortfall is logged) rather than padding | headline + ≤ 4 points (≤ 9 claims) |
 | 3 | Policy Benefits Mapped to Exposures | table: Exposure → Benefit → Condition/Limitation → Source (doc, page); the Source column is filled by code from evidence | ≤ 6 rows |
-| 4 | Recommended Policy | exactly one policy name + variant + required add-ons (code-injected from `PolicySelection`); the selection's REASON / CONDITION / LIMITATION claims as Claim objects (split into policy fact + complete-sentence company framing; audited like every claim, never injected unaudited); ≤ 3 supporting benefits (LLM, audited); key limitations = the selection's LIMITATION claims, topped up to 2 from the selected policy's cell limitations by code (the pitch LLM adds none) | exactly one policy; ≤ 8 reason / condition bullets (REASON ≤ 5 + CONDITION ≤ 3), ≤ 11 company-framing bullets, ≤ 3 supporting benefits, ≤ 3 key limitations — equal to the selection caps, so no selection claim is cut (a cut is logged as a warning) |
-| 5 | Key Terms, Sources & Assumptions | qualifier footnotes; source list (incl. the web pages behind Web-sourced facts, with retrieval date); assumptions; disclaimer "Summary based on insurer brochures; the policy wording prevails in case of conflict." | — |
+| 4 | Recommended Policy | exactly one policy name (code-injected from `PolicySelection`), the variant only when the policy has variants, required add-ons only when there are some, and "Assumed sum insured: ₹…*"; how the policy was selected ("Selected by …") stays in the speaker notes and the run data; the selection's REASON / CONDITION / LIMITATION claims as Claim objects (split into policy fact + complete-sentence company framing; audited like every claim, never injected unaudited); ≤ 3 supporting benefits (LLM, audited); key limitations = the selection's LIMITATION claims, topped up to 2 from the selected policy's cell limitations by code (the pitch LLM adds none) | exactly one policy; ≤ 8 reason / condition bullets (REASON ≤ 5 + CONDITION ≤ 3), ≤ 11 company-framing bullets, ≤ 3 supporting benefits, ≤ 3 key limitations — equal to the selection caps, so no selection claim is cut (a cut is logged as a warning) |
 
-Speaker notes on each slide list `claim_id → evidence_id (doc, page)` for traceability.
+There is no slide 5. Each slide's small print (bottom, above the footer) carries only what that slide uses:
+- VERIFIED_WITH_QUALIFIER qualifiers as numbered footnotes ([1] …) on the claim's own slide;
+- the assumption legend when a value on the slide is marked "*";
+- its sources, client-facing and deduplicated per slide: policy "<display_name> Product Brochure, p. 2" / "…, pp. 4, 8, 11"; web "<clean page title> — <site> — Retrieved <date>" (each Tavily result keeps its own title, `web_search.clean_title`); Marsh: the record's source from `marsh_profile.md`, written client-facing ("<page title> — marsh.com — Retrieved <date>", with its condition where one applies);
+- on slides 3 and 4, the disclaimer "Summary based on insurer brochures; the policy wording prevails in case of conflict."
+Nothing internal is visible: no file paths, ".md", ".pdf", "data/", "LLM", "audited", "Selected by", "Variant: not specified", "(Assumption)", record / source / evidence ids or raw statuses (structural QA fails otherwise).
+
+Design (inspired by marsh.com, not copied): 16:9; white header with the navy (#002C77) title and the official logo (`assets/brand/marsh_logo.png`, aspect ratio kept, clear space) on the right; a thin accent line; Arial (renders ₹); generous whitespace; navy plus one accent colour; a footer with "Confidential" and the slide number. Every text box is sized to fit (fit-to-box estimate with the real Arial metrics) and structural QA re-measures overflow.
+
+Speaker notes on each slide list `claim_id → status → evidence_id (doc, page)` for traceability (slide 4's also say how the policy was selected).
 Colours, fonts, positions and slide count are constants in `render_ppt.py`. The LLM never controls layout.
 
 ---
 
 ## 10. Final gate (`gate.py`, deterministic)
 
-**FAIL (no export)** if any: a claim is CONTRADICTED (acknowledgement is never enough: edit or remove it); a material claim is UNSUPPORTED (not attested); a number check fails; a policy reference is wrong; a material policy statement is unmapped; the deck fails schema validation; a required section is missing; there is no policy selection; `selected_policy_id` is not in `compared_policy_ids`; the selection has unresolved validation errors (not overridden by the advisor); Why Marsh contains a non-Marsh claim; a claim is still DIRTY.
+**FAIL (no export)** if any: a claim is CONTRADICTED (acknowledgement is never enough: edit or remove it); a material claim is UNSUPPORTED (not attested); a number check fails; a policy reference is wrong; a material policy statement is unmapped; the deck fails schema validation; a required section is missing; there is no policy selection; `selected_policy_id` is not in `compared_policy_ids`; the selection has unresolved validation errors (not overridden by the advisor); Why Marsh contains a non-Marsh claim; a rendered Marsh statement isn't tied to a documented `MARSH_STATEMENT` record of `marsh_profile.md`, or drops a word its source's condition says to keep; slide 2 has no rendered Marsh statement; a claim is still DIRTY.
 
 **REVIEW_REQUIRED (export only after the advisor acknowledges each item)** if any: assumption-based exposures; ADVISOR_ATTESTED claims; selection `confidence=low`; the advisor overrode the selection; the selection relies on cells not available at the assumed SI (a relevant exposure of the selected policy that is covered by status but `available_at_assumed_si=False`); NEEDS_REVIEW claims; VERIFIED_WITH_QUALIFIER claims without a renderable qualifier (a VWQ claim whose required qualifier is stored on it and rendered on its slide as a footnote counts as passing); a claim whose targeted repair failed (it keeps its audit status; see section 6 step 11).
 
 **PASS** if there is no FAIL condition and no review item (a clean deck, VWQ claims with rendered qualifiers included).
 
-**Advisor attestation**: an advisor may attest an UNSUPPORTED claim (e.g. a fact from the full policy wording) with a written justification. It's logged and shown on slide 5 as "Advisor-attested". CONTRADICTED claims **cannot** be attested — they must be edited or removed.
+**Advisor attestation**: an advisor may attest an UNSUPPORTED claim (e.g. a fact from the full policy wording) with a written justification. It's logged and shown on its own slide as "(Advisor-attested)". CONTRADICTED claims **cannot** be attested — they must be edited or removed.
 
 **Reject**: requires a reason; closes the run with `final_status=REJECTED`; logged; offers "Regenerate with feedback".
 

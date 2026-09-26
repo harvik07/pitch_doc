@@ -11,10 +11,10 @@
   renderable qualifier; ADVISOR_ATTESTED claims; claims whose repair failed; non-material UNSUPPORTED claims; an
   advisor-overridden selection; selection confidence low; the selection relying on a cell not available at the
   assumed SI; assumption-based exposures.
-- WM claims (slide 2): each WM condition of marsh_profile.md is re-checked against this run's audit / gate state;
-  a WM claim whose condition isn't met is REMOVED (logged, metadata removed_by=gate) and restored by a later gate
-  run once its condition holds. WM-03 ("final gate status PASS, or REVIEW_REQUIRED with all items acknowledged")
-  uses the status computed without the WM claims.
+- Marsh statements (slide 2): each must name a documented capability of marsh_profile.md (metadata
+  marsh_claim_id; a CONTEXT_ONLY or unknown record → FAIL), and the conditions of its source still apply: words the
+  condition says to keep (e.g. MS-026's "generally") must be in the claim (FAIL otherwise). Slide 2 needs at least
+  one rendered Marsh statement.
 - Export is allowed only if PASS, or REVIEW_REQUIRED with every review item acknowledged in advisor_actions
   (REVIEW_ITEM_ACKNOWLEDGED, target_id = the item's id).
 """
@@ -34,6 +34,7 @@ from marsh.models import (
     AuditStatus,
     Claim,
     ClaimState,
+    ClaimType,
     Confidence,
     DecidedBy,
     GateItem,
@@ -42,7 +43,7 @@ from marsh.models import (
     PitchDeck,
     RunContext,
 )
-from marsh.pitch import load_marsh_claims
+from marsh.marsh_profile import MarshProfileError, load_profile, required_words
 from marsh.selection import unavailable_cells_relied_on
 
 NOT_RENDERED = {AuditStatus.UNSUPPORTED, AuditStatus.CONTRADICTED}
@@ -58,20 +59,6 @@ def is_rendered(claim: Claim, result: AuditResult | None) -> bool:
 def acknowledged(ctx: RunContext) -> set[str]:
     return {a.target_id for a in ctx.advisor_actions
             if a.action == AdvisorActionType.REVIEW_ITEM_ACKNOWLEDGED and a.target_id}
-
-
-def _wm_condition_met(condition: str, *, policy_claims_ok: bool, gate_ok: bool, audited: bool) -> bool | None:
-    """A WM condition (marsh_profile.md section 4) against the run's state; None = a condition the gate can't read."""
-    text = condition.lower()
-    if "always usable" in text:
-        return True
-    if "unsupported or contradicted" in text:
-        return policy_claims_ok
-    if "final gate status" in text:
-        return gate_ok
-    if "audit ran" in text:
-        return audited
-    return None
 
 
 def _selection_items(ctx: RunContext, fail, review) -> None:
@@ -128,50 +115,36 @@ def _missing_sections(ctx: RunContext, results: dict[str, AuditResult]) -> list[
     missing = []
     if not rendered(slides[1].bullets):
         missing.append(("SLIDE1:EMPTY", "slide 1 (Company Overview) has no rendered claim"))
-    if not rendered(slides[2].bullets):
-        missing.append(("SLIDE2:EMPTY", "slide 2 (Why Choose Marsh) has no rendered claim"))
+    if not rendered([c for c in slides[2].bullets if c.claim_type == ClaimType.MARSH_STATEMENT]):
+        missing.append(("SLIDE2:EMPTY", "slide 2 (Why Choose Marsh) has no rendered Marsh statement"))
     if not rendered([r.benefit for r in slides[3].table_rows]):
         missing.append(("SLIDE3:EMPTY", "slide 3 has no rendered benefit row"))
     if not rendered([c for c in slides[4].bullets if c.policy_id]):
         missing.append(("SLIDE4:EMPTY", "slide 4 has no rendered reason for the recommended policy"))
     if not ctx.deck.disclaimer.strip():
-        missing.append(("SLIDE5:DISCLAIMER", "slide 5 has no disclaimer"))
+        missing.append(("DECK:DISCLAIMER", "the deck has no disclaimer (slides 3 and 4)"))
     return missing
 
 
-def _check_wm_claims(ctx: RunContext, results: dict[str, AuditResult], status_without_wm: OverallFlag,
-                     reviews: list[GateItem]) -> list[str]:
-    """Re-check each WM claim's condition; REMOVE (logged) the ones not met, restore earlier gate removals."""
-    approved = {w["wm_id"]: w["condition"] for w in load_marsh_claims()}
-    claims = deck_claims(ctx.deck.slides)
-    live_policy = [c for c in claims if c.policy_id and c.state != ClaimState.REMOVED]
-    policy_claims_ok = all(results.get(c.claim_id) is not None and results[c.claim_id].status not in NOT_RENDERED
-                           for c in live_policy)
-    done = acknowledged(ctx)
-    gate_ok = status_without_wm == OverallFlag.PASS or (
-        status_without_wm == OverallFlag.REVIEW_REQUIRED and all(r.item_id in done for r in reviews))
-    audited = ctx.audit_report is not None and all(
-        c.claim_id in results for c in claims if c.state != ClaimState.REMOVED or c.metadata.get("removed_by") == "gate")
-    removed = []
+def _marsh_items(ctx: RunContext, results: dict[str, AuditResult], fail) -> None:
+    """Every rendered Marsh statement names a documented capability and keeps its source's conditions."""
+    try:
+        profile = load_profile()
+    except MarshProfileError as exc:
+        fail("MARSH:PROFILE", str(exc))
+        return
     for claim in ctx.deck.slides[1].bullets:
-        wm_id = claim.metadata.get("wm_id")
-        if not wm_id:
+        if claim.claim_type != ClaimType.MARSH_STATEMENT or not is_rendered(claim, results.get(claim.claim_id)):
             continue
-        if claim.state == ClaimState.REMOVED and claim.metadata.get("removed_by") == "gate":
-            claim.state = ClaimState.AUDITED  # re-evaluated below
-            claim.metadata = {k: v for k, v in claim.metadata.items() if k not in ("removed_by", "removed_reason")}
-        if claim.state == ClaimState.REMOVED:
+        record = profile.record(claim.metadata.get("marsh_claim_id", ""))
+        if record is None or record.claim_type != "MARSH_STATEMENT":
+            fail(f"{claim.claim_id}:MARSH_RECORD", f"{claim.claim_id} (slide 2) is not tied to a documented Marsh "
+                                                   f"capability of the Marsh profile")
             continue
-        condition = claim.metadata.get("condition") or approved.get(wm_id, "")
-        met = _wm_condition_met(condition, policy_claims_ok=policy_claims_ok, gate_ok=gate_ok, audited=audited)
-        if not met:
-            reason = f"condition not met: {condition}" if met is False else f"condition not understood: {condition}"
-            claim.state = ClaimState.REMOVED
-            claim.metadata = {**claim.metadata, "removed_by": "gate", "removed_reason": reason}
-            removed.append(claim.claim_id)
-            log_decision(ctx.run_id, "wm_claim_removed", {"claim_id": claim.claim_id, "wm_id": wm_id,
-                                                          "reason": reason})
-    return removed
+        for word in required_words(record, profile):
+            if not re.search(rf"\b{re.escape(word)}\b", claim.text, re.IGNORECASE):
+                fail(f"{claim.claim_id}:MARSH_CONDITION", f"{claim.claim_id} (slide 2) drops the word {word!r} its "
+                                                          f"source's condition says to keep")
 
 
 def run_gate(ctx: RunContext) -> GateResult:
@@ -189,7 +162,6 @@ def run_gate(ctx: RunContext) -> GateResult:
     assumed = [e.name for e in ctx.exposures if e.assumption_based]
     if assumed:
         review("EXPOSURES:ASSUMPTION_BASED", "exposures based only on assumptions: " + ", ".join(assumed))
-    removed: list[str] = []
     if ctx.deck is None:
         fail("DECK:MISSING", "there is no pitch deck")
     else:
@@ -208,15 +180,13 @@ def run_gate(ctx: RunContext) -> GateResult:
                 fail(item_id, message)
             for item_id, message in claim_reviews:
                 review(item_id, message)
-        status = OverallFlag.FAIL if failures else OverallFlag.REVIEW_REQUIRED if reviews else OverallFlag.PASS
-        removed = _check_wm_claims(ctx, results, status, reviews)
+        _marsh_items(ctx, results, fail)
         for item_id, message in _missing_sections(ctx, results):
             fail(item_id, message)
     status = OverallFlag.FAIL if failures else OverallFlag.REVIEW_REQUIRED if reviews else OverallFlag.PASS
     done = acknowledged(ctx)
     unacknowledged = [r.item_id for r in reviews if r.item_id not in done]
     result = GateResult(status=status, failures=failures, review_items=reviews, unacknowledged=unacknowledged,
-                        removed_wm_claims=removed,
                         export_allowed=status == OverallFlag.PASS or (
                             status == OverallFlag.REVIEW_REQUIRED and not unacknowledged))
     log_decision(ctx.run_id, "gate", result.model_dump(mode="json"))

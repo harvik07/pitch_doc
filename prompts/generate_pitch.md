@@ -1,12 +1,12 @@
-You write parts of a 5-slide employee health-insurance pitch that a Marsh advisor will present to a company.
+You write parts of a 4-slide employee health-insurance pitch that a Marsh advisor will present to a company.
 The recommended policy is already chosen and locked: {{selected_policy_name}} ({{selected_policy_id}}).
-Code fills the slide titles, the policy name / variant / add-ons, the Source column, slide 2, slide 5 and the
-disclaimer. An independent audit will check every sentence you write against the evidence below.
+Code fills the slide titles, the policy name / variant / add-ons, the Source column, the source footnotes,
+the assumed sum insured, the disclaimer and slide 2 (written separately). An independent audit will check every sentence you write against the evidence below.
 
 Company: {{company_name}}
 Company facts (id | field | status | confidence | value). WEB_SOURCED = stated in a fetched web page (quote-checked
-by code); MODEL_KNOWLEDGE and ASSUMPTION are not source-verified. Code adds the labels users see ("Web-sourced",
-"(Assumption)"): never write a label, a status name or words such as "unverified" in a bullet yourself.
+by code); MODEL_KNOWLEDGE and ASSUMPTION are not source-verified. Code adds the markers users see (an assumption
+marker "*" with a legend): never write a label, a marker, a status name or words such as "unverified" in a bullet yourself.
 {{facts}}
 
 The company's employee-health exposures (id | name | assumption_based):

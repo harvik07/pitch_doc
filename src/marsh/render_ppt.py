@@ -3,27 +3,33 @@
 `render(ctx)` runs the gate first (gate.run_gate) and refuses on FAIL; otherwise it builds outputs/<run_id>/pitch.pptx
 from the audited deck and runs `structural_qa` on the saved file.
 
-Template (all constants below; the LLM never controls layout): 16:9, a navy title bar (#002C77) with the fixed
-slide title in white, one accent colour, Arial (its glyph for ₹ was checked), footer "Prepared by Marsh |
-Confidential | <date>" and "n / 5", no logos.
+Template (all constants below; the LLM never controls layout), inspired by marsh.com without copying it: 16:9, a
+white header with the slide title in navy (#002C77) and the official Marsh logo (assets/brand/marsh_logo.png, aspect
+ratio kept, clear space around it) on the right, a thin accent line, Arial (its glyph for ₹ was checked), generous
+whitespace, and a footer with "Confidential" and the slide number. Four slides: Company Overview, Why Choose Marsh,
+Policy Benefits Mapped to Exposures, Recommended Policy.
 - Only claims whose state isn't REMOVED and whose audit status isn't UNSUPPORTED or CONTRADICTED are rendered
-  (ADVISOR_ATTESTED with its label). Company claims show the two user labels only (CLAUDE.md section 5):
-  "(Web-sourced)" or "(Assumption)".
-- A VERIFIED_WITH_QUALIFIER claim gets a numbered marker; its qualifier (Claim.qualifier_text) is a small footnote at
-  the bottom of that slide and is collected again on slide 5.
-- Slide 1: company name, company claims, the exposures considered (code). Slide 2: the WM claims. Slide 3: a real
-  table Exposure | Benefit | Condition / limitation | Source. Slide 4: the recommended policy block (code-injected
-  name, variant, add-ons, decided by), the reasons with their company framing as smaller sub-lines, and a column
-  of supporting benefits and key limitations. Slide 5: qualifiers and key terms, advisor-attested claims,
-  assumptions, sources, disclaimer.
+  (ADVISOR_ATTESTED with its label).
+- Each slide's small print (bottom, above the footer), only what the slide uses: numbered qualifier footnotes of its
+  VERIFIED_WITH_QUALIFIER claims ([1] …); the assumption legend when a value on it is marked "*" ("* Assumption" /
+  "* Assumptions are marked with an asterisk"); its sources, client-facing and deduplicated ("<product> Product
+  Brochure, pp. 4, 8, 11", "<page title> — <site> — Retrieved <date>" for web and Marsh pages); and on slides 3
+  and 4 the disclaimer. Web-sourced company facts carry no "*" and are footnoted with their pages.
+- Slide 1: company name, company claims, the employee-health exposures considered (assumption-based ones "*").
+  Slide 2: the headline, then the documented Marsh capabilities, each with why it matters to the client. Slide 3:
+  a table Exposure | Benefit | Condition / limitation | Source pages. Slide 4: the recommended policy (code-injected
+  name; the variant only when the policy has variants; required add-ons only when there are some; the assumed sum
+  insured "*"), the reasons with their company framing as smaller sub-lines, and a column of supporting benefits
+  and key limitations. How the policy was selected stays in the speaker notes and the run data.
 - Speaker notes on every slide: claim_id → status → evidence_id (document, page) for each claim of that slide.
 - Text never overflows: each box's font size is the largest that fits, estimated with the real Arial glyph widths
   (Pillow) and word wrapping; `structural_qa` re-measures every box with the same estimator.
 
-`structural_qa(path)`: 5 slides; titles in order; no "{{"; no backtick before a digit; no "Unverified" or raw fact
-status; bullet counts within the
-limits; exactly one policy named in slide 4's recommendation block; speaker notes on every slide; no text box or
-table overflowing its space; file > 10 KB. Raises RenderQAError listing every problem.
+`structural_qa(path)`: 4 slides; titles in order; the logo on the right of every slide; no "{{"; no backtick
+before a digit; nothing internal visible (".md", ".pdf", "data/", "LLM", "audited", "Selected by", "Variant: not
+specified", "(Assumption)", record / source ids, raw fact statuses); an assumption legend wherever a "*" marker is
+shown; bullet counts within the limits; exactly one policy named in slide 4's recommendation block; speaker notes on
+every slide; no text box or table overflowing its space; file > 10 KB. Raises RenderQAError listing every problem.
 """
 
 from __future__ import annotations
@@ -42,33 +48,37 @@ from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 
-from marsh.audit import marsh_evidence
+from marsh import settings
 from marsh.decision_log import log_decision
 from marsh.evidence_store import load_evidence, to_display
 from marsh.gate import is_rendered, run_gate
 from marsh.grounding import named_policies
+from marsh.marsh_profile import load_profile, marsh_evidence
+from marsh.marsh_profile import source_label as marsh_source_label
 from marsh.models import (
     SLIDE1_MAX_BULLETS,
-    SLIDE2_MAX_BULLETS,
     SLIDE3_MAX_ROWS,
     SLIDE4_MAX_KEY_LIMITATIONS,
     SLIDE4_MAX_POLICY_BULLETS,
     SLIDE4_MAX_SUPPORTING_BENEFITS,
+    SLIDE_COUNT,
     SLIDE_TITLES,
     WEB_SOURCED_LABEL,
     AuditResult,
     AuditStatus,
     Claim,
+    ClaimType,
     GateResult,
     OverallFlag,
     RunContext,
     save_json,
 )
-from marsh.pitch import ASSUMPTION_LABEL, NOT_SOURCE_VERIFIED_TEXT, NOT_STATED_TEXT, PITCH_FILE
+from marsh.pitch import ASSUMPTION_MARKER, NOT_STATED_TEXT, PITCH_FILE, policy_source_label, strip_assumption_label
 from marsh.run_context import run_dir, save_run_context
 
 PPTX_FILE = "pitch.pptx"
 MIN_FILE_BYTES = 10 * 1024
+LOGO_PATH = settings.ROOT / "assets" / "brand" / "marsh_logo.png"
 
 # --- Template constants ------------------------------------------------------------------------------------------
 SLIDE_W, SLIDE_H = 13.333, 7.5  # inches, 16:9
@@ -77,17 +87,32 @@ WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 ACCENT = RGBColor(0x00, 0x9D, 0xE0)
 TEXT = RGBColor(0x1E, 0x1E, 0x1E)
 GREY = RGBColor(0x5F, 0x63, 0x68)
-ROW_SHADE = RGBColor(0xEE, 0xF2, 0xF8)
+RULE = RGBColor(0xD9, 0xDE, 0xE6)
+ROW_SHADE = RGBColor(0xF1, 0xF4, 0xF9)
 FONT = "Arial"  # renders ₹ (U+20B9): its glyph differs from the missing-glyph box (checked with Pillow)
-MARGIN = 0.5
-TITLE_BAR_H = 0.95
-ACCENT_H = 0.06
-BODY_TOP = 1.25
+MARGIN = 0.6
+HEADER_H = 1.15  # white header: title left, logo right
+TITLE_PT = 28
+LOGO_H = 0.46  # the logo keeps its aspect ratio; its box sits inside the header with clear space
+ACCENT_Y = HEADER_H
+ACCENT_H = 0.035
+BODY_TOP = 1.45
 FOOTER_Y = 7.08
-BODY_BOTTOM = 6.95  # footnotes and body end above the footer
+SMALL_PRINT_BOTTOM = 6.98  # the small print ends above the footer
 INSET = 0.08  # text box margins
 LINE_SPACING = 1.2  # line height / font size (single spacing)
-FOOTNOTE_PT = 9
+SMALL_PT = 8.5
+LEGEND_ONE = "* Assumption"
+LEGEND_MANY = "* Assumptions are marked with an asterisk"
+DISCLAIMER_SLIDES = (3, 4)
+FORBIDDEN = [(re.compile(p, re.IGNORECASE if i else 0), label) for p, label, i in (
+    (r"\.md\b", ".md", 1), (r"\.pdf\b", ".pdf", 1), (r"\bdata/", "data/", 1), (r"\bLLM\b", "LLM", 0),
+    (r"\baudited\b", "audited", 1), (r"Selected by", "Selected by", 1), (r"Variant: not specified", "Variant: not "
+                                                                                                   "specified", 1),
+    (r"\(Assumption\)", "(Assumption)", 1), (r"\bMS-\d+", "a Marsh record id", 0), (r"\bSRC-\d+", "a source id", 0),
+    (r"\bWEB-\d+", "a web source id", 0), (r"\bEV-", "an evidence id", 0),
+    (r"MARSH_STATEMENT|NON_FACTUAL|MODEL_KNOWLEDGE|WEB_SOURCED", "an internal status", 0),
+    (r"\bunverified\b", "Unverified", 1))]
 
 
 class RenderQAError(RuntimeError):
@@ -276,6 +301,7 @@ class _Deck:
     ctx: RunContext
     results: dict[str, AuditResult]
     notes_lookup: dict[str, str] = field(default_factory=dict)
+    pages: dict[str, tuple[str, int]] = field(default_factory=dict)  # evidence_id -> (document name, page)
     footnotes: dict[str, int] = field(default_factory=dict)  # claim_id -> qualifier number
     qualifier_texts: list[str] = field(default_factory=list)
 
@@ -289,7 +315,8 @@ class _Deck:
     def marker(self, claim: Claim) -> str | None:
         """The claim's qualifier number (assigned in slide order), if it has a rendered qualifier."""
         result = self.results.get(claim.claim_id)
-        if not (result and result.status == AuditStatus.VERIFIED_WITH_QUALIFIER and claim.qualifier_text):
+        if not (result and result.status == AuditStatus.VERIFIED_WITH_QUALIFIER and claim.qualifier_text
+                and claim.claim_type not in (ClaimType.COMPANY_FACT, ClaimType.ASSUMPTION)):
             return None
         if claim.claim_id not in self.footnotes:
             text = to_display(claim.qualifier_text)
@@ -299,20 +326,19 @@ class _Deck:
         return str(self.footnotes[claim.claim_id])
 
 
-# Code-made fixed lines of decks generated before the two-label rule (CLAUDE.md section 5) → today's wording.
-LEGACY_FIXED_TEXT = {"Company details are AI-generated from model knowledge and unverified.": NOT_SOURCE_VERIFIED_TEXT}
+def is_company_claim(claim: Claim) -> bool:
+    return claim.policy_id is None and bool(claim.basis_fact_ids) and claim.claim_type in (
+        ClaimType.COMPANY_FACT, ClaimType.ASSUMPTION)
 
 
 def claim_text(claim: Claim, deck: _Deck) -> str:
-    """The claim as shown: ₹ display, and the user labels (company claims, advisor attestation)."""
-    text = to_display(claim.text)
-    if claim.claim_type.value == "NON_FACTUAL":
-        text = LEGACY_FIXED_TEXT.get(text, text)
-    if claim.policy_id is None and claim.slide_number in (1, 4) and claim.basis_fact_ids:
-        if claim.qualifier_text == WEB_SOURCED_LABEL:
-            text = text.removesuffix(ASSUMPTION_LABEL.strip()).rstrip() + f" ({WEB_SOURCED_LABEL})"
-        elif not text.rstrip().endswith(ASSUMPTION_LABEL.strip()):
-            text = text.rstrip() + ASSUMPTION_LABEL  # every other company claim is an Assumption to the user
+    """The claim as shown: ₹ display; a company fact that isn't web-sourced ends with the assumption marker "*";
+    an attested claim says so."""
+    text = to_display(claim.text).rstrip()
+    if is_company_claim(claim):
+        text = strip_assumption_label(text)
+        if claim.qualifier_text != WEB_SOURCED_LABEL:
+            text += ASSUMPTION_MARKER
     if deck.status(claim) == AuditStatus.ADVISOR_ATTESTED:
         text += " (Advisor-attested)"
     return text
@@ -325,33 +351,89 @@ def _claim_runs(claim: Claim, deck: _Deck, size: float, **style) -> list[Run]:
     return runs
 
 
-def _footnote_paras(numbers: list[int], deck: _Deck) -> list[Para]:
-    return [Para([Run(f"[{n}] {deck.qualifier_texts[n - 1]}", FOOTNOTE_PT, color=GREY)]) for n in numbers]
+def has_marker(text: str) -> bool:
+    """An assumption marker: "*" right after a value or word (not a footnote's own legend)."""
+    return bool(re.search(r"[^\s*]\*(?=[\s,.;)]|$)", text))
 
 
-def _slide_footnotes(slide, claims: list[Claim], deck: _Deck) -> float:
-    """Draw the slide's qualifier footnotes above the footer; returns their top (the body's bottom limit)."""
-    numbers = sorted({deck.footnotes[c.claim_id] for c in claims if c.claim_id in deck.footnotes})
-    if not numbers:
-        return BODY_BOTTOM
-    paras = _footnote_paras(numbers, deck)
+def _sources_for(claims: list[Claim], deck: _Deck) -> list[str]:
+    """Client-facing sources of the rendered claims: brochure pages, web pages, Marsh pages (deduplicated)."""
+    pages: dict[str, set[int]] = {}
+    labels: list[str] = []
+    profile = load_profile()
+    facts = {f.fact_id: f for f in deck.ctx.company_profile.facts} if deck.ctx.company_profile else {}
+    web = {s.source_id: s for s in deck.ctx.company_profile.sources} if deck.ctx.company_profile else {}
+    from marsh.web_search import source_label as web_source_label
+
+    for claim in claims:
+        result = deck.results.get(claim.claim_id)
+        if claim.claim_type == ClaimType.MARSH_STATEMENT:
+            record = profile.record(claim.metadata.get("marsh_claim_id", ""))
+            if record is not None:
+                labels.append(marsh_source_label(record, profile))
+            continue
+        if is_company_claim(claim) and claim.qualifier_text == WEB_SOURCED_LABEL:
+            for b in claim.basis_fact_ids:
+                for sid in (facts[b].source_ids if b in facts else []):
+                    if sid in web:
+                        labels.append(web_source_label(web[sid]))
+            continue
+        for e in (result.supporting_evidence_ids if result else []) or claim.cited_evidence_ids:
+            if e in deck.pages:
+                name, page = deck.pages[e]
+                pages.setdefault(name, set()).add(page)
+    policy = [policy_source_label(name, sorted(p)) for name, p in pages.items()]
+    return list(dict.fromkeys(policy + labels))
+
+
+def _small_print(slide, number: int, claims: list[Claim], deck: _Deck, extra_markers: bool = False) -> float:
+    """The slide's small print above the footer (qualifiers, assumption legend, sources, disclaimer). Returns its
+    top, the body's bottom limit."""
+    shown = [c for c in claims if deck.shown(c)]
+    numbers = sorted({deck.footnotes[c.claim_id] for c in shown if c.claim_id in deck.footnotes})
+    paras = [Para([Run(f"[{n}] {deck.qualifier_texts[n - 1]}", SMALL_PT, color=GREY)]) for n in numbers]
+    markers = sum(has_marker(claim_text(c, deck)) for c in shown) + int(extra_markers)
+    if markers:
+        paras.append(Para([Run(LEGEND_ONE if markers == 1 else LEGEND_MANY, SMALL_PT, color=GREY)]))
+    sources = _sources_for(shown, deck)
+    if sources:
+        paras.append(Para([Run("Source" + ("s: " if len(sources) > 1 else ": "), SMALL_PT, bold=True, color=GREY),
+                           Run("; ".join(sources), SMALL_PT, color=GREY)]))
+    if number in DISCLAIMER_SLIDES and deck.ctx.deck.disclaimer:
+        paras.append(Para([Run(deck.ctx.deck.disclaimer, SMALL_PT, italic=True, color=NAVY)]))
+    if not paras:
+        return SMALL_PRINT_BOTTOM
     width = SLIDE_W - 2 * MARGIN
     height = paras_height(paras, width)
-    top = BODY_BOTTOM - height
-    _textbox(slide, "Footnotes", MARGIN, top, width, height, paras)
-    return top - 0.05
+    top = SMALL_PRINT_BOTTOM - height
+    _rect(slide, MARGIN + INSET, top - 0.06, 1.2, 0.012, RULE, "SmallPrintRule")
+    _textbox(slide, "SmallPrint", MARGIN, top, width, height, paras)
+    return top - 0.15
+
+
+def _logo(slide) -> None:
+    from PIL import Image
+
+    with Image.open(LOGO_PATH) as im:
+        ratio = im.width / im.height
+    width = LOGO_H * ratio
+    top = (HEADER_H - LOGO_H) / 2
+    pic = slide.shapes.add_picture(str(LOGO_PATH), _emu(SLIDE_W - MARGIN - width), _emu(top), _emu(width),
+                                   _emu(LOGO_H))
+    pic.name = "Logo"
 
 
 def _base_slide(prs, number: int, date: str):
     slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
-    _rect(slide, 0, 0, SLIDE_W, TITLE_BAR_H, NAVY, "TitleBar")
-    _rect(slide, 0, TITLE_BAR_H, SLIDE_W, ACCENT_H, ACCENT, "AccentLine")
-    _textbox(slide, "Title", MARGIN, 0.12, SLIDE_W - 2 * MARGIN, TITLE_BAR_H - 0.2,
-             [Para([Run(SLIDE_TITLES[number - 1], 28, bold=True, color=WHITE)])], anchor=MSO_ANCHOR.MIDDLE)
-    _textbox(slide, "Footer", MARGIN, FOOTER_Y, 8.5, 0.32,
-             [Para([Run(f"Prepared by Marsh | Confidential | {date}", 9, color=GREY)])])
-    _textbox(slide, "SlideNumber", SLIDE_W - MARGIN - 1.2, FOOTER_Y, 1.2, 0.32,
-             [Para([Run(f"{number} / 5", 9, color=GREY)], align=PP_ALIGN.RIGHT)])
+    logo_space = LOGO_H * 3.0 + 0.6
+    _textbox(slide, "Title", MARGIN, 0.22, SLIDE_W - 2 * MARGIN - logo_space, HEADER_H - 0.3,
+             [Para([Run(SLIDE_TITLES[number - 1], TITLE_PT, bold=True, color=NAVY)])], anchor=MSO_ANCHOR.MIDDLE)
+    _logo(slide)
+    _rect(slide, MARGIN, ACCENT_Y, SLIDE_W - 2 * MARGIN, ACCENT_H, ACCENT, "AccentLine")
+    _rect(slide, MARGIN, FOOTER_Y - 0.04, SLIDE_W - 2 * MARGIN, 0.01, RULE, "FooterRule")
+    _textbox(slide, "Footer", MARGIN, FOOTER_Y, 6.0, 0.32, [Para([Run(f"Confidential  |  {date}", 9, color=GREY)])])
+    _textbox(slide, "SlideNumber", SLIDE_W - MARGIN - 1.0, FOOTER_Y, 1.0, 0.32,
+             [Para([Run(str(number), 9, bold=True, color=NAVY)], align=PP_ALIGN.RIGHT)])
     return slide
 
 
@@ -363,41 +445,82 @@ def _bullet_paras(claims: list[Claim], deck: _Deck, size: float, gap: float) -> 
 def _slide1(prs, deck: _Deck, date: str):
     ctx = deck.ctx
     slide = _base_slide(prs, 1, date)
-    claims = [c for c in ctx.deck.slides[0].bullets if deck.shown(c)]
+    claims = [c for c in ctx.deck.slides[0].bullets if deck.shown(c)][:SLIDE1_MAX_BULLETS]
     for c in claims:
         deck.marker(c)
-    bottom = _slide_footnotes(slide, claims, deck)
+    assumed = [e for e in ctx.exposures if e.assumption_based]
+    bottom = _small_print(slide, 1, claims, deck, extra_markers=bool(assumed))
     width = SLIDE_W - 2 * MARGIN
-    _textbox(slide, "CompanyName", MARGIN, BODY_TOP, width, 0.55,
-             [Para([Run(ctx.company_name, 24, bold=True, color=NAVY)])])
-    considered = [e.name for e in ctx.exposures if not e.assumption_based]
-    assumed = [e.name for e in ctx.exposures if e.assumption_based]
-    exposure_text = "Employee-health exposures considered: " + (", ".join(considered) or "none")
-    if assumed:
-        exposure_text += "; based on assumptions: " + ", ".join(assumed)
-    exp_paras = [Para([Run(exposure_text, 12, italic=True, color=GREY)])]
-    exp_h = paras_height(exp_paras, width)
-    _textbox(slide, "Exposures", MARGIN, bottom - exp_h, width, exp_h, exp_paras)
-    top = BODY_TOP + 0.65
-    paras, _ = _fit(lambda s: _bullet_paras(claims, deck, s, s * 0.6), width, bottom - exp_h - 0.1 - top, 20, 11)
-    _textbox(slide, "Body", MARGIN, top, width, bottom - exp_h - 0.1 - top, paras)
+    _textbox(slide, "CompanyName", MARGIN, BODY_TOP, width, 0.6, [Para([Run(ctx.company_name, 26, bold=True,
+                                                                            color=NAVY)])])
+    names = [e.name + (ASSUMPTION_MARKER if e.assumption_based else "") for e in ctx.exposures]
+    exposure_paras = [Para([Run("Employee-health exposures considered", 12, bold=True, color=NAVY)]),
+                      Para([Run(", ".join(names) or "none", 12, color=GREY)], space_before=2)]
+    exp_h = paras_height(exposure_paras, width)
+    _textbox(slide, "Exposures", MARGIN, bottom - exp_h, width, exp_h, exposure_paras)
+    top = BODY_TOP + 0.75
+    height = bottom - exp_h - 0.2 - top
+    paras, _ = _fit(lambda s: _bullet_paras(claims, deck, s, s * 0.7), width, height, 18, 11)
+    _textbox(slide, "Body", MARGIN, top, width, height, paras)
     return slide, claims
+
+
+def slide2_points(deck: _Deck) -> tuple[Claim | None, list[tuple[Claim, list[Claim]]]]:
+    """(headline, [(Marsh statement, its why-it-matters lines)]) of the rendered slide-2 claims."""
+    bullets = deck.ctx.deck.slides[1].bullets
+    headline = next((c for c in bullets if c.metadata.get("role") == "headline" and deck.shown(c)), None)
+    points = []
+    for claim in bullets:
+        if claim.claim_type == ClaimType.MARSH_STATEMENT and deck.shown(claim):
+            ms_id = claim.metadata.get("marsh_claim_id")
+            links = [c for c in bullets if c.metadata.get("link_of") == ms_id and deck.shown(c)]
+            points.append((claim, links))
+    return headline, points
 
 
 def _slide2(prs, deck: _Deck, date: str):
     slide = _base_slide(prs, 2, date)
-    claims = [c for c in deck.ctx.deck.slides[1].bullets if deck.shown(c)]
+    headline, points = slide2_points(deck)
+    claims = ([headline] if headline else []) + [c for m, links in points for c in [m, *links]]
     for c in claims:
         deck.marker(c)
-    bottom = _slide_footnotes(slide, claims, deck)
+    bottom = _small_print(slide, 2, claims, deck)
     width = SLIDE_W - 2 * MARGIN
-    paras, _ = _fit(lambda s: _bullet_paras(claims, deck, s, s * 0.9), width, bottom - BODY_TOP - 0.1, 22, 12)
-    _textbox(slide, "Body", MARGIN, BODY_TOP + 0.1, width, bottom - BODY_TOP - 0.1, paras)
+    top = BODY_TOP + 0.05
+    if headline is not None:
+        head = [Para([Run(claim_text(headline, deck), 22, bold=True, color=NAVY)])]
+        head_h = paras_height(head, width)
+        _textbox(slide, "Headline", MARGIN, top, width, head_h, head)
+        top += head_h + 0.2
+    cols = 2 if len(points) > 2 else 1
+    rows = -(-len(points) // cols) if points else 1
+    gap = 0.35
+    card_w = (width - gap * (cols - 1)) / cols
+    card_h = (bottom - top - gap * (rows - 1)) / rows
+
+    def card(size: float, marsh: Claim, links: list[Claim], n: int) -> list[Para]:
+        paras = [Para([Run(f"{n:02d}", size - 2, bold=True, color=ACCENT)]),
+                 Para(_claim_runs(marsh, deck, size, bold=True, color=NAVY), space_before=3)]
+        for link in links:
+            paras.append(Para([Run("Why it matters: ", size - 1.5, bold=True, color=GREY)]
+                              + _claim_runs(link, deck, size - 1.5, color=GREY), space_before=size * 0.6))
+        return paras
+
+    size = 16.0  # one size for every card
+    while size > 9 and any(paras_height(card(size, m, links, n), card_w - 0.2) > card_h
+                           for n, (m, links) in enumerate(points, start=1)):
+        size -= 0.5
+    for n, (marsh, links) in enumerate(points, start=1):
+        col, row = (n - 1) % cols, (n - 1) // cols
+        x = MARGIN + col * (card_w + gap)
+        y = top + row * (card_h + gap)
+        _rect(slide, x, y + 0.05, 0.05, card_h - 0.1, ACCENT, f"CardBar{n}")
+        _textbox(slide, f"Point{n}", x + 0.2, y, card_w - 0.2, card_h, card(size, marsh, links, n))
     return slide, claims
 
 
-TABLE_COLS = (("Exposure", 2.25), ("Benefit", 4.45), ("Condition / limitation", 3.95), ("Source", 1.68))
-CELL_INSET = 0.06
+TABLE_COLS = (("Exposure", 2.35), ("Benefit", 4.55), ("Condition / limitation", 4.0), ("Source", 1.233))
+CELL_INSET = 0.07
 
 
 def _cell_paras(claim: Claim | None, deck: _Deck, size: float) -> list[Para]:
@@ -416,10 +539,23 @@ def table_rows(deck: _Deck):
     return [r for r in deck.ctx.deck.slides[2].table_rows if deck.shown(r.benefit)][:SLIDE3_MAX_ROWS]
 
 
+def _row_pages(row, deck: _Deck) -> str:
+    pages = set()
+    for claim in (row.benefit, row.condition):
+        if claim is None or not deck.shown(claim):
+            continue
+        result = deck.results.get(claim.claim_id)
+        for e in (result.supporting_evidence_ids if result else []) or claim.cited_evidence_ids:
+            if e in deck.pages:
+                pages.add(deck.pages[e][1])
+    pages = sorted(pages)
+    return ("p. " if len(pages) == 1 else "pp. ") + ", ".join(map(str, pages)) if pages else "—"
+
+
 def _table_content(rows, deck: _Deck, size: float) -> list[list[list[Para]]]:
     header = [[Para([Run(name, size, bold=True, color=WHITE)])] for name, _ in TABLE_COLS]
     body = [[[Para([Run(r.exposure_name, size, bold=True, color=NAVY)])], _cell_paras(r.benefit, deck, size),
-             _cell_paras(r.condition, deck, size), [Para([Run(to_display(r.source), size - 1.5, color=GREY)])]]
+             _cell_paras(r.condition, deck, size), [Para([Run(_row_pages(r, deck), size - 1, color=GREY)])]]
             for r in rows]
     return [header] + body
 
@@ -434,9 +570,9 @@ def _slide3(prs, deck: _Deck, date: str):
     claims = [c for r in rows for c in (r.benefit, r.condition) if deck.shown(c)]
     for c in claims:
         deck.marker(c)
-    bottom = _slide_footnotes(slide, claims, deck)
+    bottom = _small_print(slide, 3, claims, deck)
     widths = [w for _, w in TABLE_COLS]
-    available = bottom - BODY_TOP - 0.05
+    available = bottom - BODY_TOP
     size = 13.0
     while size > 8 and sum(_table_height(_table_content(rows, deck, size), widths)) > available:
         size -= 0.5
@@ -491,9 +627,28 @@ def _with_framing(claims: list[Claim], deck: _Deck, framing: dict[str, list[Clai
     for n, claim in enumerate(claims):
         paras.append(Para(_claim_runs(claim, deck, size), space_before=gap if n else 0, indent=0.28, bullet="•"))
         for sub in framing.get(claim.metadata.get("selection_claim", ""), []):
-            paras.append(Para(_claim_runs(sub, deck, size - 2, italic=True, color=GREY), space_before=1,
+            paras.append(Para(_claim_runs(sub, deck, size - 2, italic=True, color=GREY), space_before=1.5,
                               indent=0.28))
     return paras
+
+
+def policy_block_lines(deck: _Deck) -> list[str]:
+    """Slide 4's code-injected details: the variant only if the policy has variants, the add-ons only if there are
+    some, the assumed sum insured (an assumption, "*")."""
+    ctx = deck.ctx
+    block = ctx.deck.recommended
+    doc = next((d for d in ctx.selected_documents if d.document_id == block.policy_id), None)
+    lines = []
+    if block.variant and doc is not None and doc.variants:
+        lines.append(f"Variant: {block.variant}")
+    if block.required_addons:
+        lines.append(f"Required add-ons: {', '.join(block.required_addons)}")
+    si = block.assumed_sum_insured or ctx.assumed_sum_insured
+    if si:
+        from marsh.grounding import format_money
+
+        lines.append(f"Assumed sum insured: {format_money(si)}{ASSUMPTION_MARKER}")
+    return lines
 
 
 def _slide4(prs, deck: _Deck, date: str):
@@ -504,87 +659,47 @@ def _slide4(prs, deck: _Deck, date: str):
     reasons = [c for c in s4.bullets if c.policy_id and deck.shown(c)][:SLIDE4_MAX_POLICY_BULLETS]
     supporting = [c for c in s4.supporting_benefits if deck.shown(c)][:SLIDE4_MAX_SUPPORTING_BENEFITS]
     limitations = [c for c in s4.key_limitations if deck.shown(c)][:SLIDE4_MAX_KEY_LIMITATIONS]
-    subs = [f for c in reasons + limitations for f in framing.get(c.metadata.get("selection_claim", ""), [])]
-    claims = reasons + subs + supporting + limitations
+    subs = [f for c in reasons + supporting + limitations for f in framing.get(c.metadata.get("selection_claim", ""),
+                                                                               [])]
     for c in reasons + [f for c in reasons for f in framing.get(c.metadata.get("selection_claim", ""), [])] \
-            + supporting + limitations:
+            + supporting + limitations + subs:
         deck.marker(c)
-    bottom = _slide_footnotes(slide, claims, deck)
+    details = policy_block_lines(deck)
+    claims = reasons + subs + supporting + limitations
+    bottom = _small_print(slide, 4, claims, deck, extra_markers=any(has_marker(d) for d in details))
     block = ctx.deck.recommended
-    addons = ", ".join(block.required_addons) or "none"
-    decided = "the advisor" if block.decided_by.value == "ADVISOR" else "LLM selection, validated and audited"
-    _textbox(slide, "RecommendedPolicy", MARGIN, BODY_TOP - 0.1, SLIDE_W - 2 * MARGIN, 0.95, [
-        Para([Run(block.policy_name, 26, bold=True, color=NAVY)]),
-        Para([Run(f"Variant: {block.variant or 'not specified'}   |   Required add-ons: {addons}   |   "
-                  f"Selected by: {decided}", 13, color=GREY)], space_before=2)])
-    top = BODY_TOP + 0.95
-    left_w, gap_w = 7.6, 0.3
-    right_x, right_w = MARGIN + left_w + gap_w, SLIDE_W - 2 * MARGIN - left_w - gap_w
+    width = SLIDE_W - 2 * MARGIN
+    block_paras = [Para([Run(block.policy_name, 26, bold=True, color=NAVY)])]
+    if details:
+        block_paras.append(Para([Run("   |   ".join(details), 13, color=GREY)], space_before=3))
+    block_h = paras_height(block_paras, width)
+    _textbox(slide, "RecommendedPolicy", MARGIN, BODY_TOP - 0.05, width, block_h, block_paras)
+    top = BODY_TOP - 0.05 + block_h + 0.2
+    left_w, gap_w = 7.35, 0.45
+    right_x, right_w = MARGIN + left_w + gap_w, width - left_w - gap_w
     height = bottom - top
 
     def left(size):
         return [Para([Run(f"Why {block.policy_name}", size + 1, bold=True, color=ACCENT)])] + \
-            _with_framing(reasons, deck, framing, size, size * 0.55)
+            _with_framing(reasons, deck, framing, size, size * 0.6)
 
     def right(size):
         paras = []
         if supporting:
             paras.append(Para([Run("Supporting benefits", size + 1, bold=True, color=ACCENT)]))
-            paras += _with_framing(supporting, deck, framing, size, size * 0.4)
+            paras += _with_framing(supporting, deck, framing, size, size * 0.45)
         if limitations:
             paras.append(Para([Run("Key limitations", size + 1, bold=True, color=ACCENT)],
                               space_before=size if supporting else 0))
-            paras += _with_framing(limitations, deck, framing, size, size * 0.4)
+            paras += _with_framing(limitations, deck, framing, size, size * 0.45)
         return paras
 
     left_paras, _ = _fit(left, left_w, height, 16, 9)
     right_paras, _ = _fit(right, right_w, height, 14, 8.5)
     _textbox(slide, "Reasons", MARGIN, top, left_w, height, left_paras)
-    _rect(slide, right_x - gap_w / 2 - 0.01, top + 0.05, 0.02, height - 0.1, ROW_SHADE, "Divider")
+    _rect(slide, right_x - gap_w / 2 - 0.005, top + 0.05, 0.01, height - 0.1, RULE, "Divider")
     _textbox(slide, "BenefitsAndLimitations", right_x, top, right_w, height, right_paras)
     return slide, claims
-
-
-def _slide5(prs, deck: _Deck, date: str):
-    ctx = deck.ctx
-    slide = _base_slide(prs, 5, date)
-    s5 = ctx.deck.slides[4]
-    assumptions = [c for c in s5.bullets if deck.shown(c)]
-    attested = [c for c in ctx.deck.all_claims() if deck.shown(c) and deck.status(c) == AuditStatus.ADVISOR_ATTESTED]
-    width = SLIDE_W - 2 * MARGIN
-    disclaimer = [Para([Run(ctx.deck.disclaimer, 12, bold=True, italic=True, color=NAVY)])]
-    disc_h = paras_height(disclaimer, width)
-    _textbox(slide, "Disclaimer", MARGIN, BODY_BOTTOM - disc_h, width, disc_h, disclaimer)
-    top, height = BODY_TOP, BODY_BOTTOM - disc_h - 0.1 - BODY_TOP
-    left_w, gap_w = 6.6, 0.3
-    right_x, right_w = MARGIN + left_w + gap_w, width - left_w - gap_w
-    terms = list(dict.fromkeys(to_display(f) for f in s5.footnotes))
-
-    def left(size):
-        paras = [Para([Run("Qualifiers and key terms", size + 1, bold=True, color=ACCENT)])]
-        paras += [Para([Run(f"[{n}] ", size, bold=True, color=ACCENT), Run(text, size)], space_before=size * 0.3,
-                       indent=0.0) for n, text in enumerate(deck.qualifier_texts, start=1)]
-        paras += [Para([Run(t, size)], space_before=size * 0.3, indent=0.25, bullet="•") for t in terms]
-        if attested:
-            paras.append(Para([Run("Advisor-attested", size + 1, bold=True, color=ACCENT)], space_before=size))
-            paras += [Para([Run(f"{claim_text(c, deck)} — {deck.results[c.claim_id].advisor_note}", size)],
-                           space_before=size * 0.3, indent=0.25, bullet="•") for c in attested]
-        return paras
-
-    def right(size):
-        paras = [Para([Run("Assumptions", size + 1, bold=True, color=ACCENT)])]
-        paras += [Para(_claim_runs(c, deck, size), space_before=size * 0.3, indent=0.25, bullet="•")
-                  for c in assumptions]
-        paras.append(Para([Run("Sources", size + 1, bold=True, color=ACCENT)], space_before=size))
-        paras += [Para([Run(to_display(s), size - 1, color=GREY)], space_before=size * 0.3, indent=0.25,
-                       bullet="•") for s in ctx.deck.sources]
-        return paras
-
-    left_paras, _ = _fit(left, left_w, height, 13, 7.5)
-    right_paras, _ = _fit(right, right_w, height, 13, 7.5)
-    _textbox(slide, "QualifiersAndTerms", MARGIN, top, left_w, height, left_paras)
-    _textbox(slide, "AssumptionsAndSources", right_x, top, right_w, height, right_paras)
-    return slide, list(s5.bullets)
 
 
 # --- Speaker notes -------------------------------------------------------------------------------------------------
@@ -611,37 +726,44 @@ def _notes(slide, number: int, deck: _Deck, extra: list[str]) -> None:
     slide.notes_slide.notes_text_frame.text = "\n".join(lines) or "No claims on this slide."
 
 
-def _notes_lookup(ctx: RunContext) -> dict[str, str]:
-    lookup = {i.evidence_id: f"Marsh profile, section {i.page}" for i in marsh_evidence()}
+def _evidence_lookups(ctx: RunContext) -> tuple[dict[str, str], dict[str, tuple[str, int]]]:
+    """(notes label per evidence id, (document name, page) per policy evidence id)."""
+    profile = load_profile()
+    lookup = {i.evidence_id: f"{i.evidence_id} (Marsh profile, {i.row_label}: "
+                             f"{marsh_source_label(profile.record(i.row_label), profile)})" for i in marsh_evidence()}
+    pages: dict[str, tuple[str, int]] = {}
     policy_ids = [d.document_id for d in ctx.selected_documents]
     try:
         store = load_evidence(policy_ids)
     except (FileNotFoundError, ValueError):
-        return lookup
+        return lookup, pages
     for p in policy_ids:
         name = store.document(p).display_name
         for item in store.items_for_policy(p, citable_only=False):
             lookup[item.evidence_id] = f"{item.evidence_id} ({name}, p. {item.page})"
-    for eid in list(lookup):
-        if eid.startswith("EV-MARSH-"):
-            lookup[eid] = f"{eid} ({lookup[eid]})"
-    return lookup
+            pages[item.evidence_id] = (name, item.page)
+    return lookup, pages
 
 
 # --- Entry points -------------------------------------------------------------------------------------------------
 
 
 def build_pptx(ctx: RunContext, path: Path, *, date: datetime | None = None) -> Path:
-    """Draw the 5 slides of the run's audited deck into `path` (no gate; see `render`)."""
+    """Draw the 4 slides of the run's audited deck into `path` (no gate; see `render`)."""
     results = {r.claim_id: r for r in ctx.audit_report.results} if ctx.audit_report else {}
-    deck = _Deck(ctx=ctx, results=results, notes_lookup=_notes_lookup(ctx))
+    lookup, pages = _evidence_lookups(ctx)
+    deck = _Deck(ctx=ctx, results=results, notes_lookup=lookup, pages=pages)
     prs = Presentation()
     prs.slide_width, prs.slide_height = _emu(SLIDE_W), _emu(SLIDE_H)
     when = f"{(date or datetime.now()):%d %B %Y}".lstrip("0")
     block = ctx.deck.recommended
+    sel = ctx.selection
+    how = ("the advisor: " + (sel.advisor_reason or "")) if block.decided_by.value == "ADVISOR" else \
+        "LLM selection among the compared policies, validated and audited"
     extra = {4: [f"Recommended: {block.policy_name} ({block.policy_id}); variant {block.variant or '-'}; add-ons "
-                 f"{', '.join(block.required_addons) or 'none'}; decided by {block.decided_by.value}"]}
-    for number, draw in enumerate((_slide1, _slide2, _slide3, _slide4, _slide5), start=1):
+                 f"{', '.join(block.required_addons) or 'none'}",
+                 f"Selected by: {how}" + (f" (confidence {sel.confidence.value})" if sel else "")]}
+    for number, draw in enumerate((_slide1, _slide2, _slide3, _slide4), start=1):
         slide, _ = draw(prs, deck, when)
         _notes(slide, number, deck, extra.get(number, []))
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -658,7 +780,7 @@ def render(ctx: RunContext, *, date: datetime | None = None) -> tuple[Path, Gate
         raise RenderRefusedError(gate)
     path = build_pptx(ctx, run_dir(ctx.run_id) / PPTX_FILE, date=date)
     structural_qa(path)
-    save_json(ctx.deck, run_dir(ctx.run_id) / PITCH_FILE)  # the gate's WM removals
+    save_json(ctx.deck, run_dir(ctx.run_id) / PITCH_FILE)
     save_run_context(ctx)
     log_decision(ctx.run_id, "rendered", {"path": str(path), "gate": gate.status.value,
                                           "export_allowed": gate.export_allowed})
@@ -693,6 +815,16 @@ def _bullets(frame) -> int:
     return sum(1 for p in frame.paragraphs if p._p.pPr is not None and p._p.pPr.find(qn("a:buChar")) is not None)
 
 
+def _all_text(slide) -> list[str]:
+    texts = []
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            texts.append(shape.text_frame.text)
+        if shape.has_table:
+            texts += [c.text_frame.text for row in shape.table.rows for c in row.cells]
+    return texts
+
+
 def structural_qa(path: str | Path) -> None:
     """Reopen the rendered file and check it (see the module docstring). Raises RenderQAError."""
     path = Path(path)
@@ -700,21 +832,22 @@ def structural_qa(path: str | Path) -> None:
     if not path.exists() or path.stat().st_size <= MIN_FILE_BYTES:
         raise RenderQAError([f"{path.name} is missing or not larger than {MIN_FILE_BYTES // 1024} KB"])
     prs = Presentation(path)
-    if len(prs.slides) != 5:
-        problems.append(f"{len(prs.slides)} slides, expected 5")
-    limits = {1: SLIDE1_MAX_BULLETS, 2: SLIDE2_MAX_BULLETS}
+    if len(prs.slides) != SLIDE_COUNT:
+        problems.append(f"{len(prs.slides)} slides, expected {SLIDE_COUNT}")
+    width_in = prs.slide_width / 914400
     for n, slide in enumerate(prs.slides, start=1):
         shapes = {s.name: s for s in slide.shapes}
         title = shapes.get("Title")
         expected = SLIDE_TITLES[n - 1] if n <= len(SLIDE_TITLES) else "?"
         if title is None or title.text_frame.text != expected:
             problems.append(f"slide {n}: title {title.text_frame.text if title else None!r}, expected {expected!r}")
-        texts = []
+        logo = shapes.get("Logo")
+        if logo is None or logo.left / 914400 < width_in / 2:
+            problems.append(f"slide {n}: the Marsh logo is missing or not on the right of the header")
         for shape in slide.shapes:
             if shape.has_text_frame and shape.text_frame.text.strip():
-                texts.append(shape.text_frame.text)
                 width = (shape.width - shape.text_frame.margin_left - shape.text_frame.margin_right) / 914400
-                need = _measure(shape.text_frame, width + 2 * INSET) - 0.0
+                need = _measure(shape.text_frame, width + 2 * INSET)
                 have = shape.height / 914400
                 if need > have * 1.02 + 0.01:
                     problems.append(f"slide {n}: text box {shape.name!r} overflows ({need:.2f} in of text in "
@@ -728,27 +861,32 @@ def structural_qa(path: str | Path) -> None:
                 for row in table.rows:
                     cells = []
                     for j, cell in enumerate(row.cells):
-                        texts.append(cell.text_frame.text)
                         inset = (cell.margin_left + cell.margin_right) / 914400
                         cells.append(sum(para_height(t, s, b, i, before, indent, widths[j] - inset)
                                          for t, s, b, i, before, indent in _shape_paras(cell.text_frame))
                                      + (cell.margin_top + cell.margin_bottom) / 914400)
                     need += max(cells)
-                room = BODY_BOTTOM - shape.top / 914400
+                room = (shapes["SmallPrint"].top / 914400 if "SmallPrint" in shapes else SMALL_PRINT_BOTTOM) \
+                    - shape.top / 914400
                 if need > room + 0.01:
                     problems.append(f"slide {n}: table overflows ({need:.2f} in of rows in {room:.2f} in)")
                 if n == 3 and len(table.rows) - 1 > SLIDE3_MAX_ROWS:
                     problems.append(f"slide 3: {len(table.rows) - 1} rows (max {SLIDE3_MAX_ROWS})")
+        texts = _all_text(slide)
         joined = "\n".join(texts)
         if "{{" in joined:
             problems.append(f"slide {n}: a template placeholder '{{{{' is left")
         if re.search(r"`\s?\d", joined):
             problems.append(f"slide {n}: a backtick before a digit (write ₹)")
-        if re.search(r"unverified|MODEL_KNOWLEDGE", joined, re.IGNORECASE):
-            problems.append(f"slide {n}: 'Unverified' / a raw fact status is shown (two labels only: Web-sourced, "
-                            f"Assumption)")
-        if n in limits and "Body" in shapes and _bullets(shapes["Body"].text_frame) > limits[n]:
-            problems.append(f"slide {n}: {_bullets(shapes['Body'].text_frame)} bullets (max {limits[n]})")
+        for pattern, label in FORBIDDEN:
+            if pattern.search(joined):
+                problems.append(f"slide {n}: shows {label!r} (nothing internal on a slide)")
+        body = [t for s in slide.shapes if s.has_text_frame and s.name != "SmallPrint" for t in [s.text_frame.text]]
+        body += [c.text_frame.text for s in slide.shapes if s.has_table for r in s.table.rows for c in r.cells]
+        if any(has_marker(t) for t in body) and LEGEND_ONE not in joined:
+            problems.append(f"slide {n}: an assumption marker '*' without the legend")
+        if n == 1 and "Body" in shapes and _bullets(shapes["Body"].text_frame) > SLIDE1_MAX_BULLETS:
+            problems.append(f"slide 1: {_bullets(shapes['Body'].text_frame)} bullets (max {SLIDE1_MAX_BULLETS})")
         if n == 4:
             block = shapes.get("RecommendedPolicy")
             if block is None:
@@ -772,15 +910,5 @@ def structural_qa(path: str | Path) -> None:
 
 
 def pptx_text(path: str | Path) -> list[str]:
-    """All text per slide (for tests and scripts)."""
-    out = []
-    for slide in Presentation(path).slides:
-        parts = []
-        for shape in slide.shapes:
-            if shape.has_text_frame:
-                parts.append(shape.text_frame.text)
-            if shape.has_table:
-                parts += [c.text_frame.text for row in shape.table.rows for c in row.cells]
-        out.append("\n".join(parts))
-    return out
-
+    """All visible text per slide (for tests and scripts)."""
+    return ["\n".join(_all_text(slide)) for slide in Presentation(path).slides]

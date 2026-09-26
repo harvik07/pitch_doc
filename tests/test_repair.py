@@ -124,12 +124,14 @@ def test_code_lines_and_slide_2_are_not_repaired():
     marsh = Claim(claim_id="CL-001", slide_number=2, text="Edited Marsh text.", claim_type=ClaimType.MARSH_STATEMENT)
     row = Claim(claim_id="CL-001", slide_number=3, text="Not stated in the brochure", policy_id="POL-NIVA",
                 claim_type=ClaimType.POLICY_FACT, metadata={"match_id": "MATCH-NIVA-MATERNITY"})
-    run_assumption = Claim(claim_id="CL-001", slide_number=5, text="Assumed SI", claim_type=ClaimType.ASSUMPTION)
+    run_assumption = Claim(claim_id="CL-001", slide_number=4, text="Assumed SI", claim_type=ClaimType.ASSUMPTION)
     company = Claim(claim_id="CL-001", slide_number=1, text="Staff.", claim_type=ClaimType.COMPANY_FACT,
                     basis_fact_ids=["CF-001"])
     assert not any(repair.is_repairable(c, result) for c in (marsh, row, run_assumption))
     assert repair.is_repairable(company, result)
     assert not repair.is_repairable(company, result.model_copy(update={"status": AuditStatus.VERIFIED}))
+    edited = company.model_copy(update={"metadata": {"advisor_edited": "true"}})
+    assert not repair.is_repairable(edited, result)  # the advisor's own wording is re-audited, never rewritten
 
 
 def test_a_rewrite_that_is_too_long_counts_as_a_failed_attempt(monkeypatch, sources):

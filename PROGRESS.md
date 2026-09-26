@@ -605,10 +605,49 @@ policy evidence. CLAUDE.md §§1, 3, 4, 5, 6.2, 8, 9 and 11 amended ("V1 has no 
 - Tests: 816 passing. New: `tests/test_gate.py` (every FAIL and REVIEW condition, acknowledgement, WM re-check), `tests/test_render.py` (approved deck passes QA, rendering rules, labels, notes, refusal on FAIL, QA failure modes incl. overflow, ₹ glyph), and the audit cache test. `tests/deck_builder.py` builds the hand-made approved run.
 - **Label conflict to confirm:** your Prompt 9 message asked for "(Unverified)" labels, but CLAUDE.md §5 as updated by the Tavily step says the deck shows only "Web-sourced" / "Assumption", never "Unverified". I followed CLAUDE.md. The mapping is in `render_ppt.claim_text` and `models.fact_display_label`.
 
+### Deck redesign: 4 slides, footnoted sources, "*" assumptions, real Why-Marsh slide (2026-09-27)
+- **4 slides, no slide 5** (CLAUDE.md §4, §5, §6, §8, §9 and §10 updated): Company Overview, Why Choose Marsh, Policy Benefits Mapped to Exposures, Recommended Policy. `PitchDeck` requires 4 slides; a saved deck with the legacy slide 5 loads as 4 (`models._drop_legacy_slide5`). Slide 5's content moved to where it's used:
+  - the assumed sum insured → slide 4 ("Assumed sum insured: ₹10,00,000*", `RecommendedPolicyBlock.assumed_sum_insured`);
+  - assumption-based exposures → slide 1 ("*");
+  - VWQ qualifiers → numbered footnotes on the claim's own slide;
+  - the disclaimer → small print on slides 3 and 4.
+- **Sources as footnotes on the slide that uses them**, client-facing and deduplicated per slide:
+  - policy: "<display_name> Product Brochure, p. 2" / "pp. 4, 8, 11";
+  - web: "<clean title> — <site> — Retrieved <date>" (`web_search.clean_title` / `source_label`; glued titles fixed so each result keeps its own title; file names made readable);
+  - Marsh: the source recorded for each capability in marsh_profile.md ("Marsh Services — marsh.com — Retrieved 26 September 2026", with its condition, e.g. "service availability varies by location").
+- **Assumptions:** "*" after the assumed value, and the legend "* Assumption" / "* Assumptions are marked with an asterisk" at the bottom of that slide. The audit's LABELLED_ASSUMPTION needs the "*" (the renderer adds the legend; QA fails a "*" without it). Web-sourced facts never get "*". Provenance stays internal (claim `qualifier_text` / basis facts, audit report labels).
+- **Slide 1 provenance:** a bullet never mixes web-sourced and assumed facts (`pitch.split_by_provenance`: one bullet per fact, worded as the fact).
+- **Slide 2 (Why Choose Marsh), a real pitch** (`pitch.generate_why_marsh`, `prompts/generate_why_marsh.md`, new `marsh_profile.py`):
+  - Structure: a headline (NON_FACTUAL), then 3–4 points, each a documented Marsh capability (MARSH_STATEMENT, from any MARSH_STATEMENT record of marsh_profile.md) plus "Why it matters" for this client (NON_FACTUAL link line with basis_fact_ids).
+  - Code checks each point before the audit (known record, numbers, words its source's condition keeps, no product name, valid facts / exposures): one retry with the errors, then invalid points are dropped. A shortfall is logged, never padded.
+  - The audit checks Marsh statements against the profile's records only (`EV-MARSH-2-nnn`): ownership, verbatim quote, numbers, no product, absolute wording, condition words. The gate FAILs a Marsh statement not tied to a documented record, or one dropping a condition word (e.g. MS-026's "generally").
+  - The old approved-WM mechanism (WM-01..04, gate removal/restoration) is gone.
+- **Slide 4:** the variant only when the policy has variants, required add-ons only when there are some, and no "Selected by" (kept in the speaker notes and the run data).
+- **Design** (inspired by marsh.com, not copied): white header with the navy #002C77 title and the official logo (`assets/brand/marsh_logo.png`, aspect ratio kept) on the right, a thin accent line, Arial, one accent colour (#009DE0), generous whitespace, and a footer with "Confidential | date" and the slide number. Slide 2 is a 2×2 grid of numbered cards. Fit-to-box sizing and the overflow checks are kept.
+- **Structural QA** now also fails on:
+  - a visible ".md", ".pdf", "data/", "LLM", "audited", "Selected by", "Variant: not specified", "(Assumption)", a record / source / evidence id, a raw status or "unverified";
+  - a "*" without a legend;
+  - a missing or left-side logo.
+- **Refreshing a frozen run** (`scripts/refresh_deck.py RUN-… [--edit CL TEXT NOTE] [--keep-slide2]`, `pipeline.refresh_run`):
+  - advisor edits (`pipeline.edit_claim`: DIRTY, logged, an advisor action, never touched by the targeted repair);
+  - the label migration ("(Assumption)" → "*", slide-1 provenance split, new ids);
+  - slide 2 regenerated only;
+  - then the audit, where the cache re-uses every unchanged claim, and the gate and render.
+- **RUN-20260926-193409-a71b** (profile, exposures and selection frozen):
+  - LLM calls: 3 in total (slide 2, its audit batch, and CL-033's re-audit); a second refresh made 0.
+  - **CL-033** advisor edit → "Automatic Restore Benefit restores up to 100% of the base sum insured every time a claim is made, unlimited times in a policy year." Re-audited: **VERIFIED_WITH_QUALIFIER**. Its required qualifier is 205 characters (over the 200-character limit), so it isn't rendered, and that gives the review item CL-033:QUALIFIER_NOT_RENDERED (rule unchanged).
+  - **Audit:** REVIEW_REQUIRED, confidence 100%. VERIFIED 29, VWQ 2, LABELLED_ASSUMPTION 5, NON_FACTUAL 5.
+  - **Gate:** REVIEW_REQUIRED (EXPOSURES:ASSUMPTION_BASED, CL-033:QUALIFIER_NOT_RENDERED); export not yet allowed.
+  - QA passed. The images, exported via PowerPoint and inspected, show no overflow or overlap.
+  - Slide 1: the web-sourced headcount is its own bullet (CL-037, "Over 300,000 employees globally."). The model-knowledge "Large global enterprise" (CF-002) part of the old mixed bullet was left out by the 6-bullet limit, since the web-sourced headcount states the size (logged).
+  - Slide 2: MS-021, MS-023, MS-013, MS-025, all VERIFIED.
+- Business risks may now ground slide 2's "why it matters" lines (still never slide 3/4 policy framing).
+- Tests: 850 passing. New files: `tests/test_marsh_profile.py` and `tests/test_refresh.py`. Updated: `tests/test_gate.py` (Marsh record / condition / slide-2 section), `tests/test_render.py` (4 slides, logo, legend, sources, disclaimer placement, hidden variant, nothing internal visible), `tests/test_audit.py` (Marsh statements, links, "*"), `tests/test_pitch.py` (slide 2 generation and retry, provenance split) and the web-title tests.
+
 ## Next
-- **For Prompts 9 and 10 (fact labels):** show company facts with `models.fact_display_label` only ("Web-sourced" with its source link, or "Assumption"), never "Unverified" or a raw status; show `CompanyProfile.web_search_note` as an info message when set.
-- **For Prompt 10:** acknowledgements are `AdvisorActionRecord(REVIEW_ITEM_ACKNOWLEDGED, target_id=GateItem.item_id)`; re-run the gate after each advisor action (WM claims are re-checked); download only when `GateResult.export_allowed`.
-- **For Prompt 10:** an advisor edit makes the claim DIRTY; re-audit it with `audit.audit_claims` and `apply_results`, then rebuild the report with `make_report`.
+- **For Prompt 10 (fact labels):** in the UI show company facts with `models.fact_display_label` only ("Web-sourced" with its source link, or "Assumption"), never "Unverified" or a raw status; the deck uses "*" + legend instead. Show `CompanyProfile.web_search_note` as an info message when set.
+- **For Prompt 10:** acknowledgements are `AdvisorActionRecord(REVIEW_ITEM_ACKNOWLEDGED, target_id=GateItem.item_id)`; re-run the gate after each advisor action; download only when `GateResult.export_allowed`.
+- **For Prompt 10:** an advisor edit goes through `pipeline.edit_claim` (DIRTY, logged); `pipeline.audit_run` re-audits it (the cache serves every other claim), then re-run the gate.
 - **For Prompt 7 (selection claims):** slide 4's reason comes from `reason_claims`. Several REASON claims mix a policy fact with a company framing ("…, which is important for a large, desk-based workforce"). The pitch should split them into a POLICY_* claim and a COMPANY_FACT claim, so each is audited against the right source.
 - **For Prompt 7 (Niva):** slides say "hospitalisation of 2 hours and more", never "day care". The brochure never uses the words "day care".
 - **For Prompt 7 (Care wellness grid):** claims must use the brochure's own wording, e.g. "270" days → 30% renewal discount. Never write "270 or more" (or "at least"): the brochure doesn't say it.
@@ -726,12 +765,14 @@ Models that CLAUDE.md §5 names but doesn't define, plus models added since. One
 - **The LLM's qualifiers are accepted when their numbers are in the evidence, so their wording can be loose.** One qualifier said "a base benefit specific to Platinum+ and Titanium+", which are all the variants.
 - **"Not stated" claims map to a coverage cell through the taxonomy keywords.** "Initial waiting period" maps to the pre-existing-disease waiting-period cell.
 - **An absence claim that names several exposures is judged per exposure.** An incidental covered exposure in the same sentence can make a correct exclusion claim CONTRADICTED.
-- **A footnote qualifier longer than 200 characters can't be rendered**, so it becomes a review item (e.g. HDFC's payout-ratio formula footnote).
+- **A footnote qualifier longer than 200 characters can't be rendered**, so it becomes a review item (e.g. HDFC's payout-ratio formula footnote) and CL-033's restore-benefit qualifier (205 characters) in RUN-20260926-193409-a71b.
+- **Slide 1 keeps at most 6 bullets:** when splitting a mixed-provenance bullet would exceed that, an assumed size fact is left out if a web-sourced headcount states the size (logged); other overflow is not trimmed automatically.
+- **Slide 2 depends on marsh_profile.md's records.** Their facts are web-sourced by the user (retrieved 26 September 2026); the audit proves a slide sentence matches a record, not that marsh.com still says it.
 - **The topic list is closed and small** (`config/audit_topics.yaml`). A claim whose topic is neither in it nor in the taxonomy gets no topic-anchor check (NA).
 - **The eval's claims are all slide-4 claims.** The slide-3 row context is covered by unit tests only.
 - **Matching cells are LLM judgements within the validation rules.** The committed matrices are the reviewed run. A `--force` re-run may classify borderline cells differently (e.g. NIVA DAYCARE flipped between FULL, ADDON and LIMITS across the three runs); the checked cells stayed stable.
 - **Company profiles vary between runs** at temperature 0 (two Infosys runs gave 12 and 14 facts, and different business risks). Every fact is labelled either way; the run's profile is stored in the RunContext and decision log, so a pitch always uses one fixed profile.
-- **Gemini labels some industry-typical business risks MODEL_KNOWLEDGE.** They're shown as "(Assumption)" on slide 1 anyway (MODEL_KNOWLEDGE and ASSUMPTION share that label), and business risks never feed exposures or recommendation.
+- **Gemini labels some industry-typical business risks MODEL_KNOWLEDGE.** They're marked "*" on slide 1 anyway (MODEL_KNOWLEDGE and ASSUMPTION share that marker), and business risks never feed exposures or recommendation.
 - **Web-sourced facts are only as good as the page.** The quote check proves the text is on the fetched page, not that the page is right or about the same company (the prompt forbids a similarly named company; the advisor reviews the source URLs). Tavily results can change over time; the cache keeps a run reproducible.
 - google-genai installed as 2.25.0 (a newer major version than the 1.67 used to plan). The API used is unchanged: `response_json_schema`, `HttpOptions.timeout` in ms, `errors.ClientError/ServerError(code, response_json)`, and the SDK does no retries by default.
 - **OCR quality:**

@@ -68,7 +68,7 @@ from pathlib import Path  # noqa: E402
 
 import pymupdf  # noqa: E402
 
-from marsh import api, extraction, llm  # noqa: E402
+from marsh import api, extraction, llm, marsh_profile  # noqa: E402
 from marsh.decision_log import read_decisions  # noqa: E402
 from marsh.pipeline import PolicyDocsError, prepare_run, resolve_policy_docs  # noqa: E402
 
@@ -120,7 +120,12 @@ class FakeGemini:
                                {"kind": "REASON", "text": "In-patient care: Covered up to Sum Insured.",
                                 "policy_id": "POL-NIVA", "evidence_ids": ["EV-NIVA-2-006"],
                                 "quotes": [{"evidence_id": "EV-NIVA-2-006", "quote": "Covered up to Sum Insured."}]}]}
-        if prompt.startswith("You write parts of a 5-slide"):
+        if prompt.startswith('You write the "Why Choose Marsh" slide'):
+            fact_ = marsh_profile.load_profile().record("MS-021").fact
+            return {"headline": "A health and benefits partner for your people", "points": [
+                {"ms_id": "MS-021", "marsh_text": fact_, "why_it_matters": "A travelling workforce needs cover.",
+                 "basis_fact_ids": ["CF-005"], "exposure_ids": ["EXP-AMB-AIR"]}]}
+        if prompt.startswith("You write parts of a 4-slide"):
             return {"slide1_bullets": [{"text": "Placeholder industry company", "basis_fact_ids": ["CF-001"]}],
                     "slide3_rows": [{"exposure_id": "EXP-AMB-AIR", "benefit_text": NIVA_AIR,
                                      "evidence_ids": ["EV-NIVA-2-015"]}],
@@ -223,7 +228,7 @@ def test_generate_marketing_pitch_takes_policy_docs_as_the_compared_set(bundled_
         api.generateMarketingPitch("", policy_docs=["POL-NIVA"])
     assert bundled_cache.prompts == []  # invalid inputs never reach the LLM
     deck = api.generateMarketingPitch("Example Co", policy_docs=["POL-NIVA", "POL-HDFC"])
-    assert len(deck.slides) == 5 and deck.recommended.policy_id == "POL-NIVA"
+    assert len(deck.slides) == 4 and deck.recommended.policy_id == "POL-NIVA"
     assert deck.recommended.policy_name == "Niva Bupa ReAssure 2.0"
     for text in bundled_cache.prompts:  # CARE and ABHI reach no LLM call, pitch included
         assert not any(marker in text for marker in OTHER_POLICY_MARKERS)

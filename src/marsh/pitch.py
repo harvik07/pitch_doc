@@ -1,13 +1,18 @@
-"""Pitch generation (CLAUDE.md sections 6 step 9 and 9): a structured 5-slide PitchDeck, one bullet = one claim.
+"""Pitch generation (CLAUDE.md sections 6 step 9 and 9): a structured 4-slide PitchDeck, one bullet = one claim.
 
 The selection is locked. Code decides the structure and injects every fixed field; one Gemini call
 (prompts/generate_pitch.md) writes the prose parts, and code turns them into Claim objects:
-- Slide 1: company bullets (LLM) with basis_fact_ids. Users see two labels only (models.fact_display_label): a
-  bullet resting only on verified WEB_SOURCED facts is a COMPANY_FACT with qualifier_text "Web-sourced"; any other
-  bullet (a MODEL_KNOWLEDGE or ASSUMPTION basis) gets " (Assumption)" appended and is an ASSUMPTION claim.
+- Slide 1: company bullets (LLM) with basis_fact_ids. A bullet resting only on verified WEB_SOURCED facts is a
+  COMPANY_FACT with qualifier_text "Web-sourced" (its web pages are footnoted); any other bullet (a MODEL_KNOWLEDGE or
+  ASSUMPTION basis) is an ASSUMPTION claim marked "*" (a legend on the slide explains it). A bullet never mixes
+  provenance: one resting on both kinds is split into one bullet per fact, worded as the fact (`split_by_provenance`).
   Business risks only here.
-- Slide 2: WM-01…WM-04 from data/marsh/marsh_profile.md, verbatim, as MARSH_STATEMENT claims; each keeps its
-  condition in `metadata` for the gate. A missing or empty profile raises MarshProfileError before any LLM call.
+- Slide 2 ("Why Choose Marsh", `generate_why_marsh`, prompts/generate_why_marsh.md): a headline (NON_FACTUAL) and 3–4
+  points, each a documented Marsh capability of data/marsh/marsh_profile.md (MARSH_STATEMENT, metadata marsh_claim_id
+  + source_id, audited against the profile) followed by why it matters to this company (NON_FACTUAL, basis_fact_ids,
+  never a new Marsh fact). Checked before the audit (capability exists, numbers and required words kept, no product
+  names, basis facts exist); one retry, then invalid points are dropped (logged). A missing profile raises
+  MarshProfileError before any LLM call. `regenerate_slide2(ctx)` redoes only this slide for a frozen run.
 - Slide 3: rows = the selected policy's cells for the relevant exposures (max 6; covered and available first, in
   PolicySelection.relevant_exposure_ids order, then the run's other exposures). The LLM writes Benefit and Condition
   text; code fills the Source column (display_name, pages) from the cited evidence (falling back to the cell's
@@ -21,9 +26,10 @@ The selection is locked. Code decides the structure and injects every fixed fiel
   fact's numbers or names another product is rejected and the original sentence kept. The LLM can't add key
   limitations: fewer than 2 selection limitations are topped up from the selected policy's cell limitations (code).
   Other compared policies appear only in claims taken from PolicySelection.reason_claims. Supporting benefits: LLM, ≤ 3.
-- Slide 5: assumptions (code), readable qualifier footnotes from the rows' cells ("Available as an add-on at extra
-  premium", "Optional benefit at extra premium", "Applies to <variant> only", "Applies for sum insured <range>"),
-  the sources list and the disclaimer.
+- No slide 5: the assumed sum insured (slide 4), the assumption-based exposures (slide 1), qualifiers and sources
+  (footnotes of the slide that uses them) and the disclaimer (slides 3 and 4) are rendered by code.
+- PitchDeck.sources: client-facing source labels ("<product> Product Brochure, pp. …", web and Marsh pages); no
+  file paths.
 - Claim IDs CL-001… in slide order. Money is shown with ₹ (backticks converted, then checked).
 
 Validation before the audit:
@@ -41,7 +47,6 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import Path
 
 from marsh import settings
 from marsh.decision_log import log_decision
@@ -49,6 +54,8 @@ from marsh.evidence_store import EvidenceStore, load_evidence, to_display
 from marsh.exposures import load_taxonomy
 from marsh.grounding import format_indian, format_money, format_si_range, named_policies, normalise_text, number_check
 from marsh.llm import call_structured
+from marsh.marsh_profile import MarshProfileError, load_profile  # noqa: F401 (re-exported)
+from marsh.marsh_profile import source_label as marsh_source_label
 from marsh.matching import (
     COVERED,
     Matrix,
@@ -60,6 +67,7 @@ from marsh.matching import (
 )
 from marsh.models import (
     ASSUMPTION_DISPLAY,
+    SLIDE1_MAX_BULLETS,
     SLIDE4_MAX_FRAMING_BULLETS,
     SLIDE4_MAX_KEY_LIMITATIONS,
     SLIDE4_MAX_POLICY_BULLETS,
@@ -77,6 +85,8 @@ from marsh.models import (
     NumberCheckStatus,
     PitchDeck,
     PitchDraft,
+    WhyMarshDraft,
+    WhyMarshPoint,
     PitchRepairResponse,
     PitchSlide,
     PolicyMatch,
@@ -86,7 +96,7 @@ from marsh.models import (
     SelectionClaimKind,
     save_json,
 )
-from marsh.numbers import numbers_for_item, sum_insured_ranges
+from marsh.numbers import numbers_for_item, parse_numbers, sum_insured_ranges
 from marsh.run_context import run_dir
 
 log = logging.getLogger(__name__)
@@ -96,8 +106,9 @@ REPAIR_PROMPT = "repair_pitch_claims"
 MAX_OUTPUT_TOKENS = 12_000
 PITCH_FILE = "pitch_deck.json"
 NOT_STATED_TEXT = "Not stated in the brochure"
-ASSUMPTION_LABEL = f" ({ASSUMPTION_DISPLAY})"
-NOT_SOURCE_VERIFIED_TEXT = "Company details marked (Assumption) are not verified against a web source."
+WHY_MARSH_PROMPT = "generate_why_marsh"
+ASSUMPTION_MARKER = "*"  # after an assumed value / fact; the slide shows the legend
+LEGACY_ASSUMPTION_LABEL = f" ({ASSUMPTION_DISPLAY})"  # decks made before the "*" marker
 MAX_ROWS = 6
 MIN_KEY_LIMITATIONS = 2
 DUPLICATE_OVERLAP = 0.8
@@ -124,10 +135,6 @@ WORDING_RULES = [
 ]
 
 
-class MarshProfileError(RuntimeError):
-    """data/marsh/marsh_profile.md is missing, empty or has no approved Slide-2 claims (user-facing)."""
-
-
 class PitchError(RuntimeError):
     """The run can't produce a pitch (no selection, no profile, …)."""
 
@@ -136,22 +143,6 @@ class PitchValidationError(RuntimeError):
     def __init__(self, errors: list[str]):
         super().__init__("the pitch failed validation: " + "; ".join(errors))
         self.errors = errors
-
-
-# --- Slide 2: the approved Marsh claims -----------------------------------------------------------------------
-
-
-def load_marsh_claims(path: str | Path | None = None) -> list[dict[str, str]]:
-    """The approved Slide-2 claims (WM-01…) from marsh_profile.md section 4: wm_id, text, based_on, condition."""
-    path = Path(path or settings.MARSH_PROFILE_PATH)
-    if not path.exists() or not path.read_text(encoding="utf-8").strip():
-        raise MarshProfileError("The Marsh profile (data/marsh/marsh_profile.md) is missing or empty, so the "
-                                "'Why Choose Marsh' slide can't be written. Add the file and try again.")
-    rows = re.findall(r"^\|\s*(WM-\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$",
-                      path.read_text(encoding="utf-8"), re.MULTILINE)
-    if not rows:
-        raise MarshProfileError("The Marsh profile has no approved claims for the 'Why Choose Marsh' slide.")
-    return [{"wm_id": w, "text": t, "based_on": b, "condition": c} for w, t, b, c in rows]
 
 
 # --- Prompt payload -------------------------------------------------------------------------------------------
@@ -220,27 +211,69 @@ def _company_claim(text: str, basis: list[str], facts: dict[str, CompanyFact], s
     if not basis:
         return None
     web = all(facts[b].status == FactStatus.WEB_SOURCED for b in basis)
-    text = _display(text)
-    if web:
-        text = text.removesuffix(ASSUMPTION_LABEL.strip()).rstrip()
-    elif not text.endswith(ASSUMPTION_LABEL.strip()):
-        text += ASSUMPTION_LABEL
+    text = strip_assumption_label(_display(text))
+    if not web:
+        text += ASSUMPTION_MARKER
     return Claim(claim_id="CL-000", slide_number=slide, text=text,
                  claim_type=ClaimType.COMPANY_FACT if web else ClaimType.ASSUMPTION,
                  basis_fact_ids=basis, material=False, qualifier_text=WEB_SOURCED_LABEL if web else None,
                  metadata={k: v for k, v in metadata.items() if v})
 
 
-def web_source_lines(ctx: RunContext, claims: list[Claim]) -> list[str]:
-    """Slide 5 source list entries for the web pages behind the deck's Web-sourced company claims."""
+def strip_assumption_label(text: str) -> str:
+    """The claim text without an assumption label ("*" or the legacy " (Assumption)")."""
+    text = text.rstrip()
+    text = text.removesuffix(LEGACY_ASSUMPTION_LABEL.strip()).rstrip()
+    return text.removesuffix(ASSUMPTION_MARKER).rstrip()
+
+
+def split_by_provenance(claims: list[Claim], facts: dict[str, CompanyFact], limit: int,
+                        notes: list[str]) -> list[Claim]:
+    """Slide 1: a bullet never mixes web-sourced and assumed facts. A mixed bullet becomes one bullet per fact,
+    worded as the fact itself; a model-knowledge part that would push the slide over `limit` bullets is left out
+    when a web-sourced fact of the same bullet already states it (logged)."""
+    out: list[Claim] = []
+    for claim in claims:
+        basis = [b for b in claim.basis_fact_ids if b in facts]
+        kinds = {facts[b].status == FactStatus.WEB_SOURCED for b in basis}
+        if len(kinds) < 2:
+            out.append(claim)
+            continue
+        parts = [_company_claim(facts[b].value.rstrip(".") + ".", [b], facts, claim.slide_number) for b in basis]
+        out += [c for c in parts if c is not None]
+        notes.append(f"slide 1: {claim.text!r} mixed web-sourced and assumed facts; split into one bullet per fact")
+    while len(out) > limit:
+        drop = next((c for c in out if c.claim_type == ClaimType.ASSUMPTION and any(
+            o is not c and o.claim_type == ClaimType.COMPANY_FACT and o.basis_fact_ids and
+            facts[o.basis_fact_ids[0]].field in (FactField.HEADCOUNT_BAND, FactField.SIZE) and
+            facts[c.basis_fact_ids[0]].field in (FactField.HEADCOUNT_BAND, FactField.SIZE) for o in out)), None)
+        if drop is None:
+            break
+        out.remove(drop)
+        notes.append(f"slide 1: {drop.text!r} left out (over {limit} bullets; the web-sourced headcount states the "
+                     f"size)")
+    return out
+
+
+def policy_source_label(document_name: str, pages: list[int]) -> str:
+    """"<product> Product Brochure, p. 2" / "…, pp. 4, 8, 11"."""
+    pages = sorted(set(pages))
+    if not pages:
+        return f"{document_name} Product Brochure"
+    return f"{document_name} Product Brochure, {'p.' if len(pages) == 1 else 'pp.'} {', '.join(map(str, pages))}"
+
+
+def web_source_labels(ctx: RunContext, claims: list[Claim]) -> list[str]:
+    """Client-facing labels of the web pages behind the claims' Web-sourced company facts."""
+    from marsh.web_search import source_label
+
     profile = ctx.company_profile
     if profile is None:
         return []
     facts = {f.fact_id: f for f in profile.facts}
     used = {i for c in claims if c.qualifier_text == WEB_SOURCED_LABEL
             for b in c.basis_fact_ids if b in facts for i in facts[b].source_ids}
-    return [f"{WEB_SOURCED_LABEL}: {s.title + ' — ' if s.title else ''}{s.url} (retrieved {s.retrieved_at:%Y-%m-%d})"
-            for s in profile.sources if s.source_id in used]
+    return list(dict.fromkeys(source_label(s) for s in profile.sources if s.source_id in used))
 
 
 def _policy_claim(text: str, claim_type: ClaimType, policy_id: str, evidence_ids: list[str], store: EvidenceStore,
@@ -358,7 +391,7 @@ def _cell_limitation_claims(rows: list[PolicyMatch], names: dict[str, str], stor
 
 
 def build_deck(ctx: RunContext, draft: PitchDraft, store: EvidenceStore, cells: list[PolicyMatch],
-               marsh_claims: list[dict[str, str]]) -> tuple[PitchDeck, list[str]]:
+               slide2: list[Claim]) -> tuple[PitchDeck, list[str]]:
     """The PitchDeck from the LLM's draft; code injects every fixed field. Returns (deck, build notes)."""
     sel = ctx.selection
     selected = sel.selected_policy_id
@@ -371,11 +404,7 @@ def build_deck(ctx: RunContext, draft: PitchDraft, store: EvidenceStore, cells: 
     slide1 = [c for b in draft.slide1_bullets if (c := _company_claim(b.text, b.basis_fact_ids, facts, 1))]
     if len(slide1) < len(draft.slide1_bullets):
         notes.append("slide 1: bullets without a valid basis fact were dropped")
-
-    # Slide 2 (verbatim approved wording)
-    slide2 = [Claim(claim_id="CL-000", slide_number=2, text=w["text"], claim_type=ClaimType.MARSH_STATEMENT,
-                    material=False, metadata={"wm_id": w["wm_id"], "based_on": w["based_on"],
-                                              "condition": w["condition"]}) for w in marsh_claims[:4]]
+    slide1 = split_by_provenance(slide1, facts, SLIDE1_MAX_BULLETS, notes)
 
     # Slide 3
     rows = _plan_rows(ctx, cells)
@@ -435,29 +464,12 @@ def build_deck(ctx: RunContext, draft: PitchDraft, store: EvidenceStore, cells: 
     supporting = [_policy_claim(b.text, ClaimType.POLICY_BENEFIT, selected, b.evidence_ids, store, 4)
                   for b in draft.supporting_benefits]
 
-    # Slide 5
-    assumptions = [Claim(claim_id="CL-000", slide_number=5, claim_type=ClaimType.ASSUMPTION, material=False,
-                         text=f"Assumed base sum insured: {_money(ctx.assumed_sum_insured)}{ASSUMPTION_LABEL}")]
-    assumed = [e for e in ctx.exposures if e.assumption_based]
-    if assumed:
-        basis = list(dict.fromkeys(b for e in assumed for b in e.basis_fact_ids))
-        assumptions.append(Claim(claim_id="CL-000", slide_number=5, claim_type=ClaimType.ASSUMPTION, material=False,
-                                 basis_fact_ids=basis,
-                                 text="Exposures based on assumptions: " + ", ".join(e.name for e in assumed)
-                                      + ASSUMPTION_LABEL))
-    assumptions.append(Claim(claim_id="CL-000", slide_number=5, claim_type=ClaimType.NON_FACTUAL, material=False,
-                             text=NOT_SOURCE_VERIFIED_TEXT))
-    footnotes = _footnotes(rows, names, store)
-    if sel.decided_by.value == "ADVISOR":
-        footnotes.append(f"Policy selected by the advisor: {sel.advisor_reason}")
-
     slides = [
         PitchSlide(slide_number=1, title=SLIDE_TITLES[0], bullets=slide1),
         PitchSlide(slide_number=2, title=SLIDE_TITLES[1], bullets=slide2),
         PitchSlide(slide_number=3, title=SLIDE_TITLES[2], table_rows=table),
         PitchSlide(slide_number=4, title=SLIDE_TITLES[3], bullets=bullets, supporting_benefits=supporting,
                    key_limitations=limitations),
-        PitchSlide(slide_number=5, title=SLIDE_TITLES[4], bullets=assumptions, footnotes=footnotes),
     ]
     return _assemble(ctx, slides, store, sel), notes
 
@@ -469,21 +481,35 @@ def _assemble(ctx: RunContext, slides: list[PitchSlide], store: EvidenceStore, s
         for claim in slide.all_claims():
             n += 1
             claim.claim_id = f"CL-{n:03d}"
-    cited_docs: dict[str, set[int]] = {}
-    for claim in (c for slide in slides for c in slide.all_claims()):
-        for e in claim.cited_evidence_ids:
-            item = store.get(e)
-            cited_docs.setdefault(item.document_id, set()).add(item.page)
-    sources = [f"{store.document(p).display_name} — {store.document(p).file_name}, p. {', '.join(map(str, sorted(pages)))}"
-               for p, pages in cited_docs.items()]
-    sources.append("Marsh: data/marsh/marsh_profile.md (from docs/Marsh_Internship_Case_Study.pdf)")
-    sources += web_source_lines(ctx, [c for slide in slides for c in slide.all_claims()])
     doc = store.document(sel.selected_policy_id)
-    return PitchDeck(run_id=ctx.run_id, company_name=ctx.company_name, slides=slides, sources=sources,
+    return PitchDeck(run_id=ctx.run_id, company_name=ctx.company_name, slides=slides,
+                     sources=deck_sources(ctx, slides, store),
                      recommended=RecommendedPolicyBlock(policy_id=sel.selected_policy_id, policy_name=doc.display_name,
                                                         variant=sel.selected_variant,
                                                         required_addons=list(sel.required_addons),
-                                                        decided_by=sel.decided_by))
+                                                        decided_by=sel.decided_by,
+                                                        assumed_sum_insured=ctx.assumed_sum_insured))
+
+
+def deck_sources(ctx: RunContext, slides: list[PitchSlide], store: EvidenceStore | None) -> list[str]:
+    """Client-facing source labels of the whole deck (the renderer footnotes them per slide)."""
+    claims = [c for slide in slides for c in slide.all_claims()]
+    cited: dict[str, set[int]] = {}
+    for claim in claims:
+        for e in claim.cited_evidence_ids:
+            try:
+                item = store.get(e) if store else None
+            except KeyError:
+                item = None
+            if item is not None:
+                cited.setdefault(item.document_id, set()).add(item.page)
+    labels = [policy_source_label(store.document(p).display_name, list(pages)) for p, pages in cited.items()]
+    profile = load_profile()
+    for claim in claims:
+        record = profile.record(claim.metadata.get("marsh_claim_id", ""))
+        if claim.claim_type == ClaimType.MARSH_STATEMENT and record is not None:
+            labels.append(marsh_source_label(record, profile))
+    return list(dict.fromkeys(labels + web_source_labels(ctx, claims)))
 
 
 # --- Validation -----------------------------------------------------------------------------------------------
@@ -518,7 +544,7 @@ def is_duplicate(a: str, b: str) -> bool:
 
 
 def is_complete_sentence(text: str) -> bool:
-    core = text.removesuffix(ASSUMPTION_LABEL).strip()
+    core = strip_assumption_label(text).strip()
     words = core.split()
     return (len(words) >= 5 and core[:1].isupper() and core[-1:] in ".!?"
             and words[0].casefold().strip(",") not in _CONNECTORS)
@@ -543,8 +569,8 @@ def claim_problems(deck: PitchDeck, ctx: RunContext, store: EvidenceStore, cells
                 errs.append(f"names another policy ({', '.join(sorted(other))})")
             if _BACKTICK_DIGIT.search(claim.text):
                 errs.append("has a backtick before a digit (write ₹)")
-            if slide.slide_number != 1 and any(facts.get(b) and facts[b].field == FactField.BUSINESS_RISK
-                                               for b in claim.basis_fact_ids):
+            if slide.slide_number not in (1, 2) and any(facts.get(b) and facts[b].field == FactField.BUSINESS_RISK
+                                                      for b in claim.basis_fact_ids):
                 errs.append("uses a business risk outside slide 1")
             if slide.slide_number == 2 and claim.claim_type not in (ClaimType.MARSH_STATEMENT, ClaimType.NON_FACTUAL):
                 errs.append("slide 2 allows only Marsh statements")
@@ -664,7 +690,7 @@ def generate_pitch(ctx: RunContext) -> PitchDeck:
     """The PitchDeck for a run with a locked selection; saved to the RunContext and outputs/<run_id>/pitch_deck.json."""
     if ctx.selection is None or ctx.company_profile is None:
         raise PitchError("the run needs a company profile and a policy selection before the pitch")
-    marsh_claims = load_marsh_claims()  # before any LLM call
+    load_profile()  # a missing / empty Marsh profile fails before any LLM call
     sel = ctx.selection
     compared = sel.compared_policy_ids
     if sel.selected_policy_id not in compared:
@@ -675,13 +701,15 @@ def generate_pitch(ctx: RunContext) -> PitchDeck:
     cells = [m for m in matrices[sel.selected_policy_id] if m.exposure_id in relevant]
     rows = _plan_rows(ctx, cells)
 
+    slide2, why_notes = generate_why_marsh(ctx)
     build_errors: list[str] = []
     deck = notes = None
     for _ in (1, 2):  # a draft that breaks a model limit / schema rule gets one retry
         draft = call_structured(PROMPT, _variables(ctx, store, rows, build_errors), PitchDraft, run_id=ctx.run_id,
                                 max_output_tokens=MAX_OUTPUT_TOKENS)
         try:
-            deck, notes = build_deck(ctx, draft, store, cells, marsh_claims)
+            deck, notes = build_deck(ctx, draft, store, cells, [c.model_copy() for c in slide2])
+            notes += why_notes
             break
         except ValueError as exc:  # a CLAUDE.md section 9 limit or schema rule
             build_errors = [str(exc)]
@@ -711,3 +739,114 @@ def generate_pitch(ctx: RunContext) -> PitchDeck:
     log_decision(ctx.run_id, "pitch_generated", {"claims": len(deck.all_claims()), "build_notes": notes,
                                                  "repaired": repaired_ids, "removed": list(removed)}, actor="llm")
     return deck
+
+
+# --- Slide 2: Why Choose Marsh ----------------------------------------------------------------------------------
+
+
+def _why_marsh_variables(ctx: RunContext, previous_errors: list[str]) -> dict:
+    profile = load_profile()
+    facts = "\n".join(f"- {f.fact_id} | {f.field.value} | {'web-sourced' if f.status == FactStatus.WEB_SOURCED else 'assumption'}"
+                      f" | {f.value}" for f in ctx.company_profile.facts)
+    exposures = "\n".join(f"- {e.exposure_id} | {e.name}" for e in ctx.exposures) or "- (none)"
+    capabilities = "\n".join(
+        f"- {r.ms_id} | {r.fact} | {' '.join(r.guidance.split())[:400]}" for r in profile.statements)
+    return {"company_name": ctx.company_name, "facts": facts, "exposures": exposures, "capabilities": capabilities,
+            "previous_errors": ("Your previous answer failed these checks; fix them:\n" + "\n".join(
+                f"- {e}" for e in previous_errors)) if previous_errors else ""}
+
+
+def why_marsh_problems(point: WhyMarshPoint, ctx: RunContext) -> list[str]:
+    """Checks on one slide-2 point before the audit (the audit then verifies the Marsh sentence itself)."""
+    from marsh.marsh_profile import required_words
+
+    profile = load_profile()
+    record = profile.record(point.ms_id)
+    if record is None or record.claim_type != "MARSH_STATEMENT":
+        return [f"{point.ms_id} is not a documented Marsh capability"]
+    errors = []
+    facts = _facts(ctx)
+    fact_numbers = parse_numbers(record.fact, strict=False)
+    outcome = number_check(point.marsh_text, [], evidence_numbers=fact_numbers)
+    if outcome.status not in (NumberCheckStatus.PASS, NumberCheckStatus.NA):
+        errors.append(f"{point.ms_id}: the Marsh sentence changes a number ({outcome.details})")
+    for word in required_words(record, profile):
+        if not re.search(rf"\b{re.escape(word)}\b", point.marsh_text, re.IGNORECASE):
+            errors.append(f"{point.ms_id}: keep the source's word {word!r}")
+    if named_policies(f"{point.marsh_text} {point.why_it_matters}"):
+        errors.append(f"{point.ms_id}: names an insurance product")
+    basis = [b for b in point.basis_fact_ids if b in facts]
+    if not basis:
+        errors.append(f"{point.ms_id}: why_it_matters needs basis_fact_ids from the company facts")
+    known = {e.exposure_id for e in ctx.exposures}
+    if unknown := [e for e in point.exposure_ids if e not in known]:
+        errors.append(f"{point.ms_id}: unknown exposure ids {unknown}")
+    basis_numbers = [n for b in basis for n in parse_numbers(facts[b].value, strict=False)]
+    link = number_check(point.why_it_matters, [], evidence_numbers=basis_numbers)
+    if link.status not in (NumberCheckStatus.PASS, NumberCheckStatus.NA):
+        errors.append(f"{point.ms_id}: why_it_matters states a number its company facts don't")
+    return errors
+
+
+def why_marsh_claims(draft: WhyMarshDraft, ctx: RunContext, first_id: int = 0) -> list[Claim]:
+    """Slide-2 claims from a checked draft: headline, then per point the Marsh capability and why it matters."""
+    profile = load_profile()
+    facts = _facts(ctx)
+    claims = [Claim(claim_id="CL-000", slide_number=2, text=_display(draft.headline), claim_type=ClaimType.NON_FACTUAL,
+                    material=False, metadata={"role": "headline"})]
+    for n, point in enumerate(draft.points, start=1):
+        record = profile.record(point.ms_id)
+        claims.append(Claim(claim_id="CL-000", slide_number=2, text=_display(point.marsh_text),
+                            claim_type=ClaimType.MARSH_STATEMENT, material=True,
+                            metadata={"marsh_claim_id": point.ms_id, "source_id": record.source_id, "point": str(n)}))
+        claims.append(Claim(claim_id="CL-000", slide_number=2, text=_display(point.why_it_matters),
+                            claim_type=ClaimType.NON_FACTUAL, material=False,
+                            basis_fact_ids=[b for b in point.basis_fact_ids if b in facts],
+                            metadata={"link_of": point.ms_id, "point": str(n),
+                                      "exposure_ids": ",".join(point.exposure_ids)}))
+    for i, claim in enumerate(claims, start=first_id):
+        claim.claim_id = f"CL-{i:03d}"
+    return claims
+
+
+def generate_why_marsh(ctx: RunContext, first_id: int = 0) -> tuple[list[Claim], list[str]]:
+    """Slide 2 (see the module docstring): one call, one retry with the errors, then invalid points dropped."""
+    errors: list[str] = []
+    draft = None
+    for _ in (1, 2):
+        draft = call_structured(WHY_MARSH_PROMPT, _why_marsh_variables(ctx, errors), WhyMarshDraft,
+                                run_id=ctx.run_id, max_output_tokens=MAX_OUTPUT_TOKENS)
+        errors = [e for p in draft.points for e in why_marsh_problems(p, ctx)]
+        seen = [p.ms_id for p in draft.points]
+        if len(seen) != len(set(seen)):
+            errors.append("each capability may be used once")
+        if not errors:
+            break
+    notes = []
+    if errors:
+        kept = [p for p in draft.points if not why_marsh_problems(p, ctx)]
+        kept = list({p.ms_id: p for p in kept}.values())
+        notes.append(f"slide 2: {len(draft.points) - len(kept)} point(s) dropped after the retry: {errors}")
+        if not kept:
+            raise PitchValidationError(["slide 2: no valid Marsh capability point"] + errors)
+        draft = draft.model_copy(update={"points": kept})
+    if draft.shortfall_note:
+        notes.append(f"slide 2 shortfall: {draft.shortfall_note}")
+    if ctx.run_id:
+        log_decision(ctx.run_id, "why_marsh_generated", {"headline": draft.headline, "points": [
+            p.model_dump() for p in draft.points], "notes": notes}, actor="llm")
+    return why_marsh_claims(draft, ctx, first_id or 0), notes
+
+
+def regenerate_slide2(ctx: RunContext) -> list[Claim]:
+    """Replace only slide 2 of a frozen run's deck (new claim ids after the deck's highest; other claims keep theirs).
+    The old slide-2 claims are dropped. Logged."""
+    deck = ctx.deck
+    highest = max(int(c.claim_id[3:]) for c in deck.all_claims() if c.claim_id[3:].isdigit())
+    old = [c.claim_id for c in deck.slides[1].bullets]
+    claims, notes = generate_why_marsh(ctx, first_id=highest + 1)
+    deck.slides[1] = PitchSlide(slide_number=2, title=SLIDE_TITLES[1], bullets=claims)
+    deck.sources = deck_sources(ctx, deck.slides, load_evidence(ctx.selection.compared_policy_ids))
+    log_decision(ctx.run_id, "slide2_regenerated", {"removed": old, "added": [c.claim_id for c in claims],
+                                                    "notes": notes})
+    return claims

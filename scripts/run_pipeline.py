@@ -123,8 +123,6 @@ def render_and_print(ctx) -> None:
     for r in gate.review_items:
         state = "unacknowledged" if r.item_id in gate.unacknowledged else "acknowledged"
         print(f"  REVIEW [{r.item_id}] ({state}) {r.message}")
-    for claim_id in gate.removed_wm_claims:
-        print(f"  WM claim removed: {claim_id}")
     print(f"Deck: {path}" if path else "Deck not rendered (the gate FAILed)")
 
 

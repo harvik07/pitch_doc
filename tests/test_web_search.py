@@ -55,6 +55,30 @@ def test_sources_are_numbered_deduplicated_and_cached(tavily):
     assert read_decisions(RUN)[1]["payload"]["cached"] is True
 
 
+@pytest.mark.parametrize("title, expected", [
+    ("Placeholder Co - WikipediaPlaceholder Co Limited | Annual Report 2025 | Investors overview page",
+     "Placeholder Co - Wikipedia"),  # several results' titles glued together: each result keeps its own
+    ("annual-report-2025.pdf", "Annual report 2025"),  # a file name becomes readable
+    ("McKinsey Global Institute: a long placeholder report title about the future of work",
+     "McKinsey Global Institute: a long placeholder report title about the future of work"),  # not cut at "Mc"
+    ("About us |", "About us"),
+    ("", "example.com"),
+])
+def test_clean_title(title, expected):
+    assert web_search.clean_title(title, "https://www.example.com/x") == expected
+
+
+def test_source_label_is_client_facing():
+    from datetime import datetime
+
+    from marsh.models import WebSource
+
+    source = WebSource(source_id="WEB-001", url="https://en.wikipedia.org/wiki/Placeholder", content="x",
+                       title="Placeholder Co - WikipediaPlaceholder Co Limited | Annual Report 2025 | Investors",
+                       retrieved_at=datetime(2026, 9, 6, 10, 0).astimezone())
+    assert web_search.source_label(source) == "Placeholder Co - Wikipedia — wikipedia.org — Retrieved 6 September 2026"
+
+
 def test_page_text_is_truncated(tavily, monkeypatch):
     monkeypatch.setattr(settings, "WEB_SOURCE_MAX_CHARS", 10)
     assert search_company("Example Co").sources[0].content == "Example Co"

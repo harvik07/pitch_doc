@@ -1,0 +1,30 @@
+# TRACE in Docker: `docker compose up --build`, then open http://localhost:8000
+#
+# Settings come from .env (the same file the local app uses: GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION,
+# GEMINI_MODEL, TAVILY_API_KEY, ...). Gemini runs on Vertex AI with Google Application Default Credentials:
+# the credentials file is mounted read-only (never copied into the image). Create it once on the host with
+#   gcloud auth application-default login
+# Default location: %APPDATA%\gcloud\... on Windows; set GOOGLE_ADC_FILE to point elsewhere
+# (on macOS/Linux: ~/.config/gcloud/application_default_credentials.json).
+
+services:
+  trace:
+    build: .
+    image: trace:latest
+    container_name: trace
+    ports:
+      - "8000:8080"
+    env_file: .env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/adc.json
+    volumes:
+      - ${GOOGLE_ADC_FILE:-${APPDATA}/gcloud/application_default_credentials.json}:/secrets/adc.json:ro
+      - trace-outputs:/app/outputs          # decks, audit reports, decision logs
+      - trace-uploads:/app/data/uploads     # uploaded policy PDFs
+      - trace-cache:/app/data/cache         # evidence / matrix / web caches (seeded from the image)
+    restart: unless-stopped
+
+volumes:
+  trace-outputs:
+  trace-uploads:
+  trace-cache:

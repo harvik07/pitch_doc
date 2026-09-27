@@ -68,6 +68,7 @@ from marsh.matching import (
 )
 from marsh.models import (
     ASSUMPTION_DISPLAY,
+    SLIDE1_MAX_BULLET_CHARS,
     SLIDE1_MAX_BULLETS,
     SLIDE4_MAX_FRAMING_BULLETS,
     SLIDE4_MAX_KEY_LIMITATIONS,
@@ -219,6 +220,46 @@ def _company_claim(text: str, basis: list[str], facts: dict[str, CompanyFact], s
                  claim_type=ClaimType.COMPANY_FACT if web else ClaimType.ASSUMPTION,
                  basis_fact_ids=basis, material=False, qualifier_text=WEB_SOURCED_LABEL if web else None,
                  metadata={k: v for k, v in metadata.items() if v})
+
+
+# Slide 1 order: (fields, how many). Size: a web-sourced headcount band if there is one, else the size fact.
+_OVERVIEW = ((FactField.INDUSTRY,), 1), ((FactField.HEADCOUNT_BAND, FactField.SIZE), 1), ((FactField.GEOGRAPHY,), 1), \
+    ((FactField.BUSINESS_RISK,), 2), ((FactField.WORKFORCE_PROFILE,), 1)
+
+
+def overview_claims(ctx: RunContext, notes: list[str] | None = None) -> list[Claim]:
+    """Slide 1 (Company Overview, CLAUDE.md section 9): one bullet per validated company fact, worded as the fact
+    itself — industry, size (a web-sourced headcount band, else the size fact), geography, up to 2 business risks and
+    the workforce fact the exposures rest on (web-sourced facts first within a field). Nothing is reworded by an LLM,
+    so a bullet can only say what its fact says; its label comes from the fact's status (web-sourced facts plain,
+    others "*")."""
+    facts = _facts(ctx)
+    exposure_basis = {b for e in ctx.exposures for b in e.basis_fact_ids}
+    limit = SLIDE1_MAX_BULLET_CHARS - len(ASSUMPTION_MARKER) - 1
+    chosen: list[CompanyFact] = []
+    for fields, count in _OVERVIEW:
+        candidates = [f for f in facts.values() if f.field in fields and f not in chosen]
+        if FactField.HEADCOUNT_BAND in fields and not any(f.field == FactField.HEADCOUNT_BAND
+                                                          and f.status == FactStatus.WEB_SOURCED for f in candidates):
+            candidates = [f for f in candidates if f.field == FactField.SIZE] or candidates
+        candidates.sort(key=lambda f: (f.status != FactStatus.WEB_SOURCED, f.fact_id not in exposure_basis,
+                                       fields.index(f.field)))
+        for fact in candidates:
+            if count == 0 or len(chosen) >= SLIDE1_MAX_BULLETS:
+                break
+            if len(fact.value) > limit:
+                if notes is not None:
+                    notes.append(f"slide 1: {fact.fact_id} left out (longer than {limit} characters)")
+                continue
+            chosen.append(fact)
+            count -= 1
+    claims = []
+    for fact in chosen:
+        text = fact.value.strip()
+        text = text if text[-1:] in ".!?" else text + "."
+        if claim := _company_claim(text, [fact.fact_id], facts, 1):
+            claims.append(claim)
+    return claims
 
 
 def strip_assumption_label(text: str) -> str:
@@ -401,11 +442,8 @@ def build_deck(ctx: RunContext, draft: PitchDraft, store: EvidenceStore, cells: 
     names = {e.id: e.name for e in load_taxonomy().exposures}
     notes: list[str] = []
 
-    # Slide 1
-    slide1 = [c for b in draft.slide1_bullets if (c := _company_claim(b.text, b.basis_fact_ids, facts, 1))]
-    if len(slide1) < len(draft.slide1_bullets):
-        notes.append("slide 1: bullets without a valid basis fact were dropped")
-    slide1 = split_by_provenance(slide1, facts, SLIDE1_MAX_BULLETS, notes)
+    # Slide 1: the validated company facts themselves (code; no LLM rewording)
+    slide1 = overview_claims(ctx, notes)
 
     # Slide 3
     rows = _plan_rows(ctx, cells)

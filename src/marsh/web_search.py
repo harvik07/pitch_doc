@@ -15,12 +15,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import os
 import re
+import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from pydantic import TypeAdapter
@@ -37,7 +40,46 @@ QUERIES = (
     "{name} key business risks annual report",
 )
 WEB_CACHE_SUBDIR = "web"
+WEB_CACHE_VERSION = 2  # bump when the cached format or the way sources are built changes
 _SOURCES = TypeAdapter(list[WebSource])
+
+
+def cache_key() -> str:
+    """What the cached sources were built with: a change to the queries, result count, page-text limit or cache
+    version makes older caches stale."""
+    spec = {"version": WEB_CACHE_VERSION, "queries": list(QUERIES), "max_results": settings.WEB_MAX_RESULTS,
+            "max_chars": settings.WEB_SOURCE_MAX_CHARS}
+    return hashlib.sha256(json.dumps(spec, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
+def cached_sources(company_name: str) -> tuple[list[WebSource] | None, str]:
+    """(sources, state) from data/cache/web/<company>.json: state HIT, MISS or STALE (built with other settings,
+    an older format, or older than settings.WEB_CACHE_MAX_AGE_DAYS)."""
+    path = cache_path(company_name)
+    if not path.exists():
+        return None, "MISS"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or data.get("key") != cache_key():
+            return None, "STALE"
+        fetched = datetime.fromisoformat(data["fetched_at"])
+        if datetime.now().astimezone() - fetched > timedelta(days=settings.WEB_CACHE_MAX_AGE_DAYS):
+            return None, "STALE"
+        return _SOURCES.validate_python(data["sources"]), "HIT"
+    except (ValueError, KeyError, TypeError):
+        log.warning("unreadable web cache %s: searching again", path)
+        return None, "STALE"
+
+
+def _save_cache(company_name: str, sources: list[WebSource]) -> None:
+    """Written atomically (temp file + rename): a concurrent reader never sees a partial file."""
+    path = cache_path(company_name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_text(json.dumps({"key": cache_key(), "fetched_at": datetime.now().astimezone().isoformat(),
+                               "sources": [s.model_dump(mode="json") for s in sources]}, indent=2,
+                              ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, path)
 
 
 @dataclass
@@ -114,7 +156,7 @@ def _fetch(company_name: str) -> tuple[list[WebSource], list[dict]]:
         return response.get("results") or [], round(time.monotonic() - started, 2)
 
     queries = [template.format(name=company_name) for template in QUERIES]
-    for query, (results, latency) in zip(queries, map_ordered(search, queries)):  # the queries are independent
+    for query, (results, latency) in zip(queries, map_ordered(search, queries, settings.WEB_MAX_CONCURRENCY)):  # the queries are independent
         calls.append({"query": query, "latency_s": latency, "urls": [r.get("url") for r in results]})
         for r in results:
             url, text = str(r.get("url") or "").strip(), _page_text(r)
@@ -144,17 +186,14 @@ def search_company(company_name: str, run_id: str | None = None) -> WebSearchRes
 
 
 def _cached_or_fetched(company_name: str, run_id: str | None) -> WebSearchResult:
-    path = cache_path(company_name)
-    if path.exists():
-        try:
-            sources = _SOURCES.validate_json(path.read_text(encoding="utf-8"))
-        except ValueError:
-            log.warning("unreadable web cache %s: searching again", path)
-        else:
-            if run_id:
-                log_decision(run_id, "web_search", {"company_name": company_name, "cached": True,
-                                                    "urls": [s.url for s in sources]})
-            return WebSearchResult(sources=sources, note="" if sources else "web search returned no results")
+    sources, state = cached_sources(company_name)
+    if sources is not None:
+        if run_id:
+            log_decision(run_id, "web_search", {"company_name": company_name, "cached": True,
+                                                "urls": [s.url for s in sources]})
+        return WebSearchResult(sources=sources, note="" if sources else "web search returned no results")
+    if state == "STALE" and run_id:
+        log_decision(run_id, "web_cache_stale", {"company_name": company_name})
     try:
         with timing.step("tavily_request") as info:
             sources, calls = _fetch(company_name)
@@ -167,7 +206,5 @@ def _cached_or_fetched(company_name: str, run_id: str | None) -> WebSearchResult
                                             "sources": [{"source_id": s.source_id, "url": s.url} for s in sources]})
     if not sources:
         return WebSearchResult(note="web search returned no results")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps([s.model_dump(mode="json") for s in sources], indent=2, ensure_ascii=False),
-                    encoding="utf-8")
+    _save_cache(company_name, sources)
     return WebSearchResult(sources=sources)

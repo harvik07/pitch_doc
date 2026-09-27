@@ -74,6 +74,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -95,6 +96,7 @@ from marsh.grounding import (
     number_check,
     numbers_equal,
     quote_in_evidence,
+    unsupported_words,
 )
 from marsh.llm import LLMError, call_structured, load_prompt
 from marsh.matching import (
@@ -267,6 +269,17 @@ class AuditSources:
     siblings: dict[str, list[Claim]] = field(default_factory=dict)  # slide-3 claim_id → the other cell of its row
     _cache: AuditCache | None = field(default=None, repr=False)
     cache_hits: int = 0
+    _evidence_text: dict[str, str] = field(default_factory=dict, repr=False)  # document → serialised evidence
+
+    def evidence_text(self, document_id: str, items: list[EvidenceItem] | None = None) -> str:
+        """The prompt's evidence lines for a document's full evidence set, built once and reused (the evidence
+        itself is unchanged). `items` (keyword-retrieved subsets) are serialised as given, never cached."""
+        if items is not None:
+            return _evidence_lines(items)
+        if document_id not in self._evidence_text:
+            full = self.marsh_items if document_id == MARSH_DOCUMENT else self.store.items_for_policy(document_id)
+            self._evidence_text[document_id] = _evidence_lines(full)
+        return self._evidence_text[document_id]
 
     def __post_init__(self) -> None:
         self.taxonomy = self.taxonomy or load_taxonomy()
@@ -506,6 +519,13 @@ def _audit_company(claim: Claim, sources: AuditSources) -> AuditResult:
     state.ok("company", f"maps to {', '.join(basis)}")
     if claim.slide_number != 1 and any(facts[b].field == FactField.BUSINESS_RISK for b in basis):
         state.cap("company", AuditStatus.NEEDS_REVIEW, "uses a business risk outside slide 1")
+    if claim.slide_number == 1:  # Company Overview: the statement says what its facts say, nothing more
+        extra = unsupported_words(claim.text, [facts[b].value for b in basis], ignore=sources.profile.company_name)
+        if extra:
+            state.cap("wording", AuditStatus.NEEDS_REVIEW, "adds wording that is not in its company facts: "
+                                                           + ", ".join(extra))
+        else:
+            state.ok("wording", "worded as its company facts")
     fact_numbers = [n for b in basis for n in parse_numbers(facts[b].value, strict=False)]
     outcome = number_check(claim.text, [], evidence_numbers=fact_numbers)
     if outcome.status == NumberCheckStatus.FAIL_CONTRADICTED:
@@ -542,7 +562,7 @@ def _check_web_facts(state: _State, basis: list[CompanyFact], profile: CompanyPr
                                                           "is not web-sourced")
         return
     problems = [f"{f.fact_id}: {p}" for f in basis
-                for p in web_source_problems(f.value, f.source_ids, f.quotes, profile.sources)]
+                for p in web_source_problems(f.value, f.source_ids, f.quotes, profile.sources, profile.company_name)]
     if problems:
         state.cap("web_source", AuditStatus.NEEDS_REVIEW, "web source check failed: " + "; ".join(problems))
     else:
@@ -1060,23 +1080,23 @@ def prompt_variables(policy_id: str, claims: list[Claim], sources: AuditSources)
                             f"{_one_line(c.text)}" for c in claims)
     if policy_id == MARSH_DOCUMENT:
         return {"policy_name": "Marsh — documented capabilities (Marsh profile)", "policy_id": MARSH_DOCUMENT,
-                "variants": "none", "evidence": _evidence_lines(sources.marsh_items), "claims": claim_lines}
+                "variants": "none", "evidence": sources.evidence_text(MARSH_DOCUMENT), "claims": claim_lines}
     store = sources.store
     doc = store.document(policy_id)
     items = store.items_for_policy(policy_id)
+    subset = None  # under FULL_CONTEXT_TOKEN_LIMIT: the full evidence set (CLAUDE.md section 8)
     if store.estimate_tokens(policy_id) >= settings.FULL_CONTEXT_TOKEN_LIMIT:
         chosen: dict[str, EvidenceItem] = {}
         for claim in claims:
             for item in store.keyword_search(policy_id, claim.text, k=15):
                 chosen[item.evidence_id] = item
                 chosen.update({f.evidence_id: f for f in store.footnotes_for(item) if f.citable})
-        items = [i for i in items if i.evidence_id in chosen]
+        subset = [i for i in items if i.evidence_id in chosen]
     return {
         "policy_name": doc.display_name, "policy_id": policy_id,
         "variants": ", ".join(doc.variants) or "none stated",
-        "evidence": _evidence_lines(items),
-        "claims": "\n".join(f"- {c.claim_id} | {claim_location(c, sources)} | {c.claim_type.value} | "
-                            f"{_one_line(c.text)}" for c in claims),
+        "evidence": sources.evidence_text(policy_id, subset),
+        "claims": claim_lines,
     }
 
 
@@ -1130,8 +1150,10 @@ def _route(claim: Claim, sources: AuditSources) -> AuditResult | Claim:
     return claim
 
 
-def audit_claims(claims: list[Claim], sources: AuditSources) -> dict[str, AuditResult]:
-    """Audit results by claim_id (see the module docstring). Policy claims: one audit LLM call per policy."""
+def audit_claims(claims: list[Claim], sources: AuditSources, *, phase: str = "audit") -> dict[str, AuditResult]:
+    """Audit results by claim_id (see the module docstring). Code-only claims need no call; the LLM-audited claims
+    of a document go in groups of settings.AUDIT_CLAIMS_PER_CALL (each with that document's full evidence), the
+    groups run with bounded concurrency (settings.AUDIT_MAX_CONCURRENCY). Results keep the claims' order."""
     results: dict[str, AuditResult] = {}
     batches: dict[str, list[Claim]] = {}
     cache, keys = sources.cache, {}
@@ -1147,19 +1169,38 @@ def audit_claims(claims: list[Claim], sources: AuditSources) -> dict[str, AuditR
             sources.cache_hits += 1
         else:
             batches.setdefault(audit_document(routed), []).append(routed)
+    # Each claim is judged on its own (its own verdict) against its policy's full evidence; claims of the same
+    # document are sent in small groups that share the (identical) evidence text, and the groups run with bounded
+    # concurrency. Everything after the calls (deterministic checks, cache, results) stays in claim order.
+    size = max(1, settings.AUDIT_CLAIMS_PER_CALL)
+    groups = [(policy_id, batch[i:i + size]) for policy_id, batch in batches.items()
+              for i in range(0, len(batch), size)]
+    total, done = len(claims), len(results)
+    progress_lock = threading.Lock()
+    timing.progress(phase, done, total)
+
     def ask(item: tuple[str, list[Claim]]) -> tuple[dict[str, AuditVerdict], str]:
-        policy_id, batch = item
-        with timing.step("audit_batch", document=policy_id, claims=len(batch)):
+        nonlocal done
+        policy_id, group = item
+        with timing.step("audit_call", document=policy_id, claims=len(group)):
             try:
-                return _llm_verdicts(policy_id, batch, sources), "the auditor returned no verdict for this claim"
+                answer = _llm_verdicts(policy_id, group, sources), "the auditor returned no verdict for this claim"
             except LLMError as exc:
                 log.warning("audit call for %s failed: %s", policy_id, exc)
-                return {}, f"the audit LLM call failed ({exc})"
+                answer = {}, f"the audit LLM call failed ({exc})"
+        with progress_lock:
+            done += len(group)
+            timing.progress(phase, done, total)
+        return answer
 
-    # The documents' audit calls are independent: they run concurrently; everything after them stays in order.
-    answers = map_ordered(ask, list(batches.items()))
-    for (policy_id, batch), (verdicts, error) in zip(batches.items(), answers):
+    answers: dict[str, tuple[dict[str, AuditVerdict], str]] = {}
+    for (policy_id, group), (verdicts, error) in zip(groups, map_ordered(ask, groups,
+                                                                        settings.AUDIT_MAX_CONCURRENCY)):
+        for claim in group:
+            answers[claim.claim_id] = (verdicts, error)
+    for policy_id, batch in batches.items():
         for claim in batch:
+            verdicts, error = answers[claim.claim_id]
             verdict = verdicts.get(claim.claim_id)
             if verdict is not None:
                 check = _check_marsh_claim if policy_id == MARSH_DOCUMENT else _check_policy_claim

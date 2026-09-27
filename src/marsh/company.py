@@ -27,7 +27,7 @@ from pathlib import Path
 
 from marsh import settings, timing
 from marsh.decision_log import log_decision
-from marsh.grounding import number_check, quote_in_evidence
+from marsh.grounding import number_check, quote_in_evidence, unsupported_names
 from marsh.llm import call_structured
 from marsh.models import (
     CompanyFact,
@@ -81,9 +81,10 @@ def states_specific_figure(field: FactField, value: str) -> bool:
 
 
 def web_source_problems(value: str, source_ids: list[str], quotes: list[str],
-                        sources: list[WebSource]) -> list[str]:
+                        sources: list[WebSource], company_name: str = "") -> list[str]:
     """Why a fact can't be WEB_SOURCED ([] = verified): cited sources exist, every quote is verbatim in one of
-    them, and every number in the value is in the quotes."""
+    them, every number in the value is in the quotes, and every place / organisation the value names (other than
+    the company itself) is named in the quotes."""
     by_id = {s.source_id: s for s in sources}
     cited = [by_id[i] for i in dict.fromkeys(source_ids) if i in by_id]
     problems = [f"unknown source {i}" for i in dict.fromkeys(source_ids) if i not in by_id]
@@ -97,6 +98,8 @@ def web_source_problems(value: str, source_ids: list[str], quotes: list[str],
         elif not any(quote_in_evidence(quote, s.content) for s in cited):
             problems.append(f"quote not found in the cited sources: {quote!r}")
     problems += _number_problems(value, quotes)
+    if quotes and (names := unsupported_names(value, quotes, ignore=company_name)):
+        problems.append(f"names not in the quotes: {', '.join(names)}")
     return problems
 
 
@@ -117,12 +120,12 @@ def _number_problems(value: str, quotes: list[str]) -> list[str]:
     return problems
 
 
-def _resolve_status(draft: CompanyFactDraft, recognised: bool,
-                    sources: list[WebSource]) -> tuple[FactStatus, Confidence, str, list[str], list[str]]:
+def _resolve_status(draft: CompanyFactDraft, recognised: bool, sources: list[WebSource],
+                    company_name: str = "") -> tuple[FactStatus, Confidence, str, list[str], list[str]]:
     """Status, confidence, rationale, source_ids and quotes after the deterministic checks."""
     status, confidence, rationale = draft.status, draft.confidence, draft.rationale
     if status == FactStatus.WEB_SOURCED:
-        problems = web_source_problems(draft.value, draft.source_ids, draft.quotes, sources)
+        problems = web_source_problems(draft.value, draft.source_ids, draft.quotes, sources, company_name)
         if not problems:
             return status, confidence, rationale, list(dict.fromkeys(draft.source_ids)), list(draft.quotes)
         status = FactStatus.MODEL_KNOWLEDGE if recognised else FactStatus.ASSUMPTION
@@ -139,7 +142,7 @@ def build_profile(company_name: str, response: CompanyProfileResponse, sources: 
     facts: list[CompanyFact] = []
     for n, draft in enumerate(response.facts, start=1):
         status, confidence, rationale, source_ids, quotes = _resolve_status(draft, response.company_recognised,
-                                                                            sources)
+                                                                            sources, company_name)
         if status != FactStatus.ASSUMPTION and states_specific_figure(draft.field, draft.value):
             status, confidence, rationale = FactStatus.ASSUMPTION, Confidence.LOW, rationale + DOWNGRADE_NOTE
             source_ids, quotes = [], []
@@ -197,10 +200,10 @@ def generate_company_profile(company_name: str, run_id: str | None = None) -> Co
     check = validate_company_name(company_name)
     if not check.ok:
         raise CompanyNameError(check.errors[0].message)
-    from marsh.web_search import cache_path
+    from marsh.web_search import cached_sources
 
     with timing.step("company_web_research") as info:
-        info["cache"] = "HIT" if settings.WEB_SEARCH_ENABLED and cache_path(check.name).exists() else "MISS"
+        info["cache"] = cached_sources(check.name)[1] if settings.WEB_SEARCH_ENABLED else "DISABLED"
         web = search_company(check.name, run_id)
         info["sources"] = len(web.sources)
         if web.note:

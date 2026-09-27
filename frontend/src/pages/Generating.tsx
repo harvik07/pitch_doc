@@ -126,7 +126,10 @@ export default function Generating() {
                     <span className="stage__marker" aria-hidden="true">
                       {state === "done" ? <Check size={14} weight="bold" /> : index + 1}
                     </span>
-                    <span>{label}</span>
+                    <span className="stage__label">
+                      {label}
+                      {state === "current" && job?.detail && <span className="stage__detail">{job.detail}</span>}
+                    </span>
                     <span className="stage__state">
                       {state === "done" ? "Done" : state === "current" ? "In progress" : ""}
                     </span>
@@ -136,6 +139,9 @@ export default function Generating() {
             </ol>
             <p className="visually-hidden" aria-live="polite">
               {currentLabel ? `${currentLabel}.` : ""}
+            </p>
+            <p className="visually-hidden" aria-live="polite" aria-atomic="true">
+              {job?.detail ?? ""}
             </p>
           </>
         )}

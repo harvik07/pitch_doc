@@ -211,3 +211,19 @@ def test_no_timer_means_no_timing_side_effects():
     with timing.step("anything") as info:  # outside a generation: a no-op
         info["x"] = 1
     assert timing.current() is None
+
+
+def test_job_progress_reports_real_audit_and_repair_counts():
+    job = server.Job(job_id="x", kind="generate", stages=server.GENERATE_STAGES, stage=6,
+                     timer=timing.GenerationTimer())
+    assert job.view()["detail"] is None
+    job.timer.progress = {"phase": "audit", "done": 18, "total": 40}
+    assert (job.view()["stage"], job.view()["detail"]) == (6, "18 of 40 statements checked")
+    job.timer.progress = {"phase": "repair", "done": 1, "total": 2, "attempt": 1}
+    assert (job.view()["stage"], job.view()["detail"]) == (7, "Repairing 2 statements · 1 of 2 done")
+    job.timer.progress = {"phase": "reaudit", "done": 0, "total": 1}
+    assert (job.view()["stage"], job.view()["detail"]) == (7, "Re-checking 1 repaired statement · 0 of 1")
+    job.stage, job.timer.progress = 4, {"phase": "audit", "done": 3, "total": 9}
+    assert job.view()["detail"] == "Checking the recommendation against the evidence · 3 of 9"
+    job.status = "done"
+    assert job.view()["detail"] is None

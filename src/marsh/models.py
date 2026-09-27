@@ -901,11 +901,6 @@ class PitchSlide(_Model):
         return self
 
 
-class DraftCompanyBullet(_Model):
-    text: str = Field(min_length=1, max_length=125)  # code may append the "*" marker; slide 1 allows 140
-    basis_fact_ids: list[str] = Field(min_length=1)
-
-
 class DraftRow(_Model):
     exposure_id: str
     benefit_text: str = Field(min_length=1, max_length=200)
@@ -928,8 +923,8 @@ class DraftSplit(_Model):
 
 
 class PitchDraft(_Model):
-    """Gemini output for prompts/generate_pitch.md. Lists are capped by the CLAUDE.md section 9 limits."""
-    slide1_bullets: list[DraftCompanyBullet] = Field(min_length=1, max_length=SLIDE1_MAX_BULLETS)
+    """Gemini output for prompts/generate_pitch.md. Lists are capped by the CLAUDE.md section 9 limits. Slide 1 is
+    not here: code builds it from the validated company facts (pitch.overview_claims)."""
     slide3_rows: list[DraftRow] = Field(default_factory=list, max_length=SLIDE3_MAX_ROWS)
     supporting_benefits: list[DraftPolicyClaim] = Field(default_factory=list, max_length=SLIDE4_MAX_SUPPORTING_BENEFITS)
     splits: list[DraftSplit] = Field(default_factory=list)

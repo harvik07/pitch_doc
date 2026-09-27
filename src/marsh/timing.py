@@ -62,6 +62,7 @@ class GenerationTimer:
         self.started = time.perf_counter()
         self.started_at = datetime.now().astimezone()
         self._lock = threading.Lock()
+        self.progress: dict[str, Any] = {}  # the phase in progress, e.g. {"phase": "audit", "done": 12, "total": 40}
 
     @contextmanager
     def active(self) -> Iterator[GenerationTimer]:
@@ -144,8 +145,8 @@ class GenerationTimer:
         lines += ["", f"{'TOTAL:':<{width + 4}}{self.total_seconds:>8.2f}s", ""]
         top, leaf = self.slowest(), self.slowest(leaf=True)
         if top:
-            lines.append(f"SLOWEST STEP: {top.name} — {top.seconds:.2f}s "
-                         f"({top.seconds / self.total_seconds:.0%} of the total)" if self.total_seconds else "")
+            share = f" ({top.seconds / self.total_seconds:.0%} of the total)" if self.total_seconds else ""
+            lines.append(f"SLOWEST STEP: {top.name} — {top.seconds:.2f}s{share}")
         if leaf and leaf is not top:
             lines.append(f"SLOWEST SUB-STEP: {self.step_label(leaf)} — {leaf.seconds:.2f}s")
         lines.append(bar)
@@ -167,6 +168,13 @@ class GenerationTimer:
 
 def current() -> GenerationTimer | None:
     return _current.get()
+
+
+def progress(phase: str, done: int, total: int, **extra: Any) -> None:
+    """Report real progress of the current phase (e.g. claims audited) to the active timer; a no-op without one."""
+    timer = _current.get()
+    if timer is not None:
+        timer.progress = {"phase": phase, "done": done, "total": total, **extra}
 
 
 @contextmanager

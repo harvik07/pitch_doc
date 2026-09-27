@@ -112,10 +112,12 @@ def load(run_id: str) -> RunContext:
 
 
 GENERATE_STAGES = ["Researching the company", "Identifying employee-health needs", "Reading the policy documents",
-                   "Comparing cover across the policies", "Choosing the recommendation", "Writing the pitch",
-                   "Checking every statement against the evidence", "Preparing the deck"]
-OVERRIDE_STAGES = ["Recording your choice", "Writing the pitch", "Checking every statement against the evidence",
-                   "Preparing the deck"]
+                   "Building the coverage analysis", "Choosing the recommendation", "Writing the pitch",
+                   "Auditing every statement", "Repairing flagged statements", "Final validation and rendering"]
+OVERRIDE_STAGES = ["Recording your choice", "Writing the pitch", "Auditing every statement",
+                   "Repairing flagged statements", "Final validation and rendering"]
+# stage index of the audit / repair phases (their live counts come from the job's timer)
+_AUDIT_STAGE = {"generate": 6, "override": 2}
 
 
 @dataclass
@@ -129,9 +131,28 @@ class Job:
     company_name: str = ""
     error: str | None = None
     started: str = field(default_factory=lambda: datetime.now().astimezone().isoformat())
+    timer: timing.GenerationTimer | None = field(default=None, repr=False)
 
     def view(self) -> dict:
-        return {"job_id": self.job_id, "kind": self.kind, "stages": self.stages, "stage": self.stage,
+        """The stage in progress and, while statements are audited or repaired, the real counts."""
+        stage, detail = self.stage, None
+        progress = self.timer.progress if self.timer and self.status == "running" else {}
+        audit_stage = _AUDIT_STAGE[self.kind]
+        if progress and self.kind == "override" and progress.get("phase") in ("audit", "repair", "reaudit"):
+            stage = max(stage, audit_stage)  # the override's audit runs inside pipeline.override_selection
+        if progress and progress.get("total"):
+            done, total = progress["done"], progress["total"]
+            if progress["phase"] == "repair" and stage >= audit_stage:
+                stage = audit_stage + 1
+                detail = f"Repairing {total} statement{'' if total == 1 else 's'} · {done} of {total} done"
+            elif progress["phase"] == "reaudit" and stage >= audit_stage:
+                stage = audit_stage + 1
+                detail = f"Re-checking {total} repaired statement{'' if total == 1 else 's'} · {done} of {total}"
+            elif progress["phase"] == "audit" and stage == audit_stage:
+                detail = f"{done} of {total} statements checked"
+            elif progress["phase"] == "audit" and self.kind == "generate" and stage == 4:
+                detail = f"Checking the recommendation against the evidence · {done} of {total}"
+        return {"job_id": self.job_id, "kind": self.kind, "stages": self.stages, "stage": stage, "detail": detail,
                 "status": self.status, "run_id": self.run_id, "company_name": self.company_name,
                 "error": self.error}
 
@@ -261,6 +282,7 @@ async def create_run(company_name: str = Form(""), policy_ids: list[str] = Form(
     def work(job: Job) -> None:
         timer = timing.GenerationTimer(label=f"{name.name}: {', '.join(bundled)}"
                                              + (f" + {len(uploads)} uploaded PDF(s)" if uploads else ""))
+        job.timer = timer
         try:
             with timer.active():
                 with timer.step("start_run"):
@@ -288,7 +310,8 @@ async def create_run(company_name: str = Form(""), policy_ids: list[str] = Form(
                     ctx = pipeline.audit_run(ctx)
                 ctx.final_status = FinalStatus.AWAITING_REVIEW
                 pipeline.save_run_context(ctx)
-                job.stage = 7
+                job.stage = 8
+                timer.progress = {}
                 refresh_preview(ctx)
         finally:
             timer.save(run_dir(job.run_id) if job.run_id else settings.OUTPUTS_DIR / "_app" / f"timing-{job.job_id}")
@@ -480,11 +503,13 @@ def override(run_id: str, body: OverrideBody) -> dict:
         fail(400, "Please give a reason for changing the recommended policy.")
 
     def work(job: Job) -> None:
-        with run_lock(run_id):
+        job.timer = timing.GenerationTimer(label=f"override {run_id}")
+        with job.timer.active(), run_lock(run_id):
             run = load_run_context(run_id)
             job.stage = 1
             pipeline.override_selection(run, body.policy_id, body.reason)
-            job.stage = 3
+            job.stage = 4
+            job.timer.progress = {}
             run = load_run_context(run_id)
         refresh_preview(run)
 

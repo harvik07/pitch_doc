@@ -73,6 +73,24 @@ MAX_REPAIR_ATTEMPTS = 2
 FULL_CONTEXT_TOKEN_LIMIT = 30000
 LLM_RETRIES = 3  # retries after the first attempt, on API errors/timeouts
 LLM_TIMEOUT_MS = 300_000  # one annotation call covers a whole brochure (HDFC: ~230 items)
+LLM_BACKOFF_MAX_S = 30  # retries wait 1, 2, 4 … s (+ random jitter), capped here
+
+# --- Concurrency and batching (measured: generation_timing.json + scripts/profile_run.py) -------------------
+# The audit sends each claim's full policy evidence (CLAUDE.md section 8) whatever the grouping; smaller groups of
+# claims per call mean less reasoning per call, and the groups run concurrently.
+AUDIT_CLAIMS_PER_CALL = 4
+AUDIT_MAX_CONCURRENCY = 4
+REPAIR_MAX_CONCURRENCY = 3  # one call per failing claim (a claim's rewrite never shares another claim's evidence)
+WEB_MAX_CONCURRENCY = 2  # the fixed Tavily queries
+
+# --- Reasoning ("thinking") per prompt, Gemini 3 models only -----------------------------------------------
+# Lower reasoning only for constrained tasks whose output code checks deterministically. Policy selection, the
+# pitch draft, the coverage matrix and the audit keep the model's default reasoning.
+THINKING_LEVELS = {
+    "identify_exposures": "LOW",  # choose ids from a closed taxonomy; code rejects unknown ids / facts
+    "generate_why_marsh": "LOW",  # pick documented capabilities; code checks record, numbers, conditions
+    "repair_claim": "LOW",  # rewrite one sentence from supplied evidence; re-audited independently
+}
 DEFAULT_SUM_INSURED = 1_000_000  # INR 10 lakh; always shown as an assumption
 COMPANY_NAME_MIN_LEN = 2
 COMPANY_NAME_MAX_LEN = 120
@@ -90,5 +108,6 @@ GEMINI_AUDIT_MODEL = os.getenv("GEMINI_AUDIT_MODEL", "").strip() or GEMINI_MODEL
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "").strip()
 WEB_SEARCH_ENABLED = os.getenv("WEB_SEARCH_ENABLED", "true").strip().lower() in {"1", "true", "yes"}
 WEB_MAX_RESULTS = 4  # per query
+WEB_CACHE_MAX_AGE_DAYS = 7  # company web research older than this is fetched again (company facts change)
 WEB_SOURCE_MAX_CHARS = 6000  # page text kept per source (the prompt and the quote check see only this)
 WEB_SEARCH_TIMEOUT_S = 30

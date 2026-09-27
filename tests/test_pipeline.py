@@ -126,8 +126,7 @@ class FakeGemini:
                 {"ms_id": "MS-021", "marsh_text": fact_, "why_it_matters": "A travelling workforce needs cover.",
                  "basis_fact_ids": ["CF-005"], "exposure_ids": ["EXP-AMB-AIR"]}]}
         if prompt.startswith("You write parts of a 4-slide"):
-            return {"slide1_bullets": [{"text": "Placeholder industry company", "basis_fact_ids": ["CF-001"]}],
-                    "slide3_rows": [{"exposure_id": "EXP-AMB-AIR", "benefit_text": NIVA_AIR,
+            return {"slide3_rows": [{"exposure_id": "EXP-AMB-AIR", "benefit_text": NIVA_AIR,
                                      "evidence_ids": ["EV-NIVA-2-015"]}],
                     "splits": [{"selection_claim_id": "SC-1", "policy_text": NIVA_AIR}]}
         raise AssertionError(f"unexpected prompt: {prompt[:80]!r}")

@@ -323,24 +323,29 @@ def company(text, basis, n=1, slide=1, claim_type=ClaimType.COMPANY_FACT, label=
 
 def test_company_claims_are_deterministic(monkeypatch, sources):
     assert PROFILE.facts[2].status == FactStatus.WEB_SOURCED and PROFILE.facts[1].status == FactStatus.MODEL_KNOWLEDGE
-    claims = [company("The company employs over 200,000 people.", ["CF-003"], 1),
-              company("The company employs 214,356 people.", ["CF-003"], 2),
-              company("The company employs over 300,000 people.", ["CF-003"], 3),
-              company("It is a very large enterprise.", ["CF-099"], 4),
-              company("It is a very large enterprise.", ["CF-002"], 5, label=None),
-              company("Staff are mostly desk-based.*", ["CF-006"], 6, claim_type=ClaimType.ASSUMPTION,
+    # Company Overview statements are worded as their facts (CF-003 "200,000+ employees", CF-002 "Very large
+    # enterprise", CF-006 "Predominantly desk-based professionals")
+    claims = [company("Over 200,000 employees.", ["CF-003"], 1),
+              company("214,356 employees.", ["CF-003"], 2),
+              company("Over 300,000 employees.", ["CF-003"], 3),
+              company("A very large enterprise.", ["CF-099"], 4),
+              company("A very large enterprise.", ["CF-002"], 5, label=None),
+              company("Predominantly desk-based professionals.*", ["CF-006"], 6, claim_type=ClaimType.ASSUMPTION,
                       label=None),
-              company("Staff are mostly desk-based.", ["CF-006"], 7, claim_type=ClaimType.ASSUMPTION, label=None),
+              company("Predominantly desk-based professionals.", ["CF-006"], 7, claim_type=ClaimType.ASSUMPTION,
+                      label=None),
               company("Client concentration is a key business risk.*", ["CF-004"], 8, slide=4,
                       claim_type=ClaimType.ASSUMPTION, label=None),
-              company("It is a very large enterprise.*", ["CF-002"], 9, claim_type=ClaimType.ASSUMPTION,
+              company("A very large enterprise.*", ["CF-002"], 9, claim_type=ClaimType.ASSUMPTION,
                       label=None),
-              company("It is a very large enterprise.", ["CF-002"], 10)]  # "Web-sourced" on a model-knowledge fact
+              company("A very large enterprise.", ["CF-002"], 10),  # "Web-sourced" on a model-knowledge fact
+              company("The company employs over 200,000 people in Bengaluru.", ["CF-003"], 11)]  # adds wording
     results, auditor = run(monkeypatch, sources, claims)
     status = {k: r.status for k, r in results.items()}
     assert auditor.calls == []
     assert status["CL-001"] == AuditStatus.VERIFIED and results["CL-001"].supporting_fact_ids == ["CF-003"]
     assert check(results["CL-001"], "web_source").result.value == "PASS"
+    assert check(results["CL-001"], "wording").result.value == "PASS"
     assert status["CL-002"] == AuditStatus.NEEDS_REVIEW or status["CL-002"] == AuditStatus.CONTRADICTED
     assert "precise" in results["CL-002"].explanation
     assert status["CL-003"] == AuditStatus.CONTRADICTED  # 300,000 vs the profile's 200,000+
@@ -351,6 +356,9 @@ def test_company_claims_are_deterministic(monkeypatch, sources):
     assert status["CL-008"] == AuditStatus.NEEDS_REVIEW  # business risk outside slide 1
     assert status["CL-009"] == AuditStatus.LABELLED_ASSUMPTION  # MODEL_KNOWLEDGE is shown as an assumption
     assert status["CL-010"] == AuditStatus.NEEDS_REVIEW and "not web-sourced" in results["CL-010"].explanation
+    # a web-sourced fact can't carry words (a place, "people") its fact doesn't state onto the Company Overview
+    assert status["CL-011"] == AuditStatus.NEEDS_REVIEW and check(results["CL-011"], "wording").result.value == "FAIL"
+    assert "Bengaluru" in results["CL-011"].explanation
     no_profile = audit.AuditSources(store=sources.store, cells=sources.cells, taxonomy=sources.taxonomy,
                                     topics=sources.topics)
     assert audit.audit_claims([claims[0]], no_profile)["CL-001"].status == AuditStatus.NEEDS_REVIEW
@@ -560,3 +568,51 @@ def test_the_docx_report_is_the_same_audit_as_the_json(monkeypatch, sources):
         for e in row["evidence"]:
             assert e["evidence_id"] in text and e["display_text"] in text
     assert "CF-003 (Web-sourced)" in text and "MODEL_KNOWLEDGE" not in text
+
+
+# --- Deterministic NON_FACTUAL; grouped, bounded, order-preserving audit calls ------------------------------------
+
+
+def test_non_factual_lines_need_no_audit_call(monkeypatch, sources):
+    lines = [claim("A health and benefits partner for your people", None, ClaimType.NON_FACTUAL, n=1, slide=2,
+                   material=False),
+             claim("We look forward to working with you.", None, ClaimType.NON_FACTUAL, n=2, material=False)]
+    results, auditor = run(monkeypatch, sources, lines)
+    assert auditor.calls == [] and {r.status for r in results.values()} == {AuditStatus.NON_FACTUAL}
+    numbered = claim("Cover up to ₹5,00,000 is included.", None, ClaimType.NON_FACTUAL, n=3, material=False)
+    results, auditor = run(monkeypatch, sources, [numbered])  # a number: not treated as non-factual
+    assert results["CL-003"].status != AuditStatus.NON_FACTUAL
+
+
+def test_audit_calls_are_grouped_share_the_full_evidence_and_are_bounded(monkeypatch, sources):
+    import threading
+    import time
+
+    monkeypatch.setattr(settings, "AUDIT_CLAIMS_PER_CALL", 2)
+    monkeypatch.setattr(settings, "AUDIT_MAX_CONCURRENCY", 2)
+    texts = [f"{NIVA_AIR}."] * 5  # five claims (ids differ) with the same true text
+    lock, active, peak = threading.Lock(), [0], [0]
+
+    class SlowAuditor(FakeAuditor):
+        def __call__(self, *args, **kwargs):
+            with lock:
+                active[0] += 1
+                peak[0] = max(peak[0], active[0])
+            time.sleep(0.05)
+            try:
+                return super().__call__(*args, **kwargs)
+            finally:
+                with lock:
+                    active[0] -= 1
+
+    auditor = SlowAuditor({t: verified("EV-NIVA-2-015", quote=NIVA_AIR) for t in texts})
+    monkeypatch.setattr(audit, "call_structured", auditor)
+    claims = [claim(t, n=n) for n, t in enumerate(texts, 1)]
+    results = audit.audit_claims(claims, sources)
+    assert len(auditor.calls) == 3 and 1 < peak[0] <= 2  # 5 claims in groups of 2, 2 at a time
+    evidence = {c["variables"]["evidence"] for c in auditor.calls}
+    assert len(evidence) == 1  # every group gets the same full evidence set of the policy (section 8)
+    full = sources.store.items_for_policy("POL-NIVA")
+    assert all(i.evidence_id in next(iter(evidence)) for i in full)
+    assert list(results) == [c.claim_id for c in claims]  # claim order, whatever order the calls finished in
+    assert {r.status for r in results.values()} == {AuditStatus.VERIFIED}

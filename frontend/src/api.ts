@@ -15,6 +15,8 @@ export interface Job {
   kind: "generate" | "override";
   stages: string[];
   stage: number;
+  /** Real counts of the phase in progress, e.g. "18 of 40 statements checked" (null when there is none). */
+  detail: string | null;
   status: "running" | "done" | "failed";
   run_id: string | null;
   company_name: string;

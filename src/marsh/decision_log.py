@@ -6,6 +6,7 @@ There is deliberately no update or delete API; every entry is a new line.
 from __future__ import annotations
 
 import json
+import threading
 from datetime import datetime
 from typing import Any
 
@@ -26,6 +27,9 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+_LOCK = threading.Lock()
+
+
 def log_decision(run_id: str, event: str, payload: Any = None, actor: str = "system") -> dict:
     """Append one entry. `actor` is who decided: system | rules | llm | advisor."""
     entry = {
@@ -36,8 +40,9 @@ def log_decision(run_id: str, event: str, payload: Any = None, actor: str = "sys
         "payload": _jsonable(payload),
     }
     path = run_dir(run_id) / DECISION_LOG_FILE
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+    line = json.dumps(entry, ensure_ascii=False, default=str) + "\n"
+    with _LOCK, path.open("a", encoding="utf-8") as fh:  # concurrent writers: one whole line each
+        fh.write(line)
     return entry
 
 

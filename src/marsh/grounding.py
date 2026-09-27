@@ -214,3 +214,56 @@ def number_check(claim_text: str, evidence_items: list[EvidenceItem], *,
         notes = [", ".join(format_number(n) for n in claim_numbers) + " found in the evidence"]
     return NumberCheckOutcome(status=status, details="; ".join(notes), claim_numbers=claim_numbers,
                               unmatched=contradicted + missing)
+
+
+# --- Company text grounding (company.py, audit.py) --------------------------------------------------------------
+
+_WORD = re.compile(r"[A-Za-z][A-Za-z'’-]*")
+_STEM = 5  # words match on their first 5 letters ("employees" / "employs", "India" / "Indian")
+_STOP = frozenset("""
+about above across after also among around based being below between both company companies during each from
+further have having into itself more most other over same such than that their them then there these they this
+those through under very what when where which while with within without would your
+""".split())
+
+
+def _stem(word: str) -> str:
+    return word.lower().replace("’", "'").strip("'-")[:_STEM]
+
+
+def content_words(text: str, ignore: str = "") -> set[str]:
+    """The stems of the text's content words (4+ letters, not function words, not the words of `ignore`)."""
+    skip = {_stem(w) for w in _WORD.findall(ignore)}
+    return {_stem(w) for w in _WORD.findall(text) if len(w) >= 4 and w.lower() not in _STOP} - skip
+
+
+def unsupported_words(text: str, support: list[str], ignore: str = "") -> list[str]:
+    """Content words of `text` that none of the `support` texts contains (stem match), in text order."""
+    found = set().union(*(content_words(t) for t in support)) if support else set()
+    skip = {_stem(w) for w in _WORD.findall(ignore)}
+    out: list[str] = []
+    for w in _WORD.findall(text):
+        stem = _stem(w)
+        if len(w) >= 4 and w.lower() not in _STOP and stem not in skip and stem not in found and w not in out:
+            out.append(w)
+    return out
+
+
+def proper_names(text: str, ignore: str = "") -> list[str]:
+    """Capitalised words that aren't the first word of a sentence (places, organisations), excluding acronyms
+    (IT, AI: often spelled out in the sources) and the words of `ignore` (e.g. the company's own name)."""
+    skip = {_stem(w) for w in _WORD.findall(ignore)}
+    names: list[str] = []
+    for sentence in re.split(r"(?<=[.!?;:])\s+", text):
+        words = _WORD.findall(sentence)
+        for w in words[1:]:
+            if w[0].isupper() and not w.isupper() and _stem(w) not in skip and w not in names:
+                names.append(w)
+    return names
+
+
+def unsupported_names(text: str, support: list[str], ignore: str = "") -> list[str]:
+    """Proper names in `text` that none of the `support` texts contains (stem match)."""
+    found = {_stem(w) for t in support for w in _WORD.findall(t)}
+    return [n for n in proper_names(text, ignore) if _stem(n) not in found]
+

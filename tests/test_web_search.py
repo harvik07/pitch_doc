@@ -3,6 +3,7 @@ real-Tavily test (-m llm, needs TAVILY_API_KEY)."""
 
 from __future__ import annotations
 
+import json
 import os
 
 import pytest
@@ -134,3 +135,34 @@ def test_real_tavily_search(monkeypatch):
     monkeypatch.setattr(settings, "TAVILY_API_KEY", key)
     result = search_company("Infosys")
     assert result.note == "" and result.sources and all(s.url.startswith("http") for s in result.sources)
+
+
+# --- Cache invalidation and safety --------------------------------------------------------------------------------
+
+
+def test_the_web_cache_is_reused_then_invalidated(tavily, monkeypatch):
+    first = search_company("Example Co", RUN)
+    calls = len(tavily.calls)
+    assert web_search.cached_sources("Example Co")[1] == "HIT"
+    assert search_company("Example Co", RUN).sources == first.sources and len(tavily.calls) == calls  # reused
+
+    path = web_search.cache_path("Example Co")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["fetched_at"] = "2020-01-01T00:00:00+00:00"  # older than WEB_CACHE_MAX_AGE_DAYS
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert web_search.cached_sources("Example Co") == (None, "STALE")
+    search_company("Example Co", RUN)
+    assert len(tavily.calls) == 2 * calls  # fetched again
+
+    monkeypatch.setattr(web_search, "QUERIES", web_search.QUERIES + ("{name} something else",))
+    assert web_search.cached_sources("Example Co") == (None, "STALE")  # built with other queries
+
+    path.write_text(json.dumps([{"legacy": "list"}]), encoding="utf-8")  # the pre-versioning format
+    assert web_search.cached_sources("Example Co") == (None, "STALE")
+
+
+def test_the_web_cache_is_written_atomically(tavily):
+    search_company("Example Co", RUN)
+    folder = web_search.cache_path("Example Co").parent
+    assert not list(folder.glob("*.tmp"))  # no temp file left behind; readers only ever see a whole file
+    assert json.loads(web_search.cache_path("Example Co").read_text(encoding="utf-8"))["key"] == web_search.cache_key()

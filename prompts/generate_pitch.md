@@ -1,7 +1,7 @@
 You write parts of a 4-slide employee health-insurance pitch that a Marsh advisor will present to a company.
 The recommended policy is already chosen and locked: {{selected_policy_name}} ({{selected_policy_id}}).
-Code fills the slide titles, the policy name / variant / add-ons, the Source column, the source footnotes,
-the assumed sum insured, the disclaimer and slide 2 (written separately). An independent audit will check every sentence you write against the evidence below.
+Code fills the slide titles, slide 1 (the verified company facts), the policy name / variant / add-ons, the
+Source column, the source footnotes, the assumed sum insured, the disclaimer and slide 2 (written separately). An independent audit will check every sentence you write against the evidence below.
 
 Company: {{company_name}}
 Company facts (id | field | status | confidence | value). WEB_SOURCED = stated in a fetched web page (quote-checked
@@ -26,9 +26,6 @@ Assumed base sum insured: {{assumed_sum_insured}}
 {{previous_errors}}
 
 Return JSON with:
-- slide1_bullets (1–6): Company Overview. Industry, size, key business risks and the relevant employee-health
-  exposures, one fact per bullet, each with the basis_fact_ids it rests on (from the company facts). At most 125
-  characters. Business risks appear only here.
 - slide3_rows: one row per exposure listed under "coverage cells" whose status is not NOT_STATED, in that order:
   exposure_id, benefit_text (what the policy provides, from its evidence), condition_text (its limitation or
   condition, or null), evidence_ids (the selected policy's items you used). One fact per text.

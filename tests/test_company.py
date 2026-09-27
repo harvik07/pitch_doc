@@ -249,3 +249,40 @@ def test_no_verified_web_fact_is_said_so(monkeypatch):
     profile = company.generate_company_profile("Example Co")
     assert profile.facts[0].status == FactStatus.MODEL_KNOWLEDGE and "no quote given" in profile.facts[0].rationale
     assert profile.web_search_note == company.UNVERIFIED_WEB_NOTE  # not silent: the advisor is told
+
+
+# --- Company Overview grounding: the model can't make a fact web-sourced ---------------------------------------
+
+
+def test_a_web_fact_naming_places_its_quote_doesnt_is_not_web_sourced():
+    """A value naming a location its quotes don't mention is not WEB_SOURCED (e.g. an HQ city from memory)."""
+    located = web_response(value="Placeholder industry company headquartered in Bengaluru")
+    fact = build_profile("Example Co", located, [PAGE]).facts[0]
+    assert fact.status == FactStatus.MODEL_KNOWLEDGE and "names not in the quotes: Bengaluru" in fact.rationale
+    assert fact.source_ids == [] and fact.display_label == "Assumption"
+    ok = build_profile("Example Co", web_response(value="Example Co is a placeholder industry company"), [PAGE])
+    assert ok.facts[0].status == FactStatus.WEB_SOURCED  # the company's own name isn't a claim about a place
+
+
+def test_a_web_fact_with_an_unsupported_number_or_quote_is_not_web_sourced():
+    for change in ({"value": "Placeholder industry company with 500,000 employees"},  # number not in the quote
+                   {"quotes": ["Example Co is the largest placeholder firm in the world"]}):  # quote not on the page
+        fact = build_profile("Example Co", web_response(**change), [PAGE]).facts[0]
+        assert fact.status != FactStatus.WEB_SOURCED and fact.source_ids == []
+
+
+def test_weak_web_evidence_fabricates_nothing():
+    """A little-known company with no usable page: nothing is web-sourced, every fact is an assumption with low
+    confidence, and no specific figure is presented as fact."""
+    unknown = web_response(recognised=False, source_ids=["WEB-002"])  # cites a page that doesn't say it
+    profile = build_profile("Example Co", unknown, [OTHER])
+    assert {f.status for f in profile.facts} == {FactStatus.ASSUMPTION} and profile.sources == []
+    assert {f.confidence for f in profile.facts} == {Confidence.LOW}
+    figures = build_profile("Example Co", response(), [])  # no sources at all
+    assert not any(f.status == FactStatus.WEB_SOURCED for f in figures.facts)
+
+
+def test_the_company_name_is_not_evidence():
+    """A fact whose only 'quote' is the company name can't be web-sourced (quotes need 4+ words from a page)."""
+    fact = build_profile("Example Co", web_response(quotes=["Example Co"]), [PAGE]).facts[0]
+    assert fact.status != FactStatus.WEB_SOURCED and "quote too short" in fact.rationale

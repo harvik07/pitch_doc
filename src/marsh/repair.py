@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import logging
 
 from marsh import settings, timing
@@ -148,16 +150,24 @@ def repair_deck(slides: list[PitchSlide], report: AuditReport, sources: AuditSou
         rewritten: list[Claim] = []
         gave_up: set[str] = set()
 
+        repaired_so_far = [0]
+        progress_lock = threading.Lock()
+
         def rewrite(claim: Claim) -> tuple[str | None, str, bool]:
             with timing.step("repair_call", claim=claim.claim_id, attempt=attempt):
                 try:
                     text = repair_claim(claim, results[claim.claim_id], sources)
-                    return text, "" if text else "the repair found no true sentence in the evidence", text is None
+                    answer = text, "" if text else "the repair found no true sentence in the evidence", text is None
                 except LLMError as exc:
-                    return None, f"repair call failed: {exc}", False
+                    answer = None, f"repair call failed: {exc}", False
+            with progress_lock:
+                repaired_so_far[0] += 1
+                timing.progress("repair", repaired_so_far[0], len(pending), attempt=attempt)
+            return answer
 
         # Each failing claim's rewrite is independent: the calls run concurrently; the checks below stay in order.
-        answers = map_ordered(rewrite, pending)
+        timing.progress("repair", 0, len(pending), attempt=attempt)
+        answers = map_ordered(rewrite, pending, settings.REPAIR_MAX_CONCURRENCY)
         for claim, (text, note, null_rewrite) in zip(pending, answers):
             before = results[claim.claim_id]
             if null_rewrite:
@@ -174,7 +184,7 @@ def repair_deck(slides: list[PitchSlide], report: AuditReport, sources: AuditSou
                 claim.text = text
                 claim.state = ClaimState.DIRTY
                 rewritten.append(claim)
-        new_results = audit_claims(rewritten, sources) if rewritten else {}
+        new_results = audit_claims(rewritten, sources, phase="reaudit") if rewritten else {}
         apply_results(rewritten, new_results)
         still: list[Claim] = []
         for claim in pending:

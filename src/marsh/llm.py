@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import threading
 import time
 from datetime import datetime
 from functools import lru_cache
@@ -27,7 +28,7 @@ from google.auth import exceptions as google_auth_errors
 from google.genai import errors as genai_errors
 from google.genai import types
 from pydantic import BaseModel, ValidationError
-from tenacity import Retrying, retry_if_exception, stop_after_attempt, wait_exponential
+from tenacity import Retrying, retry_if_exception, stop_after_attempt, wait_exponential_jitter
 
 from marsh import settings, timing
 from marsh.run_context import run_dir
@@ -166,6 +167,17 @@ def _log_path(run_id: str | None) -> Path:
     return path / LLM_CALLS_FILE
 
 
+_LOG_LOCK = threading.Lock()
+
+
+def thinking_config(prompt_name: str, model: str) -> types.ThinkingConfig | None:
+    """The reasoning level set for this prompt in settings.THINKING_LEVELS (Gemini 3 models; else the default)."""
+    level = settings.THINKING_LEVELS.get(prompt_name)
+    if not level or not model.startswith("gemini-3"):
+        return None
+    return types.ThinkingConfig(thinking_level=getattr(types.ThinkingLevel, level))
+
+
 class _CallLog:
     def __init__(self, run_id: str | None, prompt_name: str, model: str):
         self.path = _log_path(run_id)
@@ -173,8 +185,9 @@ class _CallLog:
 
     def write(self, **fields: Any) -> None:
         entry = {"timestamp": datetime.now().astimezone().isoformat(), **self.base, **fields}
-        with self.path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+        line = json.dumps(entry, ensure_ascii=False, default=str) + "\n"
+        with _LOG_LOCK, self.path.open("a", encoding="utf-8") as fh:  # concurrent calls: one whole line each
+            fh.write(line)
 
 
 # --- Calls -----------------------------------------------------------------------------------------
@@ -224,7 +237,7 @@ def _generate(client: Any, log: _CallLog, *, model: str, contents: str, config: 
 
     retrying = Retrying(
         stop=stop_after_attempt(settings.LLM_RETRIES + 1),
-        wait=wait_exponential(multiplier=1, min=1, max=30),
+        wait=wait_exponential_jitter(initial=1, max=settings.LLM_BACKOFF_MAX_S, jitter=1),
         retry=retry_if_exception(_is_retryable),
         sleep=lambda seconds: _sleep(seconds),
         reraise=True,
@@ -274,6 +287,7 @@ def call_structured(
         response_json_schema=schema,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),  # no tools, ever
         max_output_tokens=max_output_tokens,
+        thinking_config=thinking_config(prompt_name, model_name),
     )
     log = _CallLog(run_id, prompt_name, model_name)
     try:

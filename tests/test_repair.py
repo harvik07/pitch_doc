@@ -153,3 +153,70 @@ def test_a_rewrite_on_another_topic_is_a_failed_attempt(monkeypatch, sources):
     history = report.results[0].repair_history
     assert "moved to another topic (EXP-MATERNITY)" in history[0].explanation and history[0].status_after is None
     assert history[1].text_after == TRUE_AIR and report.results[0].status == AuditStatus.VERIFIED
+
+
+# --- Bounded concurrency; logical attempts vs transport retries --------------------------------------------------
+
+
+def test_repairs_run_concurrently_within_the_bound(monkeypatch, sources):
+    import threading
+    import time
+
+    monkeypatch.setattr(settings, "REPAIR_MAX_CONCURRENCY", 2)
+    claims = [claim(n, FALSE_AIR) for n in range(1, 6)]
+    slides = deck(*claims)
+    lock, active, peak = threading.Lock(), [0], [0]
+
+    class SlowRepairer(Repairer):
+        def __call__(self, *args, **kwargs):
+            with lock:
+                active[0] += 1
+                peak[0] = max(peak[0], active[0])
+            time.sleep(0.05)
+            try:
+                return super().__call__(*args, **kwargs)
+            finally:
+                with lock:
+                    active[0] -= 1
+
+    auditor, repairer = Auditor(), SlowRepairer({f"CL-{n:03d}": [TRUE_AIR] for n in range(1, 6)})
+    monkeypatch.setattr(audit, "call_structured", auditor)
+    monkeypatch.setattr(repair, "call_structured", repairer)
+    report = repair.repair_deck(slides, audit.audit_deck(slides, sources, RUN), sources, RUN)
+    assert 1 < peak[0] <= 2  # concurrent, and bounded
+    assert all(r.status == AuditStatus.VERIFIED and r.repair_attempts == 1 for r in report.results)
+    assert [r.claim_id for r in report.results] == [f"CL-{n:03d}" for n in range(1, 6)]  # deck order kept
+    reaudited = sorted(i for call in auditor.calls[-2:] for i in call)  # the re-audit: only the 5 repaired claims
+    assert reaudited == [f"CL-{n:03d}" for n in range(1, 6)]
+
+
+def test_a_transport_retry_is_not_a_second_repair_attempt(monkeypatch, sources):
+    """A transient Gemini error is retried inside llm.py; it doesn't count as a logical repair attempt, and both
+    HTTP attempts are in llm_calls.jsonl."""
+    import json as _json
+
+    from google.genai import errors as genai_errors
+
+    from marsh import llm
+
+    outcomes = [genai_errors.ServerError(500, {"error": {"code": 500, "message": "internal", "status": "INTERNAL"}}),
+                _json.dumps({"text": TRUE_AIR})]
+
+    class Models:
+        def generate_content(self, *, model, contents, config):
+            outcome = outcomes.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return type("R", (), {"text": outcome, "usage_metadata": None})()
+
+    monkeypatch.setattr(llm, "_get_client", lambda: type("C", (), {"models": Models()})())
+    monkeypatch.setattr(llm, "_sleep", lambda s: None)
+    monkeypatch.setattr(audit, "call_structured", Auditor())
+    slides = deck(claim(1, FALSE_AIR))
+    report = repair.repair_deck(slides, audit.audit_deck(slides, sources, RUN), sources, RUN)
+    result = report.results[0]
+    assert result.status == AuditStatus.VERIFIED and result.repair_attempts == 1 and len(result.repair_history) == 1
+    log_file = llm._log_path(sources.run_id)  # the module's sources have no run id: the ad-hoc call log
+    logged = [_json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines()
+              if '"repair_claim"' in line]
+    assert [(e["attempt"], bool(e["error"])) for e in logged] == [(1, True), (2, False)]

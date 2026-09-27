@@ -93,9 +93,6 @@ def ctx(store, monkeypatch):
 
 def draft(**changes) -> PitchDraft:
     data = {
-        "slide1_bullets": [{"text": "Placeholder industry company", "basis_fact_ids": ["CF-001"]},
-                           {"text": "Key business risk: client concentration", "basis_fact_ids": ["CF-003"]},
-                           {"text": "Staff travel internationally", "basis_fact_ids": ["CF-005"]}],
         "slide3_rows": [{"exposure_id": "EXP-AMB-AIR", "benefit_text": "Air ambulance up to ₹2,50,000 per hospitalisation",
                          "condition_text": None, "evidence_ids": ["EV-NIVA-2-015"], "source": "Made-up source, p. 99"}],
         "supporting_benefits": [],
@@ -169,7 +166,7 @@ def test_a_claim_recommending_another_policy_is_repaired_or_removed(monkeypatch,
     bad = draft(supporting_benefits=[{"text": "We recommend HDFC ERGO Optima Secure+ instead.",
                                       "evidence_ids": ["EV-NIVA-2-015"]}])
     still_bad = "We recommend it anyway: HDFC ERGO Optima Secure+."
-    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-014", "text": still_bad,
+    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-016", "text": still_bad,
                                                     "evidence_ids": ["EV-NIVA-2-015"]}))
     assert [c[0] for c in fake.calls] == ["generate_pitch", "repair_pitch_claims"]
     assert deck.slides[3].supporting_benefits == []  # still failing after the one repair → removed
@@ -203,14 +200,17 @@ def test_a_split_that_changes_numbers_keeps_the_original_sentence(monkeypatch, c
     assert deck.slides[3].bullets[0].text == f"{NIVA_AIR}, which matters for a travelling workforce."
 
 
-def test_slide1_labels_and_business_risks(monkeypatch, ctx):
-    deck, _ = run(monkeypatch, ctx, draft())
+def test_slide1_is_the_validated_company_facts_not_llm_wording(monkeypatch, ctx):
+    deck, fake = run(monkeypatch, ctx, draft())
     bullets = deck.slides[0].bullets
+    assert "slide1" not in fake.calls[0][1].get("facts", "") and "slide1_bullets" not in str(fake.calls[0][1])
+    # one bullet per fact, worded as the fact: industry, size, business risks, workforce
+    assert [(b.text, b.basis_fact_ids) for b in bullets] == [
+        ("Placeholder industry.", ["CF-001"]), ("Large enterprise.*", ["CF-002"]),
+        ("Client concentration.*", ["CF-003"]), ("Talent attrition.*", ["CF-004"]),
+        ("Frequent international travel.*", ["CF-005"])]
     # Web-sourced facts carry no marker; MODEL_KNOWLEDGE / ASSUMPTION facts get "*" (the slide gets the legend).
-    assert (bullets[0].text, bullets[0].qualifier_text) == ("Placeholder industry company", "Web-sourced")
-    assert bullets[0].claim_type == ClaimType.COMPANY_FACT
-    assert bullets[1].text == "Key business risk: client concentration*"  # MODEL_KNOWLEDGE
-    assert bullets[2].text == "Staff travel internationally*"  # ASSUMPTION
+    assert (bullets[0].qualifier_text, bullets[0].claim_type) == ("Web-sourced", ClaimType.COMPANY_FACT)
     assert all(b.claim_type == ClaimType.ASSUMPTION and b.qualifier_text is None for b in bullets[1:])
     shown = "\n".join(texts(deck) + [c.qualifier_text or "" for c in deck.all_claims()])
     assert "Unverified" not in shown and "unverified" not in shown and "MODEL_KNOWLEDGE" not in shown
@@ -293,7 +293,7 @@ def test_no_backtick_before_a_digit_anywhere(monkeypatch, ctx, store):
 
 def test_wording_rules(monkeypatch, ctx):
     bad = draft(supporting_benefits=[{"text": "Day care procedures are covered.", "evidence_ids": ["EV-NIVA-1-041"]}])
-    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-014", "text": None}))
+    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-016", "text": None}))
     assert "day care" in fake.calls[1][1]["failing_claims"] and deck.slides[3].supporting_benefits == []
 
 
@@ -302,11 +302,9 @@ def test_wording_rules(monkeypatch, ctx):
 
 def test_limits_are_enforced_by_the_schema():
     with pytest.raises(ValidationError):
-        draft(slide1_bullets=[{"text": f"Bullet {n}", "basis_fact_ids": ["CF-001"]} for n in range(7)])
-    with pytest.raises(ValidationError):
         draft(supporting_benefits=[{"text": "x", "evidence_ids": []}] * 4)
-    with pytest.raises(ValidationError):
-        draft(slide1_bullets=[{"text": "x" * 126, "basis_fact_ids": ["CF-001"]}])
+    with pytest.raises(ValidationError):  # slide 1 isn't the LLM's: a draft can't carry Company Overview bullets
+        draft(slide1_bullets=[{"text": "Placeholder.", "basis_fact_ids": ["CF-001"]}])
 
 
 def test_a_missing_marsh_profile_errors_before_any_llm_call(monkeypatch, ctx, tmp_path):
@@ -321,12 +319,12 @@ def test_a_missing_marsh_profile_errors_before_any_llm_call(monkeypatch, ctx, tm
 def test_the_repair_gets_only_the_failing_claims_and_their_errors(monkeypatch, ctx):
     bad = draft(supporting_benefits=[{"text": "Better than HDFC ERGO Optima Secure+.", "evidence_ids": []}])
     deck, fake = run(monkeypatch, ctx, bad, repair(
-        {"claim_id": "CL-014", "text": "Pre-hospitalisation is covered.", "evidence_ids": []},
+        {"claim_id": "CL-016", "text": "Pre-hospitalisation is covered.", "evidence_ids": []},
         {"claim_id": "CL-001", "text": "Changed by the repair."}))  # not a failing claim: ignored
     failing = fake.calls[1][1]["failing_claims"]
-    assert "CL-014" in failing and "CL-001" not in failing
+    assert "CL-016" in failing and "CL-001" not in failing
     assert "names another policy" in failing and "no cited evidence" in failing
-    assert deck.slides[0].bullets[0].text == "Placeholder industry company"
+    assert deck.slides[0].bullets[0].text == "Placeholder industry."
     assert deck.slides[3].supporting_benefits == []  # the repaired text still has no evidence → removed
     assert len(deck.slides) == 4
 
@@ -338,7 +336,7 @@ def test_an_absence_claim_on_a_not_stated_cell_is_repaired_to_not_stated(monkeyp
     bad = draft(supporting_benefits=[{"text": "Niva Bupa ReAssure 2.0 does not cover maternity.",
                                       "evidence_ids": ["EV-NIVA-2-015"]}])  # NIVA maternity: NOT_STATED
     ok = "Maternity is not stated in the Niva Bupa ReAssure 2.0 brochure."
-    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-014", "text": ok, "evidence_ids": []}))
+    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-016", "text": ok, "evidence_ids": []}))
     assert "not stated in the" in fake.calls[1][1]["failing_claims"]
     assert [c.text for c in deck.slides[3].supporting_benefits] == [ok]  # a confirmed "not stated" needs no evidence
     assert repair_log(ctx)["removed_after_repair"] == {}
@@ -357,9 +355,9 @@ def test_absence_rule_in_pitch_validation(monkeypatch, ctx, store):
 
 def test_a_duplicate_claim_is_repaired_or_removed(monkeypatch, ctx):
     dup = draft(supporting_benefits=[{"text": NIVA_AIR + ".", "evidence_ids": ["EV-NIVA-2-015"]}])
-    deck, fake = run(monkeypatch, ctx, dup, repair({"claim_id": "CL-014", "text": None}))
+    deck, fake = run(monkeypatch, ctx, dup, repair({"claim_id": "CL-016", "text": None}))
     assert "duplicates CL-" in fake.calls[1][1]["failing_claims"]
-    assert deck.slides[3].supporting_benefits == [] and "CL-014" in str(repair_log(ctx)["problems"])
+    assert deck.slides[3].supporting_benefits == [] and "CL-016" in str(repair_log(ctx)["problems"])
 
 
 def test_duplicate_detection():
@@ -407,7 +405,7 @@ def test_company_framing_must_be_a_complete_sentence(monkeypatch, ctx):
     splits = [{"selection_claim_id": "SC-1", "policy_text": NIVA_AIR,
                "company_text": "which matters for a travelling workforce", "basis_fact_ids": ["CF-005"]}]
     fixed = "Frequent international travel makes air ambulance cover relevant."
-    deck, fake = run(monkeypatch, ctx, draft(splits=splits), repair({"claim_id": "CL-012", "text": fixed}))
+    deck, fake = run(monkeypatch, ctx, draft(splits=splits), repair({"claim_id": "CL-014", "text": fixed}))
     assert "complete sentence" in fake.calls[1][1]["failing_claims"]
     framing = deck.slides[3].bullets[1]
     assert framing.text == fixed + "*" and framing.metadata["framing_of"] == "SC-1"

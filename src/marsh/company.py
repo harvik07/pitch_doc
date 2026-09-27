@@ -1,21 +1,20 @@
 """Company profile generation (brief 1.2, CLAUDE.md sections 5 and 6.2). Every fact is labelled.
 
-- web_search.py fetches web sources (Tavily) first; without them (no key, error, no results) the profile is made
-  from model knowledge only.
-- Gemini returns facts only (prompts/company_profile.md): industry, size, headcount band, geography,
-  business risks and workforce profile, each with status WEB_SOURCED, MODEL_KNOWLEDGE or ASSUMPTION and a
-  confidence. Code assigns the CF- ids and derives CompanyProfile.industry / size / key_risks from those facts, so
-  nothing on slide 1 exists without a labelled fact behind it.
-- WEB_SOURCED is decided by code, not the LLM: the fact must cite fetched sources, every quote must be verbatim in
-  a cited source (grounding.quote_in_evidence, at least MIN_QUOTE_WORDS words), and every number in the value
-  must be in its quotes (a lower-bound band such as "over 300,000" may round a larger figure down). A fact that
-  fails becomes MODEL_KNOWLEDGE (recognised company) or ASSUMPTION (not recognised).
-- An unrecognised company gets ASSUMPTION facts with low confidence (never a refusal); only verified WEB_SOURCED
-  facts keep their status.
-- A fact that states a money figure (revenue, valuation, ...) or an exact headcount is downgraded to
-  ASSUMPTION / low: specific figures are never presented as fact. Broad bands are fine.
+Flow: Tavily evidence (web_search.py: 2 queries, cleaned and selected) → ONE Gemini call (settings.
+COMPANY_PROFILE_MODEL, prompts/company_profile.md) that turns only that evidence into structured facts → a
+lightweight Python check per fact → the profile. Slide 1 is then built by code from the accepted facts
+(pitch.overview_claims); no LLM rewrites them.
+
+- Gemini extracts facts from the supplied evidence; it cannot decide WEB_SOURCED. Code does
+  (`web_source_problems`): the fact must cite fetched sources, every quote must be verbatim in a cited source
+  (grounding.quote_in_evidence, at least MIN_QUOTE_WORDS words), every number in the value must be in its quotes
+  (an exact figure, or a lower-bound band such as "over 300,000" rounding a larger figure down), and every place /
+  organisation the value names must be in its quotes. A fact that fails becomes MODEL_KNOWLEDGE (recognised
+  company) or ASSUMPTION (not recognised), with the reason in its rationale; slide 1 shows web-sourced facts only
+  (plus one labelled workforce inference).
+- A money figure is never presented as fact; an exact headcount only when web-sourced (downgraded to ASSUMPTION otherwise).
 - Users only ever see two labels (models.fact_display_label): "Web-sourced" for WEB_SOURCED, "Assumption" for
-  MODEL_KNOWLEDGE and ASSUMPTION.
+  the rest.
 """
 
 from __future__ import annotations
@@ -54,8 +53,8 @@ PROMPT = "company_profile"
 DOWNGRADE_NOTE = " [Downgraded to assumption: specific figures are never presented as fact.]"
 WEB_DOWNGRADE_NOTE = " [Not web-sourced: {reason}.]"
 MIN_QUOTE_WORDS = 4
+NOT_AVAILABLE = "Not available"
 NO_SOURCES_TEXT = "(none: use MODEL_KNOWLEDGE or ASSUMPTION only)"
-NO_FEEDBACK = "(none)"
 UNVERIFIED_WEB_NOTE = "web sources were found, but none of the company facts could be verified against them"
 _MONEY = re.compile(r"[$₹€£]|\b(?:usd|inr|rs\.?|eur|gbp|revenue|turnover|profit|valuation|market cap|"
                     r"billion|million|bn|mn|crores?|lakhs?)\b", re.IGNORECASE)
@@ -71,9 +70,14 @@ class CompanyNameError(ValueError):
     """The company name failed validation; the message is user-facing."""
 
 
+def states_money_figure(value: str) -> bool:
+    return bool(_MONEY.search(value) and _NUMBER.search(value))
+
+
 def states_specific_figure(field: FactField, value: str) -> bool:
-    """True if the value gives a money figure, or (for size/headcount) a number that is not a broad band."""
-    if _MONEY.search(value) and _NUMBER.search(value):
+    """True if the value gives a money figure, or (for size/headcount) a number that is not a broad band. Used for
+    facts that are NOT web-sourced; a web-sourced exact headcount that passed the check is allowed."""
+    if states_money_figure(value):
         return True
     if field in _HEADCOUNT_FIELDS and _NUMBER.search(value):
         return not _BAND.search(value)
@@ -137,13 +141,15 @@ def _resolve_status(draft: CompanyFactDraft, recognised: bool, sources: list[Web
 
 def build_profile(company_name: str, response: CompanyProfileResponse, sources: list[WebSource] | None = None,
                   web_search_note: str = "") -> CompanyProfile:
-    """Turn the LLM's facts into a CompanyProfile: assign ids, enforce the labelling rules."""
+    """Turn the LLM's facts into a CompanyProfile: assign ids, run the check, enforce the labelling rules."""
     sources = list(sources or [])
     facts: list[CompanyFact] = []
     for n, draft in enumerate(response.facts, start=1):
         status, confidence, rationale, source_ids, quotes = _resolve_status(draft, response.company_recognised,
                                                                             sources, company_name)
-        if status != FactStatus.ASSUMPTION and states_specific_figure(draft.field, draft.value):
+        figure = states_money_figure(draft.value) if status == FactStatus.WEB_SOURCED else \
+            states_specific_figure(draft.field, draft.value)
+        if status != FactStatus.ASSUMPTION and figure:
             status, confidence, rationale = FactStatus.ASSUMPTION, Confidence.LOW, rationale + DOWNGRADE_NOTE
             source_ids, quotes = [], []
         facts.append(CompanyFact(fact_id=f"CF-{n:03d}", field=draft.field, value=draft.value.strip(),
@@ -151,11 +157,14 @@ def build_profile(company_name: str, response: CompanyProfileResponse, sources: 
                                  source_ids=source_ids, quotes=quotes))
 
     def values(field: FactField) -> list[str]:
-        return [f.value for f in facts if f.field == field]
+        """Web-sourced values first (CompanyProfile.industry / size summarise the accepted facts)."""
+        found = sorted((f for f in facts if f.field == field), key=lambda f: f.status != FactStatus.WEB_SOURCED)
+        return [f.value for f in found]
 
     cited = {i for f in facts for i in f.source_ids}
-    return CompanyProfile(company_name=company_name, industry=values(FactField.INDUSTRY)[0],
-                          size=values(FactField.SIZE)[0], key_risks=values(FactField.BUSINESS_RISK), facts=facts,
+    return CompanyProfile(company_name=company_name, industry=(values(FactField.INDUSTRY) or [NOT_AVAILABLE])[0],
+                          size=(values(FactField.HEADCOUNT_BAND) + values(FactField.SIZE) or [NOT_AVAILABLE])[0],
+                          key_risks=values(FactField.BUSINESS_RISK), facts=facts,
                           sources=[s for s in sources if s.source_id in cited], web_search_note=web_search_note)
 
 
@@ -166,37 +175,11 @@ def sources_text(sources: list[WebSource]) -> str:
     return "\n\n".join(f"[{s.source_id}] {s.title or s.url}\nURL: {s.url}\n{s.content}" for s in sources)
 
 
-def unquoted_web_facts(response: CompanyProfileResponse) -> list[str]:
-    """WEB_SOURCED facts the model returned without a cited source or without a quote (they can't be verified)."""
-    return [f"fact {n} ({draft.field.value}: {draft.value!r})" for n, draft in enumerate(response.facts, start=1)
-            if draft.status == FactStatus.WEB_SOURCED and (not draft.source_ids or not draft.quotes)]
-
-
-def _ask_profile(company_name: str, sources: list[WebSource], run_id: str | None, info: dict) -> CompanyProfileResponse:
-    """The profile prompt, and one targeted retry for WEB_SOURCED facts returned without a source or a quote."""
-    variables = {"company_name": company_name, "web_sources": sources_text(sources), "feedback": NO_FEEDBACK}
-    info["web_sources_chars"] = len(variables["web_sources"])
-    response = call_structured(PROMPT, variables, CompanyProfileResponse, run_id=run_id)
-    missing = unquoted_web_facts(response) if sources else []
-    if missing:
-        info["quote_retry"] = len(missing)
-        log.info("WEB_SOURCED facts without a source or quote, asking again: %s", missing)
-        if run_id:
-            log_decision(run_id, "company_profile_quotes_missing", {"facts": missing}, actor="code")
-        feedback = ("Your previous answer marked these facts WEB_SOURCED without source_ids or quotes, so they "
-                    "can't be verified: " + "; ".join(missing) + ". For each, give the source_ids and 1–3 passages "
-                    "copied character for character from those sources, or use MODEL_KNOWLEDGE / ASSUMPTION.")
-        response = call_structured(PROMPT, {**variables, "feedback": feedback}, CompanyProfileResponse, run_id=run_id)
-    return response
-
-
 def generate_company_profile(company_name: str, run_id: str | None = None) -> CompanyProfile:
-    """Validate the name, search the web, ask Gemini, return a labelled CompanyProfile (logged when run_id is given).
-
-    A WEB_SOURCED fact needs a cited source and a verbatim quote for the deterministic check. If the model returns
-    such facts without them, it is asked once more (the missing facts named); whatever still fails the check is
-    downgraded with the reason in its rationale. When web sources exist but no fact could be verified against them,
-    the profile's web_search_note says so (the advisor sees it)."""
+    """Validate the name, search the web, ONE Gemini call, the Python check; return a labelled CompanyProfile
+    (logged when run_id is given). There is no second call: a fact that fails the check is downgraded, not
+    re-asked. When web sources exist but no fact passes, the profile's web_search_note says so (the advisor sees
+    it)."""
     check = validate_company_name(company_name)
     if not check.ok:
         raise CompanyNameError(check.errors[0].message)
@@ -208,27 +191,30 @@ def generate_company_profile(company_name: str, run_id: str | None = None) -> Co
         info["sources"] = len(web.sources)
         if web.note:
             info["note"] = web.note
-    with timing.step("gemini_company_profile") as info:
-        response = _ask_profile(check.name, web.sources, run_id, info)
-    profile = build_profile(check.name, response, web.sources, web.note)
+    with timing.step("gemini_company_profile", model=settings.COMPANY_PROFILE_MODEL) as info:
+        variables = {"company_name": check.name, "web_sources": sources_text(web.sources)}
+        info["web_sources_chars"] = len(variables["web_sources"])
+        response = call_structured(PROMPT, variables, CompanyProfileResponse, model=settings.COMPANY_PROFILE_MODEL,
+                                   run_id=run_id)
+    with timing.step("company_fact_check") as info:
+        profile = build_profile(check.name, response, web.sources, web.note)
+        info["web_sourced"] = sum(f.status == FactStatus.WEB_SOURCED for f in profile.facts)
+        info["rejected"] = sum(d.status == FactStatus.WEB_SOURCED for d in response.facts) - info["web_sourced"]
     if web.sources and not any(f.status == FactStatus.WEB_SOURCED for f in profile.facts):
         profile = profile.model_copy(update={"web_search_note": UNVERIFIED_WEB_NOTE})
     drafts = {f"CF-{n:03d}": d for n, d in enumerate(response.facts, start=1)}
-    downgraded = [f.fact_id for f in profile.facts if f.rationale.endswith(DOWNGRADE_NOTE)]
     web_rejected = [f.fact_id for f in profile.facts
                     if drafts[f.fact_id].status == FactStatus.WEB_SOURCED and f.status != FactStatus.WEB_SOURCED]
     if run_id:
         log_decision(run_id, "company_profile_generated", {
             "company_name": profile.company_name, "company_recognised": response.company_recognised,
-            "facts": [f.model_dump(mode="json") for f in profile.facts], "downgraded_fact_ids": downgraded,
+            "model": settings.COMPANY_PROFILE_MODEL, "facts": [f.model_dump(mode="json") for f in profile.facts],
             "web_sourced_fact_ids": [f.fact_id for f in profile.facts if f.status == FactStatus.WEB_SOURCED],
             "web_rejected_fact_ids": web_rejected, "web_search_note": web.note,
             "source_urls": [s.url for s in profile.sources],
         }, actor="llm")
-    if downgraded:
-        log.info("downgraded to ASSUMPTION (specific figures): %s", downgraded)
     if web_rejected:
-        log.info("WEB_SOURCED rejected by the source / quote check: %s", web_rejected)
+        log.info("WEB_SOURCED rejected by the check: %s", web_rejected)
     return profile
 
 

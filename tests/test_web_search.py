@@ -26,7 +26,8 @@ class FakeTavily:
             raise self.fail
         return {"results": self.results if self.results is not None else [
             {"url": "https://example.com/about", "title": "About Example Co",
-             "content": "Example Co is a placeholder company.", "raw_content": "Full placeholder page text."},
+             "content": "Example Co is a placeholder company.",
+             "raw_content": "Menu\nFull placeholder page text about the company.\nAccept all cookies to continue"},
             {"url": "https://example.com/about", "title": "duplicate", "content": "Same page again."},
             {"url": "https://example.org/empty", "title": "no text", "content": ""},
         ]}
@@ -44,9 +45,12 @@ def test_sources_are_numbered_deduplicated_and_cached(tavily):
     result = search_company("Example Co", RUN)
     assert result.note == ""
     assert [(s.source_id, s.url) for s in result.sources] == [("WEB-001", "https://example.com/about")]
-    assert result.sources[0].content == "Example Co is a placeholder company.\n\nFull placeholder page text."
-    assert len(tavily.calls) == len(web_search.QUERIES)
+    # the excerpt first, then the page lines; the menu and the cookie banner are dropped
+    assert result.sources[0].content == ("Example Co is a placeholder company.\n"
+                                         "Full placeholder page text about the company.")
+    assert len(tavily.calls) == len(web_search.QUERIES) == 2
     assert tavily.calls[0][1]["include_raw_content"] == "text" and tavily.calls[0][1]["search_depth"] == "advanced"
+    assert set(settings.WEB_EXCLUDE_DOMAINS) <= set(tavily.calls[0][1]["exclude_domains"])
     assert web_search.cache_path("Example Co").exists()
 
     again = search_company("Example Co", RUN)  # served from the cache: same sources, no new search
@@ -166,3 +170,58 @@ def test_the_web_cache_is_written_atomically(tavily):
     folder = web_search.cache_path("Example Co").parent
     assert not list(folder.glob("*.tmp"))  # no temp file left behind; readers only ever see a whole file
     assert json.loads(web_search.cache_path("Example Co").read_text(encoding="utf-8"))["key"] == web_search.cache_key()
+
+
+# --- Selecting and cleaning the evidence (pure Python) ----------------------------------------------------------
+
+
+def _result(url, text, title="", score=0.5, raw=""):
+    return {"url": url, "title": title, "content": text, "raw_content": raw, "score": score}
+
+
+def test_select_sources_dedupes_drops_irrelevant_and_ranks_official_pages_first():
+    results = [
+        _result("https://newsdaily.org/a", "Example Co grew its placeholder business this year.", score=0.9),
+        _result("https://www.businesswire.org/b?utm=1", "Example Co grew again, says a second report.", score=0.8),
+        _result("http://newsdaily.org/a/", "Example Co grew its placeholder business this year.", score=0.7),
+        _result("https://other.org/x", "An unrelated company sells placeholder goods.", score=0.99),
+        _result("https://copy.org/y", "Example Co grew its placeholder business this year.", score=0.6),
+        _result("https://www.exampleco.com/about", "Example Co is a placeholder industry company.", score=0.1),
+    ]
+    kept = web_search.select_sources("Example Co", results)
+    urls = [r["url"] for r in kept]
+    assert urls[0] == "https://www.exampleco.com/about"  # the company's own domain first, whatever its score
+    assert "https://other.org/x" not in urls  # doesn't name the company
+    assert "http://newsdaily.org/a/" not in urls  # the same URL again (scheme / slash differ)
+    assert "https://copy.org/y" not in urls  # the same text on another URL
+    assert len(kept) <= settings.WEB_MAX_SOURCES
+
+
+def test_cleaning_keeps_source_wording_and_adds_nothing(monkeypatch):
+    monkeypatch.setattr(settings, "WEB_SOURCE_MAX_CHARS", 200)
+    raw = ("Home\nAbout us\nExample Co employs 12,345 people in placeholder offices worldwide.\n"
+           "We use cookies to improve your experience on this website.\n" + "Long placeholder line. " * 30)
+    text = web_search._page_text(_result("https://exampleco.com", "Example Co is a placeholder company.", raw=raw))
+    assert text.startswith("Example Co is a placeholder company.\nExample Co employs 12,345 people")
+    assert "cookies" not in text and "Home" not in text and len(text) <= 200
+    words = set(text.split())
+    assert words <= set(("Example Co is a placeholder company. " + raw).split())  # nothing added
+
+
+def test_no_usable_results_gives_a_note_and_no_sources(monkeypatch):
+    fake = FakeTavily(results=[_result("https://other.org", "Nothing about the company here at all.")])
+    monkeypatch.setattr(settings, "TAVILY_API_KEY", "test-key")
+    monkeypatch.setattr(web_search, "_client", lambda: fake)
+    result = search_company("Unknown Placeholder Co", RUN)
+    assert result.sources == [] and result.note == "web search returned no results" and len(fake.calls) == 2
+
+
+@pytest.mark.parametrize("url, name, official", [
+    ("https://www.infosys.com/about.html", "Infosys", True),
+    ("https://www.tcs.com/who-we-are", "Tata Consultancy Services", True),
+    ("https://en.wikipedia.org/wiki/Infosys", "Infosys", False),
+    ("https://www.infosysbpm.com/about", "Infosys", True),
+    ("https://www.globaldata.com/company-profile/infosys", "Infosys", False),
+])
+def test_official_domain(url, name, official):
+    assert web_search._is_official(url, web_search._name_tokens(name)) is official

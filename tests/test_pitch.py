@@ -166,7 +166,7 @@ def test_a_claim_recommending_another_policy_is_repaired_or_removed(monkeypatch,
     bad = draft(supporting_benefits=[{"text": "We recommend HDFC ERGO Optima Secure+ instead.",
                                       "evidence_ids": ["EV-NIVA-2-015"]}])
     still_bad = "We recommend it anyway: HDFC ERGO Optima Secure+."
-    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-016", "text": still_bad,
+    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-013", "text": still_bad,
                                                     "evidence_ids": ["EV-NIVA-2-015"]}))
     assert [c[0] for c in fake.calls] == ["generate_pitch", "repair_pitch_claims"]
     assert deck.slides[3].supporting_benefits == []  # still failing after the one repair → removed
@@ -204,11 +204,10 @@ def test_slide1_is_the_validated_company_facts_not_llm_wording(monkeypatch, ctx)
     deck, fake = run(monkeypatch, ctx, draft())
     bullets = deck.slides[0].bullets
     assert "slide1" not in fake.calls[0][1].get("facts", "") and "slide1_bullets" not in str(fake.calls[0][1])
-    # one bullet per fact, worded as the fact: industry, size, business risks, workforce
+    # one bullet per accepted fact, worded as the fact: the web-sourced industry and the workforce inference the
+    # exposures rest on; facts that aren't web-sourced (size, risks) are left out
     assert [(b.text, b.basis_fact_ids) for b in bullets] == [
-        ("Placeholder industry.", ["CF-001"]), ("Large enterprise.*", ["CF-002"]),
-        ("Client concentration.*", ["CF-003"]), ("Talent attrition.*", ["CF-004"]),
-        ("Frequent international travel.*", ["CF-005"])]
+        ("Placeholder industry.", ["CF-001"]), ("Frequent international travel.*", ["CF-005"])]
     # Web-sourced facts carry no marker; MODEL_KNOWLEDGE / ASSUMPTION facts get "*" (the slide gets the legend).
     assert (bullets[0].qualifier_text, bullets[0].claim_type) == ("Web-sourced", ClaimType.COMPANY_FACT)
     assert all(b.claim_type == ClaimType.ASSUMPTION and b.qualifier_text is None for b in bullets[1:])
@@ -293,7 +292,7 @@ def test_no_backtick_before_a_digit_anywhere(monkeypatch, ctx, store):
 
 def test_wording_rules(monkeypatch, ctx):
     bad = draft(supporting_benefits=[{"text": "Day care procedures are covered.", "evidence_ids": ["EV-NIVA-1-041"]}])
-    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-016", "text": None}))
+    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-013", "text": None}))
     assert "day care" in fake.calls[1][1]["failing_claims"] and deck.slides[3].supporting_benefits == []
 
 
@@ -319,10 +318,10 @@ def test_a_missing_marsh_profile_errors_before_any_llm_call(monkeypatch, ctx, tm
 def test_the_repair_gets_only_the_failing_claims_and_their_errors(monkeypatch, ctx):
     bad = draft(supporting_benefits=[{"text": "Better than HDFC ERGO Optima Secure+.", "evidence_ids": []}])
     deck, fake = run(monkeypatch, ctx, bad, repair(
-        {"claim_id": "CL-016", "text": "Pre-hospitalisation is covered.", "evidence_ids": []},
+        {"claim_id": "CL-013", "text": "Pre-hospitalisation is covered.", "evidence_ids": []},
         {"claim_id": "CL-001", "text": "Changed by the repair."}))  # not a failing claim: ignored
     failing = fake.calls[1][1]["failing_claims"]
-    assert "CL-016" in failing and "CL-001" not in failing
+    assert "CL-013" in failing and "CL-001" not in failing
     assert "names another policy" in failing and "no cited evidence" in failing
     assert deck.slides[0].bullets[0].text == "Placeholder industry."
     assert deck.slides[3].supporting_benefits == []  # the repaired text still has no evidence → removed
@@ -336,7 +335,7 @@ def test_an_absence_claim_on_a_not_stated_cell_is_repaired_to_not_stated(monkeyp
     bad = draft(supporting_benefits=[{"text": "Niva Bupa ReAssure 2.0 does not cover maternity.",
                                       "evidence_ids": ["EV-NIVA-2-015"]}])  # NIVA maternity: NOT_STATED
     ok = "Maternity is not stated in the Niva Bupa ReAssure 2.0 brochure."
-    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-016", "text": ok, "evidence_ids": []}))
+    deck, fake = run(monkeypatch, ctx, bad, repair({"claim_id": "CL-013", "text": ok, "evidence_ids": []}))
     assert "not stated in the" in fake.calls[1][1]["failing_claims"]
     assert [c.text for c in deck.slides[3].supporting_benefits] == [ok]  # a confirmed "not stated" needs no evidence
     assert repair_log(ctx)["removed_after_repair"] == {}
@@ -355,9 +354,9 @@ def test_absence_rule_in_pitch_validation(monkeypatch, ctx, store):
 
 def test_a_duplicate_claim_is_repaired_or_removed(monkeypatch, ctx):
     dup = draft(supporting_benefits=[{"text": NIVA_AIR + ".", "evidence_ids": ["EV-NIVA-2-015"]}])
-    deck, fake = run(monkeypatch, ctx, dup, repair({"claim_id": "CL-016", "text": None}))
+    deck, fake = run(monkeypatch, ctx, dup, repair({"claim_id": "CL-013", "text": None}))
     assert "duplicates CL-" in fake.calls[1][1]["failing_claims"]
-    assert deck.slides[3].supporting_benefits == [] and "CL-016" in str(repair_log(ctx)["problems"])
+    assert deck.slides[3].supporting_benefits == [] and "CL-013" in str(repair_log(ctx)["problems"])
 
 
 def test_duplicate_detection():
@@ -405,7 +404,7 @@ def test_company_framing_must_be_a_complete_sentence(monkeypatch, ctx):
     splits = [{"selection_claim_id": "SC-1", "policy_text": NIVA_AIR,
                "company_text": "which matters for a travelling workforce", "basis_fact_ids": ["CF-005"]}]
     fixed = "Frequent international travel makes air ambulance cover relevant."
-    deck, fake = run(monkeypatch, ctx, draft(splits=splits), repair({"claim_id": "CL-014", "text": fixed}))
+    deck, fake = run(monkeypatch, ctx, draft(splits=splits), repair({"claim_id": "CL-011", "text": fixed}))
     assert "complete sentence" in fake.calls[1][1]["failing_claims"]
     framing = deck.slides[3].bullets[1]
     assert framing.text == fixed + "*" and framing.metadata["framing_of"] == "SC-1"

@@ -100,7 +100,7 @@ class FakeGemini:
                                  "explanation": "Stand-in auditor.", "supporting_evidence_ids": [hit[0]] if hit else [],
                                  "quotes": [{"evidence_id": hit[0], "quote": hit[1]}] if hit else []})
             return {"verdicts": verdicts}
-        if prompt.startswith("You prepare a short company profile"):
+        if prompt.startswith("You turn web evidence about a company"):
             return {"company_recognised": True, "facts": [
                 fact("industry", "Placeholder industry"), fact("size", "Large enterprise"),
                 fact("business_risk", "Client concentration"), fact("business_risk", "Talent attrition"),

@@ -13,9 +13,10 @@ Per claim (`audit_claims`; policy claims are batched, one audit LLM call per pol
     a headline with a number or product name → NEEDS_REVIEW.
   - COMPANY_FACT and ASSUMPTION claims resting on company facts (check 10): the claim's basis facts must exist in
     the profile (else UNSUPPORTED; no profile → NEEDS_REVIEW); its numbers must be in those facts' values; a
-    precise headcount or revenue figure → NEEDS_REVIEW (bands such as "over 200,000" / "200,000+" are fine). Users
-    see two labels only: a claim labelled "Web-sourced" (qualifier_text) must rest only on WEB_SOURCED facts whose
-    sources and quotes pass company.web_source_problems again (else NEEDS_REVIEW), and is then VERIFIED; any other
+    precise headcount or revenue figure → NEEDS_REVIEW unless the claim is web-sourced (an exact figure its checked
+    sources state is fine). Users see two labels only: a claim labelled "Web-sourced" (qualifier_text) must rest only
+    on WEB_SOURCED facts whose sources and quotes pass company.web_source_problems again (else NEEDS_REVIEW), and is then
+    VERIFIED; any other
     company claim must carry the assumption marker "*" (the slide shows the legend; else NEEDS_REVIEW) and is then
     LABELLED_ASSUMPTION. Provenance (web-sourced / model knowledge / assumption) stays in the claim data.
   - Run assumptions without basis facts (code-made): LABELLED_ASSUMPTION with the "*" marker, else
@@ -534,10 +535,11 @@ def _audit_company(claim: Claim, sources: AuditSources) -> AuditResult:
         state.cap("numbers", AuditStatus.UNSUPPORTED, f"number not in the profile: {outcome.details}")
     elif outcome.status == NumberCheckStatus.PASS:
         state.ok("numbers", outcome.details)
-    if figures := precise_figures(claim.text):
+    web_labelled = (claim.qualifier_text or "") == WEB_SOURCED_LABEL
+    # an exact figure is fine when it is web-sourced (its checked sources state it); not as an assumption
+    if not web_labelled and (figures := precise_figures(claim.text)):
         state.cap("precise_figure", AuditStatus.NEEDS_REVIEW,
                   f"precise headcount / revenue figure {', '.join(figures)}: use a band (e.g. 'over 200,000')")
-    web_labelled = (claim.qualifier_text or "") == WEB_SOURCED_LABEL
     if web_labelled:
         _check_web_facts(state, [facts[b] for b in basis], sources.profile)
     elif claim.text.rstrip().endswith(ASSUMPTION_MARKER):
@@ -562,7 +564,8 @@ def _check_web_facts(state: _State, basis: list[CompanyFact], profile: CompanyPr
                                                           "is not web-sourced")
         return
     problems = [f"{f.fact_id}: {p}" for f in basis
-                for p in web_source_problems(f.value, f.source_ids, f.quotes, profile.sources, profile.company_name)]
+                for p in web_source_problems(f.value, f.source_ids, f.quotes, profile.sources,
+                                             profile.company_name)]
     if problems:
         state.cap("web_source", AuditStatus.NEEDS_REVIEW, "web source check failed: " + "; ".join(problems))
     else:

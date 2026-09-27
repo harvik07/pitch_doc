@@ -350,13 +350,15 @@ class CompanyProfileResponse(_Model):
 
     @model_validator(mode="after")
     def _required_fields(self) -> CompanyProfileResponse:
+        """Fields the evidence doesn't support may be absent (never guessed); the exposure step needs at least one
+        workforce fact (a labelled inference counts)."""
         count = {f: sum(1 for fact in self.facts if fact.field == f) for f in FactField}
-        if count[FactField.INDUSTRY] != 1:
-            raise ValueError("return exactly one fact with field=industry")
-        if count[FactField.SIZE] != 1:
-            raise ValueError("return exactly one fact with field=size")
-        if not 2 <= count[FactField.BUSINESS_RISK] <= 5:
-            raise ValueError("return 2 to 5 facts with field=business_risk")
+        if count[FactField.INDUSTRY] > 1:
+            raise ValueError("return at most one fact with field=industry")
+        if count[FactField.SIZE] > 1:
+            raise ValueError("return at most one fact with field=size")
+        if count[FactField.BUSINESS_RISK] > 5:
+            raise ValueError("return at most 5 facts with field=business_risk")
         if count[FactField.WORKFORCE_PROFILE] < 1:
             raise ValueError("return at least one fact with field=workforce_profile")
         return self

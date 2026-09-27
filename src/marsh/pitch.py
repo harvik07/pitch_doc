@@ -222,29 +222,25 @@ def _company_claim(text: str, basis: list[str], facts: dict[str, CompanyFact], s
                  metadata={k: v for k, v in metadata.items() if v})
 
 
-# Slide 1 order: (fields, how many). Size: a web-sourced headcount band if there is one, else the size fact.
-_OVERVIEW = ((FactField.INDUSTRY,), 1), ((FactField.HEADCOUNT_BAND, FactField.SIZE), 1), ((FactField.GEOGRAPHY,), 1), \
-    ((FactField.BUSINESS_RISK,), 2), ((FactField.WORKFORCE_PROFILE,), 1)
+# Slide 1 order: (fields, how many). Size: the web-sourced headcount if there is one, else the web-sourced size.
+_OVERVIEW = ((FactField.INDUSTRY,), 1), ((FactField.HEADCOUNT_BAND, FactField.SIZE), 1), ((FactField.GEOGRAPHY,), 1),     ((FactField.BUSINESS_RISK,), 2), ((FactField.WORKFORCE_PROFILE,), 1)
 
 
 def overview_claims(ctx: RunContext, notes: list[str] | None = None) -> list[Claim]:
-    """Slide 1 (Company Overview, CLAUDE.md section 9): one bullet per validated company fact, worded as the fact
-    itself — industry, size (a web-sourced headcount band, else the size fact), geography, up to 2 business risks and
-    the workforce fact the exposures rest on (web-sourced facts first within a field). Nothing is reworded by an LLM,
-    so a bullet can only say what its fact says; its label comes from the fact's status (web-sourced facts plain,
-    others "*")."""
+    """Slide 1 (Company Overview, CLAUDE.md section 9), built by code from the accepted company facts, each worded as
+    the fact itself (no LLM rewording): the web-sourced industry, headcount (else size), geography and up to 2
+    business risks, then one workforce fact — web-sourced if there is one, else a single labelled inference (the
+    one the exposures rest on), marked "*". Facts that failed the web check are left out."""
     facts = _facts(ctx)
     exposure_basis = {b for e in ctx.exposures for b in e.basis_fact_ids}
     limit = SLIDE1_MAX_BULLET_CHARS - len(ASSUMPTION_MARKER) - 1
     chosen: list[CompanyFact] = []
     for fields, count in _OVERVIEW:
-        candidates = [f for f in facts.values() if f.field in fields and f not in chosen]
-        if FactField.HEADCOUNT_BAND in fields and not any(f.field == FactField.HEADCOUNT_BAND
-                                                          and f.status == FactStatus.WEB_SOURCED for f in candidates):
-            candidates = [f for f in candidates if f.field == FactField.SIZE] or candidates
-        candidates.sort(key=lambda f: (f.status != FactStatus.WEB_SOURCED, f.fact_id not in exposure_basis,
-                                       fields.index(f.field)))
-        for fact in candidates:
+        web = [f for f in facts.values() if f.field in fields and f.status == FactStatus.WEB_SOURCED]
+        if fields == (FactField.WORKFORCE_PROFILE,) and not web:  # the one place an inference may appear
+            web = sorted((f for f in facts.values() if f.field in fields), key=lambda f: f.fact_id not in exposure_basis)
+        web.sort(key=lambda f: fields.index(f.field))
+        for fact in web:
             if count == 0 or len(chosen) >= SLIDE1_MAX_BULLETS:
                 break
             if len(fact.value) > limit:

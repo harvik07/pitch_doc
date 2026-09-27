@@ -346,8 +346,7 @@ def test_company_claims_are_deterministic(monkeypatch, sources):
     assert status["CL-001"] == AuditStatus.VERIFIED and results["CL-001"].supporting_fact_ids == ["CF-003"]
     assert check(results["CL-001"], "web_source").result.value == "PASS"
     assert check(results["CL-001"], "wording").result.value == "PASS"
-    assert status["CL-002"] == AuditStatus.NEEDS_REVIEW or status["CL-002"] == AuditStatus.CONTRADICTED
-    assert "precise" in results["CL-002"].explanation
+    assert status["CL-002"] == AuditStatus.CONTRADICTED  # 214,356 isn't its fact's number (200,000+)
     assert status["CL-003"] == AuditStatus.CONTRADICTED  # 300,000 vs the profile's 200,000+
     assert status["CL-004"] == AuditStatus.UNSUPPORTED
     assert status["CL-005"] == AuditStatus.NEEDS_REVIEW  # neither label
@@ -616,3 +615,24 @@ def test_audit_calls_are_grouped_share_the_full_evidence_and_are_bounded(monkeyp
     assert all(i.evidence_id in next(iter(evidence)) for i in full)
     assert list(results) == [c.claim_id for c in claims]  # claim order, whatever order the calls finished in
     assert {r.status for r in results.values()} == {AuditStatus.VERIFIED}
+
+
+def test_an_exact_web_sourced_headcount_passes_the_audit(monkeypatch, sources):
+    """An exact employee count its checked source states is web-sourced and verified; on an assumption it isn't."""
+    page = WebSource(source_id="WEB-001", url="https://exampleco.com/about", title="About Example Co",
+                     retrieved_at=datetime(2026, 9, 26, tzinfo=timezone.utc),
+                     content="Example Co has 593,798 professionals across placeholder offices.")
+    profile = build_profile("Example Co", CompanyProfileResponse.model_validate({"company_recognised": True, "facts": [
+        fact("headcount_band", "593,798 professionals", "WEB_SOURCED", source_ids=["WEB-001"],
+             quotes=["Example Co has 593,798 professionals"]),
+        fact("workforce_profile", "Mostly desk-based staff", "ASSUMPTION")]}), [page])
+    assert profile.facts[0].status == FactStatus.WEB_SOURCED
+    run_sources = audit.AuditSources(store=sources.store, cells=sources.cells, profile=profile,
+                                     taxonomy=sources.taxonomy, topics=sources.topics)
+    monkeypatch.setattr(audit, "call_structured", FakeAuditor())
+    claims = [company("593,798 professionals.", ["CF-001"], 1),
+              company("593,798 professionals.*", ["CF-002"], 2, claim_type=ClaimType.ASSUMPTION, label=None)]
+    results = audit.audit_claims(claims, run_sources)
+    assert results["CL-001"].status == AuditStatus.VERIFIED
+    assert results["CL-002"].status != AuditStatus.LABELLED_ASSUMPTION  # an exact figure isn't an assumption's
+
